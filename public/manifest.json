@@ -1,0 +1,16 @@
+{
+  "name": "เกมแก้สมการ",
+  "short_name": "MathGame",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#84fab0",
+  "theme_color": "#84fab0",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3771/3771278.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
