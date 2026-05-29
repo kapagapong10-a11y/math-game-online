@@ -682,14 +682,21 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                 action();
             };
             el.ontouchend = (e) => {
-                e.stopPropagation();
+                // ห้าม e.stopPropagation() เด็ดขาด เพื่อให้เหตุการณ์ปล่อยนิ้วทะลุไปถึงระบบวาง (Drop)
+                
+                // ถ้านิ้วมีการขยับลาก (Drag) ให้ถือว่าไม่ใช่การแตะเบิ้ล
+                if (eng.dragSrc && eng.dragSrc.hasMoved) {
+                    tapCount = 0;
+                    return;
+                }
+
                 tapCount++;
                 if (tapCount === 1) {
                     tapTimer = setTimeout(() => { tapCount = 0; }, 300);
                 } else if (tapCount === 2) {
                     clearTimeout(tapTimer);
                     tapCount = 0;
-                    e.preventDefault();
+                    if(e.cancelable) e.preventDefault();
                     action();
                 }
             };
@@ -761,7 +768,12 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
 
         eng.setupDrag = (el, term, side, list, idx, role, parentFracTerm = null, mainList = null, mainIdx = null, sourceContext = null) => {
             const handleStart = (clientX, clientY, eOriginal) => {
-                eOriginal.stopPropagation(); eOriginal.preventDefault();
+                eOriginal.stopPropagation(); 
+                // ป้องกันหน้าจอเลื่อน (Scroll) ตอนจิ้มลาก แต่ยังยอมให้ระบบ Tap ทำงานได้
+                if (eOriginal.type !== 'touchstart' && eOriginal.cancelable) {
+                    eOriginal.preventDefault();
+                }
+
                 eng.internalMoveCount++; setMoves(eng.internalMoveCount);
                 
                 // เคลียร์ Ghost อันเก่า (ถ้ามีค้างอยู่) ก่อนสร้างอันใหม่
@@ -769,7 +781,8 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                     eng.dragSrc.ghost.remove();
                 }
 
-                eng.dragSrc = { el, term, side, list, idx, role, parentFracTerm, mainList, mainIdx, sourceContext };
+                // เพิ่ม hasMoved: false เพื่อคอยเช็คว่าลากจริงหรือไม่
+                eng.dragSrc = { el, term, side, list, idx, role, parentFracTerm, mainList, mainIdx, sourceContext, hasMoved: false };
                 let ghost = el.cloneNode(true); ghost.classList.add('dragging-ghost'); ghost.style.width = el.offsetWidth + 'px'; 
                 document.body.appendChild(ghost); eng.dragSrc.ghost = ghost;
                 
@@ -781,7 +794,15 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                 };
                 moveGhost(clientX, clientY);
                 
-                const onMove = (ev) => { let cx = ev.clientX ?? ev.touches?.[0]?.clientX; let cy = ev.clientY ?? ev.touches?.[0]?.clientY; if(cx && cy) moveGhost(cx, cy); };
+                const onMove = (ev) => { 
+                    let cx = ev.clientX ?? ev.touches?.[0]?.clientX; 
+                    let cy = ev.clientY ?? ev.touches?.[0]?.clientY; 
+                    if(cx && cy) {
+                        if (eng.dragSrc) eng.dragSrc.hasMoved = true; // ยืนยันว่ามีการลากนิ้วแล้ว
+                        moveGhost(cx, cy); 
+                        if (ev.cancelable) ev.preventDefault(); // ป้องกันจอมือถือเลื่อนตามนิ้วขณะกำลังลาก
+                    }
+                };
                 const onEnd = (ev) => {
                     document.removeEventListener('mousemove', onMove); document.removeEventListener('touchmove', onMove);
                     document.removeEventListener('mouseup', onEnd); document.removeEventListener('touchend', onEnd);
@@ -790,13 +811,14 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                     if (!eng.dragSrc) return;
                     let endX = ev.clientX ?? ev.changedTouches?.[0]?.clientX; let endY = ev.clientY ?? ev.changedTouches?.[0]?.clientY;
                     
-                    // บังคับลบ Ghost ทันทีที่ปล่อยมือ
+                    // บังคับลบ Ghost ทันทีที่ยกนิ้ว
                     if (eng.dragSrc.ghost) {
                         eng.dragSrc.ghost.remove();
                     }
 
                     let pg = document.getElementById('engine-playground');
-                    if(pg && endX && endY) {
+                    // เช็ค hasMoved ป้องกันกรณีแค่แตะ (Tap) ไม่ได้ตั้งใจลาก
+                    if(pg && endX && endY && eng.dragSrc.hasMoved) {
                         let rect = pg.getBoundingClientRect(), midX = rect.left + rect.width/2;
                         let isGlobalMove = (role === 'term' || role === 'denominator' || role === 'whole-fraction');
                         let currentSide = eng.dragSrc.side || (eng.dragSrc.list === eng.localGameState.lhs ? 'lhs' : (eng.dragSrc.list === eng.localGameState.rhs ? 'rhs' : null));
@@ -805,7 +827,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                         if (isGlobalMove && (crossRight || crossLeft)) {
                             eng.dragSrc.side = currentSide; eng.executeMoveSide();
                         } else {
-                            // หา element ที่อยู่ข้างใต้จุดที่ปล่อยมือ (โดยไม่ต้องมี ghost บังแล้ว)
+                            // หา element ที่อยู่ข้างใต้จุดที่ยกนิ้ว (ลบโกสต์ไปแล้ว ทำให้หาเจอง่ายขึ้น)
                             let elemBelow = document.elementFromPoint(endX, endY); 
                             
                             if (role === 'distribute-negative') {
@@ -818,16 +840,18 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                         }
                     }
                     
-                    // ป้องกันเหนียว ลบอีกรอบ
-                    if (eng.dragSrc && eng.dragSrc.ghost) {
-                         eng.dragSrc.ghost.remove();
-                    }
-                    eng.dragSrc = null;
+                    // ใช้ setTimeout หน่วงนิดเดียว เพื่อให้ฟังก์ชันแตะเบิ้ลตรวจสอบ hasMoved ได้ทันก่อนถูกทำลาย
+                    setTimeout(() => {
+                        if (eng.dragSrc && eng.dragSrc.ghost) {
+                            eng.dragSrc.ghost.remove();
+                        }
+                        eng.dragSrc = null;
+                    }, 0);
                 };
 
                 document.addEventListener('mousemove', onMove, {passive: false}); document.addEventListener('touchmove', onMove, {passive: false});
                 document.addEventListener('mouseup', onEnd); document.addEventListener('touchend', onEnd);
-                document.addEventListener('touchcancel', onEnd); // ดักจับกรณีจิ้มแล้วมี popup เด้งมาขัด
+                document.addEventListener('touchcancel', onEnd);
             };
             el.onmousedown = (e) => { if(e.button === 0) handleStart(e.clientX, e.clientY, e); };
             el.ontouchstart = (e) => { if(e.touches.length === 1) handleStart(e.touches[0].clientX, e.touches[0].clientY, e); };
