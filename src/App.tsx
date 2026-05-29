@@ -935,12 +935,11 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                         } else {
                             let elemBelow = document.elementFromPoint(endX, endY); 
                             
-                            // จัดการตรวจสอบการลากเข้าเศษส่วน (Fraction Division Integration)
                             let numTarget = elemBelow ? elemBelow.closest('.numerator-container, .numerator-term') : null;
                             if (numTarget && (role === 'denominator' || (role === 'inner-term' && sourceContext === 'numerator'))) {
                                 if (role === 'inner-term') { 
-                                    let targetEl = elemBelow.closest('.term-card, .numerator-term, .denominator-term, .term-container'); 
-                                    if(targetEl && targetEl !== eng.dragSrc.el) eng.tryCombine(targetEl);
+                                    let targetEl = elemBelow.closest('.term-container'); 
+                                    if(targetEl && targetEl !== eng.dragSrc.el.closest('.term-container')) eng.tryCombine(targetEl);
                                 } else eng.handleFractionDivision(elemBelow);
                             } else {
                                 let denTarget = elemBelow ? elemBelow.closest('.denominator-container, .denominator-term') : null;
@@ -951,8 +950,11 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                                         let cItem = eng.dragSrc.el.closest('.term-container'); let nItem = cItem ? cItem.nextElementSibling : null;
                                         if (nItem && (nItem === elemBelow || nItem.contains(elemBelow))) { eng.distributeNegative(eng.dragSrc.term, eng.dragSrc.list, eng.dragSrc.idx); }
                                     } else {
-                                        let targetEl = elemBelow ? elemBelow.closest('.term-card, .numerator-term, .denominator-term, .term-container') : null;
-                                        if(targetEl && targetEl !== eng.dragSrc.el) eng.tryCombine(targetEl); 
+                                        // แก้ไขบั๊กตรงนี้: บังคับหา .term-container เสมอเพื่อให้อ่านค่า data-idx ออกไปบวกกันได้ 100%
+                                        let targetEl = elemBelow ? elemBelow.closest('.term-container') : null;
+                                        if(targetEl && targetEl !== eng.dragSrc.el.closest('.term-container')) {
+                                            eng.tryCombine(targetEl); 
+                                        }
                                     }
                                 }
                             }
@@ -1034,11 +1036,20 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                         let res = (p1.c * s1) + (p2.c * s2);
                         list.splice(min, 3, new eng.TermClass('term', res + (p1.v || '')));
                         eng.commitState(); eng.playTone('success'); return;
+                    } else {
+                        eng.shakeElement(targetWrapper);
                     }
                 } else if (op && op.value === '•') {
                      let p1 = parseInt(list[min].value), p2 = parseInt(list[max].value);
-                     if(!isNaN(p1) && !isNaN(p2)) { list.splice(min, 3, new eng.TermClass('term', (p1*p2).toString())); eng.commitState(); eng.playTone('success'); return; }
+                     if(!isNaN(p1) && !isNaN(p2)) { 
+                         list.splice(min, 3, new eng.TermClass('term', (p1*p2).toString())); 
+                         eng.commitState(); eng.playTone('success'); return; 
+                     } else {
+                         eng.shakeElement(targetWrapper);
+                     }
                 }
+            } else {
+                eng.shakeElement(targetWrapper);
             }
         };
 
