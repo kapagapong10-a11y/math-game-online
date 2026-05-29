@@ -521,6 +521,9 @@ function Leaderboard({ setView, leaderboard }) {
 // ==========================================
 // THE CORE GAME ENGINE WRAPPER (Perfected & Restored Division)
 // ==========================================
+// ==========================================
+// THE CORE GAME ENGINE WRAPPER (Perfected & Fix Final Answer HTML)
+// ==========================================
 function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel, setLevelData, allLevels, saveProgress }) {
     const gameContainerRef = useRef(null);
     const [moves, setMoves] = useState(0);
@@ -528,9 +531,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
     const [starsEarned, setStarsEarned] = useState(0);
     const [showTutorial, setShowTutorial] = useState(false);
     
-    // Popup & Final Answer State
+    // Popup & Final Answer State (แก้ไขให้เก็บเป็น Object รองรับ HTML เศษส่วน)
     const [popupMessage, setPopupMessage] = useState(null);
-    const [finalAnswer, setFinalAnswer] = useState("");
+    const [finalAnswer, setFinalAnswer] = useState({ lhs: "", rhs: "" });
     
     const isSandbox = view === 'sandbox';
     const [sbLhsHtml, setSbLhsHtml] = useState('<span class="editor-node editor-fraction" contenteditable="false"><span class="frac-num" contenteditable="true">x</span><div class="frac-line"></div><span class="frac-den" contenteditable="true">2</span></span>');
@@ -576,8 +579,8 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         }
         
         @keyframes slideUpFade {
-            0% { transform: translateY(20px); opacity: 0; }
-            100% { transform: translateY(0); opacity: 1; }
+            0% { transform: translate(-50%, 20px); opacity: 0; }
+            100% { transform: translate(-50%, 0); opacity: 1; }
         }
         @keyframes zoomInCenter {
             0% { transform: scale(0.8); opacity: 0; }
@@ -703,17 +706,16 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             }
         };
 
-eng.simplifyList = (list) => {
+        eng.simplifyList = (list) => {
             while (list.length > 0 && list[0].type === 'op' && list[0].value === '+') list.shift();
 
-            // ดักจับกรณีเครื่องหมายลบโดดๆ อยู่หน้าสุด (แก้ปัญหา 14 = -x)
             if (list.length >= 2 && list[0].type === 'op' && list[0].value === '-' && list[1].type === 'term') {
                 if (!list[1].value.startsWith('-')) {
                     list[1].value = '-' + list[1].value;
                 } else {
                     list[1].value = list[1].value.substring(1);
                 }
-                list.shift(); // ลบเครื่องหมายลบที่อยู่แยกออกไป
+                list.shift(); 
             }
 
             for (let i = 0; i < list.length; i++) {
@@ -743,7 +745,7 @@ eng.simplifyList = (list) => {
             let tapCount = 0; let tapTimer = null;
             el.ondblclick = (e) => { 
                 e.stopPropagation(); 
-                eng.internalMoveCount -= 1; setMoves(eng.internalMoveCount); // หักลบสเตปส่วนเกิน
+                eng.internalMoveCount -= 1; setMoves(eng.internalMoveCount); 
                 action(); 
             };
             el.ontouchend = (e) => {
@@ -753,7 +755,7 @@ eng.simplifyList = (list) => {
                 else if (tapCount === 2) { 
                     clearTimeout(tapTimer); tapCount = 0; 
                     if(e.cancelable) e.preventDefault(); 
-                    eng.internalMoveCount -= 1; setMoves(eng.internalMoveCount); // หักลบสเตปส่วนเกิน
+                    eng.internalMoveCount -= 1; setMoves(eng.internalMoveCount); 
                     action(); 
                 }
             };
@@ -1016,7 +1018,6 @@ eng.simplifyList = (list) => {
                     else if (gc.length === 2 && gc[0].value === '-' && gc[1].type === 'term') val = "-" + gc[1].value;
                 }
                 
-                // ล้าง 0 ออกหากมีการย้ายตัวอื่นเข้ามา
                 if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') {
                     targetList.length = 0;
                 }
@@ -1035,7 +1036,6 @@ eng.simplifyList = (list) => {
                     list.splice(removeIdx, removeCount);
                     if (list.length === 0) list.push(new eng.TermClass('term', '1'));
                     
-                    // ล้าง 0 ออกหากมีการย้ายตัวอื่นเข้ามา
                     if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') {
                         targetList.length = 0;
                     }
@@ -1051,12 +1051,9 @@ eng.simplifyList = (list) => {
                     let movingSign = '+'; if (idx > 0 && list[idx-1].type === 'op') { movingSign = list[idx-1].value; removeIdx = idx - 1; removeCount = 2; }
                     list.splice(removeIdx, removeCount); if(list.length > 0 && list[0].type === 'op' && (list[0].value === '+' || list[0].value === '•')) list.shift();
                     
-                    // ใส่ 0 เข้าไปแทนที่หากฝั่งเดิมว่างเปล่า (ตอบโจทย์ที่ขอมา)
                     if (list.length === 0) list.push(new eng.TermClass('term', '0'));
-                    
                     let newSign = movingSign === '+' ? '-' : '+';
                     
-                    // ล้าง 0 ฝั่งปลายทางก่อนที่จะใส่ตัวใหม่เข้าไปรวม
                     if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') {
                         targetList.length = 0;
                     }
@@ -1085,17 +1082,16 @@ eng.simplifyList = (list) => {
                         let res = (p1.c * s1) + (p2.c * s2);
                         list.splice(min, 3, new eng.TermClass('term', res + (p1.v || '')));
                         eng.commitState(); eng.playTone('success'); return;
-                    }
+                    } else { eng.shakeElement(targetWrapper); }
                 } else if (op && op.value === '•') {
                      let p1 = parseInt(list[min].value), p2 = parseInt(list[max].value);
                      if(!isNaN(p1) && !isNaN(p2)) { list.splice(min, 3, new eng.TermClass('term', (p1*p2).toString())); eng.commitState(); eng.playTone('success'); return; }
+                     else { eng.shakeElement(targetWrapper); }
                 }
-            }
+            } else { eng.shakeElement(targetWrapper); }
         };
 
         eng.splitFraction = (term, list, idx) => { let nt = []; term.children.forEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.commitState(); eng.playTone('pop'); };
-        
-        // แยกตัวแปรติดลบ (-x จะแตกออกเป็น -1 • x ได้อย่างถูกต้อง)
         eng.splitTerm = (term, list, idx) => { 
             let m = term.value.match(/^(-?\d*)([a-zA-Z]+)$/); 
             if(m) { 
@@ -1106,7 +1102,6 @@ eng.simplifyList = (list) => {
                 eng.commitState(); eng.playTone('pop'); 
             }
         };
-        
         eng.combineSplitTerm = (term, list, idx) => { if(idx>0 && idx<list.length-1) { list.splice(idx-1, 3, new eng.TermClass('term', list[idx-1].value + list[idx+1].value)); eng.commitState(); eng.playTone('success'); } };
         eng.distributeNegative = (term, list, idx) => { if(idx >= list.length-1) return; let t = list[idx+1]; if(t.type==='group') { list[idx].value='+'; list.splice(idx+1, 1, ...t.children); eng.commitState(); eng.playTone('pop'); } };
 
@@ -1136,7 +1131,6 @@ eng.simplifyList = (list) => {
                     if (t.children.length === 1) numVal = extractNum(t.children[0]);
                     if (numVal === null) return false;
 
-                    // ตรวจสอบว่าหารลงตัวไหม (ถ้าหารลงตัว ต้องให้เด็กหารให้เสร็จก่อน!)
                     if (numVal % denVal === 0) return false;
                     
                     let common = eng.gcd(Math.abs(numVal), Math.abs(denVal));
@@ -1149,10 +1143,10 @@ eng.simplifyList = (list) => {
             if ((isSolved(eng.localGameState.lhs) && isNumericValue(eng.localGameState.rhs)) || 
                 (isSolved(eng.localGameState.rhs) && isNumericValue(eng.localGameState.lhs))) {
                 
-                // เก็บคำตอบสุดท้ายไว้โชว์
-                let lStr = document.getElementById('engine-lhs').innerText.replace(/\s+/g, '');
-                let rStr = document.getElementById('engine-rhs').innerText.replace(/\s+/g, '');
-                setFinalAnswer(`${lStr} = ${rStr}`);
+                // ดึง HTML ออกมาเพื่อโชว์คำตอบในป๊อปอัปแบบเป็นเศษส่วนสวยๆ
+                let lHtml = document.getElementById('engine-lhs').innerHTML;
+                let rHtml = document.getElementById('engine-rhs').innerHTML;
+                setFinalAnswer({ lhs: lHtml, rhs: rHtml });
                 
                 eng.playTone('win');
                 confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#4ade80', '#3b82f6', '#fbbf24', '#f87171'] });
@@ -1273,36 +1267,36 @@ eng.simplifyList = (list) => {
                 </div>
             )}
 
-            {/* ป๊อปอัปชนะแบบใหม่ ใหญ่เต็มจอและโชว์คำตอบตรงกลาง! */}
+            {/* วิงหน้าต่างชนะ (ใช้ dangerouslySetInnerHTML เพื่อแสดงเศษส่วนแบบ HTML) */}
             {gameState === 'won' && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
-                    <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-8 border-green-400 text-center max-w-2xl w-full">
+                    <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-8 border-green-400 text-center max-w-2xl w-full">
                         <h2 className="text-4xl md:text-6xl font-black text-green-500 mb-2 drop-shadow-md">ยอดเยี่ยม!</h2>
-                        <p className="text-gray-500 text-base md:text-xl font-bold mb-6">คุณแก้สมการสำเร็จแล้ว</p>
+                        <p className="text-gray-500 text-base md:text-xl font-bold mb-4">คุณแก้สมการสำเร็จแล้ว</p>
                         
-                        {/* โชว์คำตอบสุดท้าย */}
-                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 py-4 px-8 rounded-[2rem] border-2 border-blue-200 mb-8 inline-block shadow-inner">
-                            <span className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 tracking-wider">
-                                {finalAnswer}
-                            </span>
+                        {/* โชว์คำตอบสุดท้ายแบบรักษารูปแบบ DOM เดิม (เศษส่วน/การจัดวาง) */}
+                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 py-3 px-6 md:py-4 md:px-8 rounded-xl md:rounded-[2rem] border-2 border-blue-200 mb-4 md:mb-8 flex items-center justify-center gap-3 shadow-inner overflow-hidden">
+                            <div dangerouslySetInnerHTML={{ __html: finalAnswer.lhs }} className="flex items-center scale-[0.7] md:scale-100 origin-right pointer-events-none" />
+                            <span className="text-3xl md:text-5xl font-black text-gray-400">=</span>
+                            <div dangerouslySetInnerHTML={{ __html: finalAnswer.rhs }} className="flex items-center scale-[0.7] md:scale-100 origin-left pointer-events-none" />
                         </div>
                         
                         {!isSandbox && (
-                            <div className="flex gap-2 justify-center mb-10">
+                            <div className="flex gap-2 justify-center mb-8">
                                 {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-4xl md:text-6xl ${star <= starsEarned ? 'text-yellow-400 drop-shadow-lg animate-bounce' : 'text-gray-200'}`} style={{animationDelay: `${star * 100}ms`}}></i>)}
                             </div>
                         )}
                         
-                        <div className="flex flex-wrap gap-4 justify-center">
+                        <div className="flex flex-wrap gap-3 justify-center w-full">
                             {isSandbox ? (
                                 <button onClick={() => setGameState('playing')} className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-black py-4 px-10 rounded-full text-lg md:text-xl shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none transition-all">
                                     <i className="fas fa-redo mr-2"></i> ฝึกโจทย์ข้อใหม่
                                 </button>
                             ) : (
                                 <>
-                                    <button onClick={() => setView('levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 md:py-4 px-6 md:px-8 rounded-full text-base md:text-lg shadow-[0_6px_0_#d1d5db] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-bars"></i> กลับเมนู</button>
-                                    <button onClick={handleRestart} className="bg-orange-400 hover:bg-orange-500 text-white font-bold py-3 md:py-4 px-6 md:px-8 rounded-full text-base md:text-lg shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-sync-alt"></i> เริ่มใหม่</button>
-                                    {levelId < 10 && <button onClick={handleNextLevel} className="flex-1 min-w-[150px] bg-blue-500 hover:bg-blue-600 text-white font-black py-3 md:py-4 px-6 md:px-8 rounded-full text-lg md:text-xl shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none transition-all">ด่านต่อไป <i className="fas fa-arrow-right ml-2"></i></button>}
+                                    <button onClick={() => setView('levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 md:py-4 px-6 md:px-8 rounded-full text-sm md:text-lg shadow-[0_6px_0_#d1d5db] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-bars"></i> กลับเมนู</button>
+                                    <button onClick={handleRestart} className="bg-orange-400 hover:bg-orange-500 text-white font-bold py-3 md:py-4 px-6 md:px-8 rounded-full text-sm md:text-lg shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-sync-alt"></i> เริ่มใหม่</button>
+                                    {levelId < 10 && <button onClick={handleNextLevel} className="flex-1 min-w-[140px] bg-blue-500 hover:bg-blue-600 text-white font-black py-3 md:py-4 px-4 md:px-8 rounded-full text-sm md:text-xl shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none transition-all">ด่านต่อไป <i className="fas fa-arrow-right ml-1 md:ml-2"></i></button>}
                                 </>
                             )}
                         </div>
