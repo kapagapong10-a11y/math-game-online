@@ -501,6 +501,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
     const [gameState, setGameState] = useState('playing'); 
     const [starsEarned, setStarsEarned] = useState(0);
     const [showTutorial, setShowTutorial] = useState(false);
+    const [popupMessage, setPopupMessage] = useState(null); // State สำหรับ Custom Popup
     
     const isSandbox = view === 'sandbox';
     const [sbLhsHtml, setSbLhsHtml] = useState('<span class="editor-node editor-fraction" contenteditable="false"><span class="frac-num" contenteditable="true">x</span><div class="frac-line"></div><span class="frac-den" contenteditable="true">2</span></span>');
@@ -609,7 +610,13 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
         eng.gcd = (a, b) => b === 0 ? a : eng.gcd(b, a % b);
         eng.lcm = (a, b) => { if (a === 0 || b === 0) return 0; return Math.abs((a * b) / eng.gcd(a, b)); }
         eng.playTone = (type) => { /* Tone logic omitted for simplicity */ };
-        eng.showPopup = (msg) => alert(msg);
+        
+        // ใช้ Custom Popup แทน alert()
+        eng.showPopup = (msg) => {
+            setPopupMessage(msg);
+            eng.playTone('error');
+        };
+        
         eng.shakeElement = (el) => { el.style.transform = 'translateX(5px)'; setTimeout(()=>el.style.transform='none', 200); }
 
         // Core Logic hooks
@@ -756,20 +763,38 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
             const handleStart = (clientX, clientY, eOriginal) => {
                 eOriginal.stopPropagation(); eOriginal.preventDefault();
                 eng.internalMoveCount++; setMoves(eng.internalMoveCount);
+                
+                // เคลียร์ Ghost อันเก่า (ถ้ามีค้างอยู่) ก่อนสร้างอันใหม่
+                if (eng.dragSrc && eng.dragSrc.ghost) {
+                    eng.dragSrc.ghost.remove();
+                }
+
                 eng.dragSrc = { el, term, side, list, idx, role, parentFracTerm, mainList, mainIdx, sourceContext };
                 let ghost = el.cloneNode(true); ghost.classList.add('dragging-ghost'); ghost.style.width = el.offsetWidth + 'px'; 
                 document.body.appendChild(ghost); eng.dragSrc.ghost = ghost;
                 
-                const moveGhost = (x, y) => { eng.dragSrc.ghost.style.left = (x - eng.dragSrc.ghost.offsetWidth/2) + 'px'; eng.dragSrc.ghost.style.top = (y - eng.dragSrc.ghost.offsetHeight/2) + 'px'; };
+                const moveGhost = (x, y) => { 
+                    if(eng.dragSrc && eng.dragSrc.ghost) {
+                        eng.dragSrc.ghost.style.left = (x - eng.dragSrc.ghost.offsetWidth/2) + 'px'; 
+                        eng.dragSrc.ghost.style.top = (y - eng.dragSrc.ghost.offsetHeight/2) + 'px'; 
+                    }
+                };
                 moveGhost(clientX, clientY);
                 
                 const onMove = (ev) => { let cx = ev.clientX ?? ev.touches?.[0]?.clientX; let cy = ev.clientY ?? ev.touches?.[0]?.clientY; if(cx && cy) moveGhost(cx, cy); };
                 const onEnd = (ev) => {
                     document.removeEventListener('mousemove', onMove); document.removeEventListener('touchmove', onMove);
                     document.removeEventListener('mouseup', onEnd); document.removeEventListener('touchend', onEnd);
+                    document.removeEventListener('touchcancel', onEnd);
+
                     if (!eng.dragSrc) return;
                     let endX = ev.clientX ?? ev.changedTouches?.[0]?.clientX; let endY = ev.clientY ?? ev.changedTouches?.[0]?.clientY;
                     
+                    // บังคับลบ Ghost ทันทีที่ปล่อยมือ
+                    if (eng.dragSrc.ghost) {
+                        eng.dragSrc.ghost.remove();
+                    }
+
                     let pg = document.getElementById('engine-playground');
                     if(pg && endX && endY) {
                         let rect = pg.getBoundingClientRect(), midX = rect.left + rect.width/2;
@@ -780,7 +805,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                         if (isGlobalMove && (crossRight || crossLeft)) {
                             eng.dragSrc.side = currentSide; eng.executeMoveSide();
                         } else {
-                            eng.dragSrc.ghost.style.display = 'none'; let elemBelow = document.elementFromPoint(endX, endY); eng.dragSrc.ghost.style.display = 'block';
+                            // หา element ที่อยู่ข้างใต้จุดที่ปล่อยมือ (โดยไม่ต้องมี ghost บังแล้ว)
+                            let elemBelow = document.elementFromPoint(endX, endY); 
+                            
                             if (role === 'distribute-negative') {
                                 let cItem = eng.dragSrc.el.closest('.term-container'); let nItem = cItem ? cItem.nextElementSibling : null;
                                 if (nItem && (nItem === elemBelow || nItem.contains(elemBelow))) { eng.distributeNegative(eng.dragSrc.term, eng.dragSrc.list, eng.dragSrc.idx); }
@@ -790,11 +817,17 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                             }
                         }
                     }
-                    if (eng.dragSrc && eng.dragSrc.ghost) eng.dragSrc.ghost.remove(); eng.dragSrc = null;
+                    
+                    // ป้องกันเหนียว ลบอีกรอบ
+                    if (eng.dragSrc && eng.dragSrc.ghost) {
+                         eng.dragSrc.ghost.remove();
+                    }
+                    eng.dragSrc = null;
                 };
 
                 document.addEventListener('mousemove', onMove, {passive: false}); document.addEventListener('touchmove', onMove, {passive: false});
                 document.addEventListener('mouseup', onEnd); document.addEventListener('touchend', onEnd);
+                document.addEventListener('touchcancel', onEnd); // ดักจับกรณีจิ้มแล้วมี popup เด้งมาขัด
             };
             el.onmousedown = (e) => { if(e.button === 0) handleStart(e.clientX, e.clientY, e); };
             el.ontouchstart = (e) => { if(e.touches.length === 1) handleStart(e.touches[0].clientX, e.touches[0].clientY, e); };
@@ -976,6 +1009,23 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                                 </>
                             )}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Custom Popup Overlay */}
+            {popupMessage && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center z-[300] p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[2rem] p-6 md:p-8 max-w-sm w-full shadow-2xl text-center transform scale-100 animate-in zoom-in-95 duration-200 border-2 border-red-100">
+                        <div className="text-5xl text-red-500 mb-4 drop-shadow-sm"><i className="fas fa-exclamation-circle"></i></div>
+                        <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2">ทำไม่ได้ครับ!</h3>
+                        <p className="text-base md:text-lg text-gray-600 mb-6">{popupMessage}</p>
+                        <button 
+                            onClick={() => setPopupMessage(null)} 
+                            className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-10 rounded-full text-lg transition-transform active:scale-95 shadow-md"
+                        >
+                            ตกลง
+                        </button>
                     </div>
                 </div>
             )}
