@@ -323,9 +323,8 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
         </div>
     );
 }
-// ==========================================
-// VISUAL EDITOR (For Admin & Sandbox)
-// ==========================================
+
+
 function VisualEditor({ id, label, value, onChange }) {
     const editorRef = useRef(null);
 
@@ -407,6 +406,7 @@ function VisualEditor({ id, label, value, onChange }) {
         </div>
     );
 }
+
 
 // ==========================================
 // ADMIN PANEL (Game UI Design)
