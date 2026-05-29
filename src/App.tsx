@@ -140,16 +140,16 @@ export default function MathGameApp() {
 
     return (
         <div className="min-h-screen bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-gradient-to-br from-[#84fab0] to-[#8fd3f4] font-['Kanit'] overflow-hidden relative selection:bg-blue-300">
-            {/* Compact Header User for Mobile */}
+            {/* Header User Panel */}
             {user && view !== 'play' && view !== 'sandbox' && (
-                <div className="absolute top-2 right-2 md:top-4 md:right-4 flex items-center gap-2 md:gap-4 bg-white/60 backdrop-blur-md px-3 py-1 md:px-6 md:py-2 rounded-full shadow-md border border-white/50 z-50">
-                    <div className="text-sm md:text-lg font-bold text-gray-800 flex items-center">
+                <div className="absolute top-2 right-2 md:top-4 md:right-4 flex items-center gap-2 md:gap-4 bg-white/80 backdrop-blur-md px-3 py-1 md:px-5 md:py-2 rounded-full shadow-sm border border-white/50 z-50">
+                    <div className="text-sm md:text-base font-bold text-gray-800 flex items-center">
                         <i className="fas fa-star text-yellow-500 mr-1 md:mr-2"></i> {userData?.totalStars || 0}
                     </div>
-                    <div className="text-xs md:text-md text-gray-800 border-l-2 pl-2 md:pl-4 border-gray-400/50 font-medium flex items-center">
+                    <div className="text-xs md:text-sm text-gray-800 border-l-2 pl-2 md:pl-4 border-gray-300 font-medium flex items-center">
                         <i className="fas fa-user-circle text-blue-600 mr-1 md:mr-2"></i> {userData?.displayName}
                     </div>
-                    <button onClick={handleSignOut} className="text-red-500 hover:text-red-700 text-xs md:text-md ml-1 md:ml-3 bg-red-100 hover:bg-red-200 px-2 py-1 md:px-3 md:py-1 rounded-full transition-colors">
+                    <button onClick={handleSignOut} className="text-red-500 hover:text-red-700 text-xs md:text-sm ml-1 md:ml-3 bg-red-50 hover:bg-red-100 px-2 py-1 md:px-3 md:py-1.5 rounded-full transition-colors">
                         <i className="fas fa-sign-out-alt"></i>
                     </button>
                 </div>
@@ -197,25 +197,25 @@ function LoginScreen() {
 
     return (
         <div className="flex h-screen items-center justify-center p-2 md:p-4">
-            <div className="bg-white/40 backdrop-blur-xl p-6 md:p-10 rounded-3xl md:rounded-[2.5rem] shadow-xl border border-white/50 max-w-sm w-full text-center relative overflow-hidden">
-                <div className="text-5xl md:text-7xl mb-4 text-blue-600"><i className="fas fa-brain"></i></div>
-                <h1 className="text-2xl md:text-4xl font-extrabold text-gray-800 mb-1">Smart Fast-Math AI</h1>
-                <h2 className="text-sm md:text-lg text-gray-700 font-medium mb-6 bg-white/50 inline-block px-3 py-1 rounded-full border border-white/60">โดย ครูจักรวรรดิ ไชยโคตร</h2>
+            <div className="bg-white/90 backdrop-blur-xl p-6 md:p-10 rounded-[2rem] shadow-xl border border-white max-w-sm w-full text-center relative overflow-hidden">
+                <div className="text-5xl md:text-6xl mb-4 text-blue-500"><i className="fas fa-calculator"></i></div>
+                <h1 className="text-2xl md:text-3xl font-extrabold text-gray-800 mb-1">เกมแก้สมการ</h1>
+                <h2 className="text-sm md:text-base text-gray-600 font-medium mb-6">โดย ครูจักรวรรดิ ไชยโคตร</h2>
                 
-                {error && <div className="bg-red-500/90 text-white p-2 rounded-xl mb-3 text-xs md:text-sm">{error}</div>}
+                {error && <div className="bg-red-100 text-red-600 p-2 rounded-lg mb-3 text-xs md:text-sm font-semibold">{error}</div>}
                 
-                <form onSubmit={handleSubmit} className="flex flex-col gap-3 md:gap-4 relative z-10">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-3 relative z-10">
                     <input type="email" placeholder="อีเมลของคุณ" required value={email} onChange={e => setEmail(e.target.value)}
-                        className="px-4 py-2 md:py-3 rounded-xl bg-white/80 border border-white/50 focus:bg-white outline-none text-sm md:text-base" />
+                        className="px-4 py-2 md:py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-blue-400 outline-none text-sm md:text-base transition-colors" />
                     <input type="password" placeholder="รหัสผ่าน" required value={password} onChange={e => setPassword(e.target.value)}
-                        className="px-4 py-2 md:py-3 rounded-xl bg-white/80 border border-white/50 focus:bg-white outline-none text-sm md:text-base" />
-                    <button type="submit" className="bg-gradient-to-b from-blue-400 to-blue-600 text-white font-extrabold py-2 md:py-3 rounded-xl shadow-[0_4px_0_#1e3a8a] active:translate-y-[4px] active:shadow-none text-base md:text-xl mt-2">
+                        className="px-4 py-2 md:py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-blue-400 outline-none text-sm md:text-base transition-colors" />
+                    <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 md:py-3 rounded-xl shadow-md active:translate-y-1 text-base transition-all mt-2">
                         {isLogin ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
                     </button>
                 </form>
                 
-                <button onClick={() => setIsLogin(!isLogin)} className="mt-4 md:mt-6 text-sm text-gray-700 font-bold hover:text-blue-700 bg-white/40 px-4 py-1 rounded-full border border-white/50">
-                    {isLogin ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ'}
+                <button onClick={() => setIsLogin(!isLogin)} className="mt-4 md:mt-5 text-sm text-gray-500 font-bold hover:text-blue-600 transition-colors">
+                    {isLogin ? 'ยังไม่มีบัญชี? สมัครสมาชิก' : 'มีบัญชีแล้ว? เข้าสู่ระบบ'}
                 </button>
             </div>
         </div>
@@ -225,25 +225,25 @@ function LoginScreen() {
 function MainMenu({ setView, isAdmin }) {
     return (
         <div className="flex h-screen items-center justify-center p-2 md:p-6">
-            <div className="bg-white/50 backdrop-blur-xl p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl border border-white/60 w-full max-w-3xl text-center">
-                <h1 className="text-3xl md:text-5xl font-extrabold text-gray-800 mb-6 md:mb-10">
-                    <i className="fas fa-rocket text-blue-600 mr-2 md:mr-4"></i>เลือกโหมด
+            <div className="bg-white/90 backdrop-blur-xl p-6 md:p-10 rounded-[2rem] shadow-xl border border-white w-full max-w-3xl text-center">
+                <h1 className="text-3xl md:text-4xl font-extrabold text-gray-800 mb-6 md:mb-8">
+                    <i className="fas fa-gamepad text-blue-500 mr-2 md:mr-3"></i>เลือกโหมดการเล่น
                 </h1>
-                <div className="grid grid-cols-2 gap-4 md:gap-8">
-                    <MenuButton icon="fa-play" text="ลุยด่าน (Campaign)" color="from-green-400 to-emerald-600" shadowColor="#047857" onClick={() => setView('mapSelect')} />
-                    <MenuButton icon="fa-dumbbell" text="ฝึกฝน (Sandbox)" color="from-orange-400 to-red-500" shadowColor="#991b1b" onClick={() => setView('sandbox')} />
-                    <MenuButton icon="fa-crown" text="ตารางอันดับ" color="from-yellow-300 to-amber-500" shadowColor="#b45309" onClick={() => setView('leaderboard')} colSpan={isAdmin ? 1 : 2} />
-                    {isAdmin && <MenuButton icon="fa-tools" text="Admin" color="from-gray-600 to-gray-800" shadowColor="#1f2937" onClick={() => setView('admin')} />}
+                <div className="grid grid-cols-2 gap-4 md:gap-6">
+                    <MenuButton icon="fa-play" text="ลุยด่าน (Campaign)" color="bg-green-500 hover:bg-green-600" onClick={() => setView('mapSelect')} />
+                    <MenuButton icon="fa-edit" text="ฝึกฝน (Sandbox)" color="bg-orange-500 hover:bg-orange-600" onClick={() => setView('sandbox')} />
+                    <MenuButton icon="fa-trophy" text="ตารางอันดับ" color="bg-yellow-400 hover:bg-yellow-500 text-gray-800" onClick={() => setView('leaderboard')} colSpan={isAdmin ? 1 : 2} />
+                    {isAdmin && <MenuButton icon="fa-cogs" text="Admin" color="bg-gray-700 hover:bg-gray-800" onClick={() => setView('admin')} />}
                 </div>
             </div>
         </div>
     );
 }
 
-function MenuButton({ icon, text, color, shadowColor, onClick, colSpan = 1 }) {
+function MenuButton({ icon, text, color, onClick, colSpan = 1 }) {
     return (
-        <button onClick={onClick} className={`bg-gradient-to-b ${color} text-white font-extrabold py-4 px-2 md:py-6 md:px-4 rounded-2xl md:rounded-3xl shadow-[0_4px_0_${shadowColor},0_10px_15px_rgba(0,0,0,0.2)] md:shadow-[0_8px_0_${shadowColor},0_15px_20px_rgba(0,0,0,0.3)] transform transition-all active:translate-y-[4px] md:active:translate-y-[8px] active:shadow-none text-sm md:text-2xl flex flex-col items-center justify-center gap-2 md:gap-4 hover:brightness-110 col-span-${colSpan} border border-white/20`}>
-            <i className={`fas ${icon} text-3xl md:text-5xl drop-shadow-md`}></i> {text}
+        <button onClick={onClick} className={`${color} text-white font-bold py-4 px-2 md:py-6 md:px-4 rounded-2xl shadow-md transform transition-transform active:scale-95 text-sm md:text-xl flex flex-col items-center justify-center gap-2 md:gap-3 col-span-${colSpan}`}>
+            <i className={`fas ${icon} text-3xl md:text-4xl`}></i> {text}
         </button>
     );
 }
@@ -254,17 +254,17 @@ function MapSelect({ setView, setSelectedMap, userProgress }) {
 
     return (
         <div className="p-4 md:p-8 h-screen overflow-y-auto">
-            <button onClick={() => setView('menu')} className="bg-white/80 px-4 py-2 rounded-full mb-4 md:mb-6 font-bold text-gray-800 shadow text-sm md:text-lg"><i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ</button>
-            <h1 className="text-2xl md:text-4xl font-extrabold text-gray-800 mb-6 md:mb-10 text-center bg-white/70 py-2 md:py-4 rounded-full max-w-[200px] md:max-w-md mx-auto shadow-md border-2 border-white/80">เลือก Map</h1>
-            <div className="grid grid-cols-5 gap-3 md:gap-6 max-w-5xl mx-auto pb-10">
+            <button onClick={() => setView('menu')} className="bg-white/90 px-4 py-2 rounded-full mb-4 md:mb-6 font-bold text-gray-700 shadow-sm text-sm hover:bg-white"><i className="fas fa-chevron-left mr-1"></i> กลับ</button>
+            <h1 className="text-2xl md:text-4xl font-extrabold text-gray-800 mb-6 md:mb-8 text-center drop-shadow-sm">เลือก Map</h1>
+            <div className="grid grid-cols-5 gap-3 md:gap-5 max-w-5xl mx-auto pb-10">
                 {maps.map(mapNum => {
                     const unlocked = isMapUnlocked(mapNum);
                     return (
                         <button key={mapNum} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
-                            className={`relative flex flex-col items-center justify-center h-20 md:h-32 rounded-xl md:rounded-[2rem] border-2 md:border-4 transition-all ${unlocked ? 'bg-white border-blue-400 shadow-[0_4px_0_#60a5fa] active:translate-y-[4px] active:shadow-none cursor-pointer' : 'bg-gray-200 border-gray-300 opacity-70 cursor-not-allowed'}`}>
-                            <span className={`text-xs md:text-2xl font-black ${unlocked ? 'text-blue-500' : 'text-gray-500'}`}>Map</span>
-                            <span className={`text-xl md:text-4xl font-black ${unlocked ? 'text-blue-700' : 'text-gray-500'}`}>{mapNum}</span>
-                            {!unlocked && <div className="absolute inset-0 bg-black/5 rounded-xl md:rounded-[1.75rem] flex items-center justify-center"><i className="fas fa-lock text-gray-500/50 text-xl md:text-4xl"></i></div>}
+                            className={`relative flex flex-col items-center justify-center h-20 md:h-28 rounded-xl md:rounded-2xl border-2 transition-all ${unlocked ? 'bg-white border-blue-400 shadow-sm active:scale-95 hover:border-blue-500 cursor-pointer' : 'bg-gray-100 border-gray-200 opacity-70 cursor-not-allowed'}`}>
+                            <span className={`text-xs md:text-lg font-bold ${unlocked ? 'text-blue-500' : 'text-gray-400'}`}>Map</span>
+                            <span className={`text-xl md:text-3xl font-black ${unlocked ? 'text-blue-600' : 'text-gray-400'}`}>{mapNum}</span>
+                            {!unlocked && <div className="absolute inset-0 bg-gray-200/40 rounded-xl md:rounded-2xl flex items-center justify-center"><i className="fas fa-lock text-gray-400 text-lg md:text-2xl"></i></div>}
                         </button>
                     )
                 })}
@@ -279,9 +279,9 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
 
     return (
         <div className="p-4 md:p-8 h-screen overflow-y-auto">
-            <button onClick={() => setView('mapSelect')} className="bg-white/80 px-4 py-2 rounded-full mb-4 md:mb-6 font-bold text-gray-800 shadow text-sm md:text-lg"><i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ</button>
-            <h1 className="text-2xl md:text-4xl font-extrabold text-gray-800 mb-6 md:mb-10 text-center bg-white/70 py-2 md:py-4 rounded-full max-w-[250px] md:max-w-md mx-auto shadow-md border-2 border-white/80">Map {mapId}</h1>
-            <div className="grid grid-cols-5 gap-3 md:gap-6 max-w-5xl mx-auto pb-10">
+            <button onClick={() => setView('mapSelect')} className="bg-white/90 px-4 py-2 rounded-full mb-4 md:mb-6 font-bold text-gray-700 shadow-sm text-sm hover:bg-white"><i className="fas fa-chevron-left mr-1"></i> กลับ</button>
+            <h1 className="text-2xl md:text-4xl font-extrabold text-gray-800 mb-6 md:mb-8 text-center drop-shadow-sm">Map {mapId}</h1>
+            <div className="grid grid-cols-5 gap-3 md:gap-5 max-w-5xl mx-auto pb-10">
                 {levels.map(lvlNum => {
                     const levelKey = `map${mapId}_level${lvlNum}`;
                     const levelExists = allLevels[levelKey];
@@ -289,12 +289,12 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
                     const stars = userProgress[levelKey]?.stars || 0;
                     return (
                         <button key={lvlNum} disabled={!unlocked && levelExists} onClick={() => { if(levelExists) { setSelectedLevel(lvlNum); setLevelData(allLevels[levelKey]); setView('play'); } else alert("ยังไม่เปิดให้เล่นครับ"); }}
-                            className={`relative flex flex-col items-center justify-center h-20 md:h-32 rounded-xl md:rounded-[1.5rem] border-2 md:border-4 transition-all ${unlocked ? 'bg-white border-green-500 shadow-[0_4px_0_#22c55e] active:translate-y-[4px] active:shadow-none cursor-pointer' : (!levelExists ? 'bg-red-50 border-red-200' : 'bg-gray-200 border-gray-300 opacity-80 cursor-not-allowed')}`}>
-                            <span className={`text-2xl md:text-5xl font-black ${unlocked ? 'text-green-600' : 'text-gray-400'}`}>{lvlNum}</span>
-                            <div className="flex gap-[1px] md:gap-1 mt-1 md:mt-2 bg-white/80 px-1 md:px-2 py-[2px] rounded-full shadow-inner">
-                                {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-[8px] md:text-xs ${star <= stars ? 'text-yellow-400' : 'text-gray-300'}`}></i>)}
+                            className={`relative flex flex-col items-center justify-center h-24 md:h-32 rounded-xl md:rounded-2xl border-2 transition-all ${unlocked ? 'bg-white border-green-500 shadow-sm active:scale-95 hover:border-green-600 cursor-pointer' : (!levelExists ? 'bg-red-50 border-red-200' : 'bg-gray-100 border-gray-200 opacity-80 cursor-not-allowed')}`}>
+                            <span className={`text-2xl md:text-4xl font-black ${unlocked ? 'text-green-600' : 'text-gray-400'}`}>{lvlNum}</span>
+                            <div className="flex gap-[1px] md:gap-1 mt-1 md:mt-2 bg-gray-50 px-1.5 py-0.5 rounded-full border border-gray-100">
+                                {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-[10px] md:text-xs ${star <= stars ? 'text-yellow-400' : 'text-gray-300'}`}></i>)}
                             </div>
-                            {!unlocked && levelExists && <div className="absolute inset-0 flex items-center justify-center bg-black/5 rounded-xl"><i className="fas fa-lock text-gray-500/50 text-xl md:text-3xl"></i></div>}
+                            {!unlocked && levelExists && <div className="absolute inset-0 flex items-center justify-center bg-gray-200/40 rounded-xl md:rounded-2xl"><i className="fas fa-lock text-gray-400 text-xl md:text-3xl"></i></div>}
                         </button>
                     )
                 })}
@@ -304,33 +304,28 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
 }
 
 // ==========================================
-// PURE DOM VISUAL EDITOR (Fix for Mobile & React Focus loss)
+// VISUAL EDITOR (Cleaned up, bug-fixed for Admin Panel sync)
 // ==========================================
 function VisualEditor({ id, label, value, onChange }) {
     const editorRef = useRef(null);
-    const [localValue, setLocalValue] = useState(value);
 
-    // Initialize content only once
+    // Sync from parent (crucial for Admin level switching to work right)
     useEffect(() => {
-        if (editorRef.current && editorRef.current.innerHTML === '') {
+        if (editorRef.current && value !== editorRef.current.innerHTML) {
             editorRef.current.innerHTML = value || '';
         }
-    }, []);
+    }, [value]);
 
     const updateReactState = () => {
         if (editorRef.current) {
-            const html = editorRef.current.innerHTML;
-            setLocalValue(html);
-            onChange(html);
+            onChange(editorRef.current.innerHTML);
         }
     };
 
-    // Mobile-safe cursor insertion
     const insertHTML = (htmlString) => {
         const el = editorRef.current;
         if (!el) return;
         el.focus();
-        
         let sel = window.getSelection();
         if (sel.rangeCount > 0) {
             let range = sel.getRangeAt(0);
@@ -373,22 +368,22 @@ function VisualEditor({ id, label, value, onChange }) {
     };
 
     return (
-        <div className="flex flex-col gap-2 w-full max-w-full">
-            <div className="flex justify-center gap-1 md:gap-2 flex-wrap bg-gray-100 p-1 md:p-2 rounded-xl md:rounded-2xl border border-gray-200">
-                <button onMouseDown={insertFraction} onTouchStart={insertFraction} className="bg-white border-2 border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 font-bold text-xs md:text-sm active:bg-blue-100 whitespace-nowrap"><i className="fas fa-columns rotate-90 mr-1 text-blue-500"></i>เศษส่วน</button>
-                <button onMouseDown={e=>insertText(e,'•')} onTouchStart={e=>insertText(e,'•')} className="bg-white border-2 border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 font-bold text-xs md:text-sm active:bg-blue-100 whitespace-nowrap"><i className="fas fa-circle text-[8px] mr-1 text-purple-500"></i>คูณ(•)</button>
-                <button onMouseDown={e=>insertText(e,'x')} onTouchStart={e=>insertText(e,'x')} className="bg-white border-2 border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 font-bold text-xs md:text-sm text-green-600 active:bg-blue-100 whitespace-nowrap">ตัวแปร x</button>
-                <button onMouseDown={e=>insertText(e,'+')} onTouchStart={e=>insertText(e,'+')} className="bg-white border-2 border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 font-bold text-xs md:text-sm active:bg-blue-100">+</button>
-                <button onMouseDown={e=>insertText(e,'-')} onTouchStart={e=>insertText(e,'-')} className="bg-white border-2 border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 font-bold text-xs md:text-sm active:bg-blue-100">-</button>
-                <button onMouseDown={clearEditor} onTouchStart={clearEditor} className="bg-white border-2 border-red-200 text-red-500 rounded-lg px-2 py-1 md:px-3 md:py-2 font-bold text-xs md:text-sm active:bg-red-100 whitespace-nowrap"><i className="fas fa-trash-alt mr-1"></i>ล้าง</button>
+        <div className="flex flex-col gap-2 w-full">
+            <div className="flex justify-center gap-1.5 md:gap-2 flex-wrap bg-gray-50 p-2 rounded-xl border border-gray-200 shadow-sm">
+                <button onMouseDown={insertFraction} onTouchStart={insertFraction} className="bg-white border border-gray-300 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg px-2 py-1 md:px-3 md:py-1.5 font-semibold text-xs md:text-sm transition-colors flex items-center shadow-sm whitespace-nowrap"><i className="fas fa-columns rotate-90 mr-1.5 text-blue-500"></i>เศษส่วน</button>
+                <button onMouseDown={e=>insertText(e,'•')} onTouchStart={e=>insertText(e,'•')} className="bg-white border border-gray-300 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg px-2 py-1 md:px-3 md:py-1.5 font-semibold text-xs md:text-sm transition-colors flex items-center shadow-sm whitespace-nowrap"><i className="fas fa-circle text-[8px] mr-1.5 text-purple-500"></i>คูณ(•)</button>
+                <button onMouseDown={e=>insertText(e,'x')} onTouchStart={e=>insertText(e,'x')} className="bg-white border border-gray-300 text-green-600 hover:bg-green-50 rounded-lg px-2 py-1 md:px-3 md:py-1.5 font-bold text-xs md:text-sm transition-colors shadow-sm whitespace-nowrap">ตัวแปร x</button>
+                <button onMouseDown={e=>insertText(e,'+')} onTouchStart={e=>insertText(e,'+')} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-lg px-3 py-1 md:px-4 md:py-1.5 font-bold text-xs md:text-sm shadow-sm transition-colors">+</button>
+                <button onMouseDown={e=>insertText(e,'-')} onTouchStart={e=>insertText(e,'-')} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-lg px-3 py-1 md:px-4 md:py-1.5 font-bold text-xs md:text-sm shadow-sm transition-colors">-</button>
+                <button onMouseDown={clearEditor} onTouchStart={clearEditor} className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 rounded-lg px-2 py-1 md:px-3 md:py-1.5 font-bold text-xs md:text-sm shadow-sm transition-colors flex items-center whitespace-nowrap"><i className="fas fa-trash-alt mr-1.5"></i>ล้าง</button>
             </div>
             
             <div className="w-full">
-                <label className="block text-gray-700 font-extrabold mb-1 text-sm md:text-lg text-center">{label}</label>
+                <label className="block text-gray-600 font-bold mb-1 text-sm md:text-base text-center">{label}</label>
                 <div 
                     id={id}
                     ref={editorRef}
-                    className="bg-white border-2 md:border-4 border-blue-200 rounded-xl md:rounded-2xl p-2 md:p-4 flex items-center min-h-[50px] md:min-h-[70px] font-['Fredoka'] text-xl md:text-3xl color-gray-700 overflow-x-auto whitespace-nowrap cursor-text outline-none focus:border-blue-400 w-full"
+                    className="bg-white border-2 border-blue-200 rounded-xl p-3 md:p-4 flex items-center min-h-[60px] md:min-h-[70px] font-['Fredoka'] text-xl md:text-2xl color-gray-800 overflow-x-auto whitespace-nowrap cursor-text outline-none focus:border-blue-400 transition-colors w-full shadow-inner"
                     contentEditable="true"
                     onInput={updateReactState}
                     onBlur={updateReactState}
@@ -412,12 +407,8 @@ function AdminPanel({ setView, allLevels }) {
         const data = allLevels[levelKey];
         if (data) {
             setLhsHtml(data.lhsHtml || ''); setRhsHtml(data.rhsHtml || ''); setParMoves(data.parMoves);
-            const lhsEl = document.getElementById('adminLhs'); const rhsEl = document.getElementById('adminRhs');
-            if(lhsEl) lhsEl.innerHTML = data.lhsHtml || ''; if(rhsEl) rhsEl.innerHTML = data.rhsHtml || '';
         } else {
             setLhsHtml(''); setRhsHtml(''); setParMoves(3);
-            const lhsEl = document.getElementById('adminLhs'); const rhsEl = document.getElementById('adminRhs');
-            if(lhsEl) lhsEl.innerHTML = ''; if(rhsEl) rhsEl.innerHTML = '';
         }
         setMessage('');
     }, [mapId, levelId, allLevels]);
@@ -431,41 +422,41 @@ function AdminPanel({ setView, allLevels }) {
     };
 
     return (
-        <div className="p-2 md:p-8 h-screen overflow-y-auto flex justify-center items-center">
-            <div className="bg-white/90 backdrop-blur-xl p-4 md:p-8 rounded-2xl md:rounded-[3rem] shadow-xl border-2 md:border-4 border-white w-full max-w-4xl">
-                <div className="flex justify-between items-center mb-4 md:mb-6 bg-gray-800 text-white p-2 md:p-4 rounded-xl md:rounded-3xl">
-                    <h1 className="text-xl md:text-3xl font-extrabold ml-2 md:ml-4"><i className="fas fa-tools text-yellow-400 mr-2"></i>Admin</h1>
-                    <button onClick={() => setView('menu')} className="bg-white/20 px-3 py-1 md:px-6 md:py-2 rounded-full font-bold hover:bg-white hover:text-gray-900 text-sm md:text-base">กลับเมนู</button>
+        <div className="p-2 md:p-6 h-screen overflow-y-auto flex justify-center items-center">
+            <div className="bg-white/95 backdrop-blur-xl p-4 md:p-8 rounded-2xl md:rounded-[2rem] shadow-xl border border-gray-100 w-full max-w-4xl">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h1 className="text-xl md:text-2xl font-extrabold text-gray-800 flex items-center"><i className="fas fa-tools text-gray-500 mr-2 md:mr-3"></i>จัดการด่าน (Admin)</h1>
+                    <button onClick={() => setView('menu')} className="bg-gray-100 px-4 py-1.5 rounded-full font-bold text-gray-600 hover:bg-gray-200 text-sm md:text-base transition-colors">กลับเมนู</button>
                 </div>
                 
-                <div className="flex gap-2 md:gap-6 mb-4 md:mb-6 bg-blue-50 p-2 md:p-4 rounded-xl md:rounded-2xl">
+                <div className="flex gap-2 md:gap-4 mb-6">
                     <div className="flex-1">
-                        <label className="block text-gray-700 font-bold text-xs md:text-sm">Map</label>
-                        <select value={mapId} onChange={e => setMapId(parseInt(e.target.value))} className="w-full p-2 md:p-3 rounded-lg border-2 border-blue-200 text-sm md:text-xl font-bold bg-white">
+                        <label className="block text-gray-500 font-semibold text-xs md:text-sm mb-1">Map (แผนที่)</label>
+                        <select value={mapId} onChange={e => setMapId(parseInt(e.target.value))} className="w-full p-2 rounded-lg border border-gray-300 text-sm md:text-base font-bold bg-white focus:border-blue-400 outline-none">
                             {Array.from({length: 10}, (_, i) => i + 1).map(n => <option key={n} value={n}>Map {n}</option>)}
                         </select>
                     </div>
                     <div className="flex-1">
-                        <label className="block text-gray-700 font-bold text-xs md:text-sm">Level</label>
-                        <select value={levelId} onChange={e => setLevelId(parseInt(e.target.value))} className="w-full p-2 md:p-3 rounded-lg border-2 border-blue-200 text-sm md:text-xl font-bold bg-white">
+                        <label className="block text-gray-500 font-semibold text-xs md:text-sm mb-1">Level (ด่าน)</label>
+                        <select value={levelId} onChange={e => setLevelId(parseInt(e.target.value))} className="w-full p-2 rounded-lg border border-gray-300 text-sm md:text-base font-bold bg-white focus:border-blue-400 outline-none">
                             {Array.from({length: 10}, (_, i) => i + 1).map(n => <option key={n} value={n}>Level {n}</option>)}
                         </select>
                     </div>
                     <div className="flex-1">
-                        <label className="block text-gray-700 font-bold text-xs md:text-sm">เป้าหมาย (ครั้ง)</label>
-                        <input type="number" value={parMoves} onChange={e => setParMoves(e.target.value)} min="1" className="w-full p-2 md:p-3 rounded-lg border-2 border-blue-200 text-sm md:text-xl font-bold bg-white text-center" />
+                        <label className="block text-gray-500 font-semibold text-xs md:text-sm mb-1">เป้าหมาย (ครั้ง)</label>
+                        <input type="number" value={parMoves} onChange={e => setParMoves(e.target.value)} min="1" className="w-full p-2 rounded-lg border border-gray-300 text-sm md:text-base font-bold bg-white text-center focus:border-blue-400 outline-none" />
                     </div>
                 </div>
 
-                <div className="flex flex-col md:flex-row gap-2 md:gap-6 items-center w-full mb-4 md:mb-8">
-                    <VisualEditor id="adminLhs" label="ฝั่งซ้าย (LHS)" value={lhsHtml} onChange={setLhsHtml} />
-                    <div className="text-3xl md:text-5xl font-black text-gray-400">=</div>
-                    <VisualEditor id="adminRhs" label="ฝั่งขวา (RHS)" value={rhsHtml} onChange={setRhsHtml} />
+                <div className="flex flex-col md:flex-row gap-4 items-center w-full mb-6">
+                    <div className="w-full md:w-5/12"><VisualEditor id="adminLhs" label="สมการฝั่งซ้าย (LHS)" value={lhsHtml} onChange={setLhsHtml} /></div>
+                    <div className="text-3xl md:text-4xl font-black text-gray-400">=</div>
+                    <div className="w-full md:w-5/12"><VisualEditor id="adminRhs" label="สมการฝั่งขวา (RHS)" value={rhsHtml} onChange={setRhsHtml} /></div>
                 </div>
 
-                {message && <div className={`p-2 md:p-4 rounded-xl mb-4 font-bold text-center text-sm md:text-xl ${message.includes('เรียบร้อย') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{message}</div>}
+                {message && <div className={`p-2 md:p-3 rounded-lg mb-4 font-bold text-center text-sm md:text-base ${message.includes('เรียบร้อย') ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>{message}</div>}
 
-                <button onClick={handleSave} className="w-full bg-green-500 text-white font-extrabold py-3 md:py-4 rounded-xl md:rounded-2xl text-lg md:text-2xl shadow-[0_4px_0_#166534] active:translate-y-[4px] active:shadow-none">
+                <button onClick={handleSave} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl text-base md:text-lg shadow-sm transition-colors">
                     <i className="fas fa-save mr-2"></i> บันทึกด่าน
                 </button>
             </div>
@@ -476,22 +467,22 @@ function AdminPanel({ setView, allLevels }) {
 function Leaderboard({ setView, leaderboard }) {
     return (
         <div className="p-4 md:p-8 h-screen flex justify-center items-center">
-            <div className="bg-white/80 backdrop-blur-xl p-4 md:p-8 rounded-2xl md:rounded-[3rem] shadow-xl border border-white max-w-2xl w-full h-[90vh] flex flex-col">
-                <div className="flex justify-between items-center mb-4 md:mb-6 bg-gradient-to-r from-amber-400 to-orange-500 p-3 md:p-6 rounded-xl md:rounded-3xl">
-                    <h1 className="text-xl md:text-3xl font-extrabold text-white"><i className="fas fa-crown text-yellow-200 mr-2"></i>ตารางอันดับ</h1>
-                    <button onClick={() => setView('menu')} className="bg-white/20 text-white px-3 py-1 md:px-6 md:py-2 rounded-full font-bold text-sm md:text-base">กลับ</button>
+            <div className="bg-white/95 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] shadow-xl border border-gray-100 max-w-2xl w-full h-[85vh] flex flex-col">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-gray-800"><i className="fas fa-crown text-yellow-500 mr-3"></i>ตารางอันดับ</h1>
+                    <button onClick={() => setView('menu')} className="bg-gray-100 text-gray-600 px-4 py-1.5 rounded-full font-bold text-sm md:text-base hover:bg-gray-200 transition-colors">กลับ</button>
                 </div>
-                <div className="flex-1 overflow-y-auto space-y-2 md:space-y-4 pr-2">
+                <div className="flex-1 overflow-y-auto space-y-3 pr-2">
                     {leaderboard.length === 0 ? (
-                        <div className="text-center text-gray-500 mt-10 text-lg md:text-xl font-bold">ยังไม่มีข้อมูลผู้เล่น</div>
+                        <div className="text-center text-gray-400 mt-10 text-base md:text-lg font-medium">ยังไม่มีข้อมูลผู้เล่น</div>
                     ) : (
                         leaderboard.map((u, index) => (
-                            <div key={u.id} className={`flex items-center justify-between p-3 md:p-5 rounded-xl md:rounded-2xl border-2 shadow-sm ${index === 0 ? 'bg-yellow-50 border-yellow-400' : 'bg-white border-gray-200'}`}>
-                                <div className="flex items-center gap-3 md:gap-4">
-                                    <div className={`w-8 h-8 md:w-12 md:h-12 rounded-full flex items-center justify-center font-black text-sm md:text-xl ${index === 0 ? 'bg-yellow-400 text-white' : 'bg-gray-200 text-gray-600'}`}>{index + 1}</div>
-                                    <div className="text-sm md:text-xl font-bold text-gray-800">{u.displayName}</div>
+                            <div key={u.id} className={`flex items-center justify-between p-3 md:p-4 rounded-xl border ${index === 0 ? 'bg-yellow-50 border-yellow-200' : index === 1 ? 'bg-gray-50 border-gray-200' : index === 2 ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'}`}>
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-sm md:text-base ${index === 0 ? 'bg-yellow-400 text-white' : index === 1 ? 'bg-gray-400 text-white' : index === 2 ? 'bg-orange-400 text-white' : 'bg-gray-200 text-gray-500'}`}>{index + 1}</div>
+                                    <div className="text-base md:text-lg font-bold text-gray-700">{u.displayName}</div>
                                 </div>
-                                <div className="text-lg md:text-2xl font-black text-gray-800">{u.totalStars} <i className="fas fa-star text-yellow-400"></i></div>
+                                <div className="text-lg md:text-xl font-bold text-gray-800">{u.totalStars} <i className="fas fa-star text-yellow-400 ml-1"></i></div>
                             </div>
                         ))
                     )}
@@ -502,7 +493,7 @@ function Leaderboard({ setView, leaderboard }) {
 }
 
 // ==========================================
-// THE CORE GAME ENGINE WRAPPER (Responsive + Mobile Touch Fixes)
+// THE CORE GAME ENGINE WRAPPER (Natural Look & Perfect Mobile Touch)
 // ==========================================
 function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) {
     const gameContainerRef = useRef(null);
@@ -520,23 +511,43 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
         historyStack: [], historyIndex: -1, internalMoveCount: 0, dragSrc: null, audioCtx: null
     });
 
-    // Responsive CSS using clamp and viewport units for Mobile fit
+    // 🎨 CSS ดีไซน์แบบดั้งเดิม (แบนเรียบ สะอาดตา) + Media Queries สำหรับมือถือ
     const engineCSS = `
-        .term-container { display: inline-flex; align-items: center; margin: 0 1vw; transition: all 0.2s; }
-        .term-card { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: clamp(4px, 1.5vw, 10px) clamp(8px, 2vw, 16px); background: white; color: #4a5568; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: clamp(1rem, 3.5vw, 1.8rem); border-radius: clamp(8px, 2vw, 16px); cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 2px solid #e2e8f0; min-width: clamp(35px, 6vw, 60px); user-select: none; }
+        .term-container { display: inline-flex; align-items: center; margin: 0 2px; transition: all 0.2s; }
+        .term-card { display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; color: #4a5568; font-family: 'Fredoka', sans-serif; font-weight: 600; border-radius: 12px; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.08); border: 2px solid #e2e8f0; position: relative; user-select: none; }
         .term-card.is-variable { background: #4FACFE; color: white; border-color: #00f2fe; }
         .term-card.is-number { background: linear-gradient(to top, #fbc2eb 0%, #a6c1ee 100%); color: white; border-color: #fff; }
-        .term-card.is-operator { background: transparent; box-shadow: none; border: none; color: #718096; font-size: clamp(1.2rem, 3vw, 1.5rem); padding: 0 2px; min-width: auto; }
+        .term-card.is-operator { background: transparent; box-shadow: none; border: none; color: #718096; padding: 0 4px; min-width: auto; cursor: default; }
+        .term-card.is-operator.interactive { cursor: pointer; }
         .term-card.is-operator.draggable-negative { cursor: grab; color: #e53e3e; font-weight: bold; }
         .term-card:active { transform: scale(0.95); }
-        .fraction-group { display: inline-flex; flex-direction: column; align-items: center; margin: 0 4px; background: rgba(255,255,255,0.5); padding: clamp(4px, 1vw, 8px); border-radius: clamp(8px, 1.5vw, 16px); border: 2px dashed #cbd5e0; cursor: grab;}
-        .fraction-line { width: 100%; height: 2px; background-color: #4a5568; margin: 4px 0; }
-        .numerator-container, .denominator-container { display: flex; align-items: center; justify-content: center; padding: 2px; min-height: clamp(25px, 5vw, 45px); }
-        .group-bracket { color: #94a3b8; font-size: clamp(2rem, 6vw, 3.5rem); font-weight: 300; line-height: 0.8; font-family: 'Kanit'; }
-        .dragging-ghost { opacity: 0.8; position: fixed; z-index: 9999; pointer-events: none; transform: scale(1.1); box-shadow: 0 10px 15px rgba(0,0,0,0.2); }
-        .editor-fraction { display: inline-flex; flex-direction: column; align-items: center; margin: 0 2px; background: #f7fafc; border-radius: 6px; padding: 2px; border: 1px dashed #cbd5e0; }
-        .frac-num, .frac-den { min-width: 15px; min-height: 20px; text-align: center; padding: 0 2px; background: white; border-radius: 4px; outline:none; border: 1px solid #e2e8f0;}
-        .frac-line { width: 100%; height: 2px; background: #4a5568; margin: 2px 0; }
+        
+        .fraction-group { display: inline-flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.7); border: 2px dashed #cbd5e0; cursor: grab; margin: 0 4px; }
+        .fraction-line { width: 100%; background-color: #4a5568; margin: 4px 0; }
+        .numerator-container, .denominator-container { display: flex; align-items: center; justify-content: center; padding: 2px; }
+        
+        .group-bracket { color: #94a3b8; font-weight: 300; line-height: 0.8; font-family: 'Kanit'; cursor: default; }
+        .dragging-ghost { opacity: 0.9; position: fixed; z-index: 9999; pointer-events: none; transform: scale(1.05) rotate(2deg); box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.15); }
+
+        /* การจัดการขนาด (Responsive) ด้วย Media Queries ให้เหมือนดั้งเดิมและไม่ล้นจอ */
+        @media (max-width: 768px) {
+            .term-card { font-size: 1.2rem; padding: 6px 10px; min-width: 35px; border-radius: 10px; }
+            .term-card.is-operator { font-size: 1.2rem; }
+            .group-bracket { font-size: 2.2rem; transform: translateY(-2px); }
+            .fraction-group { padding: 4px 6px; border-radius: 10px; }
+            .fraction-line { height: 2px; }
+            .numerator-container, .denominator-container { min-height: 25px; min-width: 30px; }
+            .engine-equal { width: 40px; height: 40px; font-size: 1.5rem; }
+        }
+        @media (min-width: 769px) {
+            .term-card { font-size: 1.8rem; padding: 10px 16px; min-width: 60px; border-radius: 16px; }
+            .term-card.is-operator { font-size: 1.5rem; }
+            .group-bracket { font-size: 3.5rem; transform: translateY(-4px); }
+            .fraction-group { padding: 8px 12px; border-radius: 16px; }
+            .fraction-line { height: 3px; }
+            .numerator-container, .denominator-container { min-height: 45px; min-width: 60px; }
+            .engine-equal { width: 60px; height: 60px; font-size: 2rem; }
+        }
     `;
 
     const initEngine = (lhsHtmlSource, rhsHtmlSource) => {
@@ -597,7 +608,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
         // Utilities
         eng.gcd = (a, b) => b === 0 ? a : eng.gcd(b, a % b);
         eng.lcm = (a, b) => { if (a === 0 || b === 0) return 0; return Math.abs((a * b) / eng.gcd(a, b)); }
-        eng.playTone = (type) => { /* Tone logic simplified for space, assuming success/error beeps */ };
+        eng.playTone = (type) => { /* Tone logic omitted for simplicity */ };
         eng.showPopup = (msg) => alert(msg);
         eng.shakeElement = (el) => { el.style.transform = 'translateX(5px)'; setTimeout(()=>el.style.transform='none', 200); }
 
@@ -648,18 +659,33 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
             }
         };
 
-        // Render & Touch Handlers
+        // Render & Double Tap Fix
         eng.render = () => {
             const lhsZone = document.getElementById('engine-lhs'), rhsZone = document.getElementById('engine-rhs');
             if(lhsZone) { lhsZone.innerHTML = ''; eng.localGameState.lhs.forEach((t, i) => lhsZone.appendChild(eng.createTermElement(t, 'lhs', eng.localGameState.lhs, i, 0))); }
             if(rhsZone) { rhsZone.innerHTML = ''; eng.localGameState.rhs.forEach((t, i) => rhsZone.appendChild(eng.createTermElement(t, 'rhs', eng.localGameState.rhs, i, 0))); }
         };
 
-        // Double Tap Logic Helper
-        let lastTap = 0;
-        const handleTap = (e, action) => {
-            let now = new Date().getTime();
-            if (now - lastTap < 300 && now - lastTap > 0) { e.preventDefault(); action(); lastTap = 0; } else { lastTap = now; }
+        // ฟังก์ชันจับการแตะเบิ้ลสำหรับมือถือ (Double Tap Fix)
+        const makeDoubleTap = (el, action) => {
+            let tapCount = 0;
+            let tapTimer = null;
+            el.ondblclick = (e) => {
+                e.stopPropagation();
+                action();
+            };
+            el.ontouchend = (e) => {
+                e.stopPropagation();
+                tapCount++;
+                if (tapCount === 1) {
+                    tapTimer = setTimeout(() => { tapCount = 0; }, 300);
+                } else if (tapCount === 2) {
+                    clearTimeout(tapTimer);
+                    tapCount = 0;
+                    e.preventDefault();
+                    action();
+                }
+            };
         };
 
         eng.createTermElement = (term, side, list, idx, depth) => {
@@ -667,8 +693,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
             if (term.type === 'op') {
                 let card = document.createElement('div'); card.className = 'term-card is-operator'; card.innerText = term.value;
                 if (term.value === '•') { 
-                    card.ondblclick = (e) => { e.stopPropagation(); eng.combineSplitTerm(term, list, idx); }; 
-                    card.ontouchend = (e) => { e.stopPropagation(); handleTap(e, () => eng.combineSplitTerm(term, list, idx)); };
+                    makeDoubleTap(card, () => { eng.combineSplitTerm(term, list, idx); eng.commitState(); });
                 } 
                 else if (term.value === '-' && idx < list.length - 1 && (list[idx+1].type === 'group' || list[idx+1].type === 'fraction')) { card.classList.add('draggable-negative'); eng.setupDrag(card, term, side, list, idx, 'distribute-negative'); }
                 wrapper.appendChild(card);
@@ -687,13 +712,11 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                 if (term.denominator.type === 'group') term.denominator.children.forEach((c, i) => denCont.appendChild(eng.createChildTermElement(c, term.denominator.children, i, term.id, 'denominator', side, term, list, idx, depth)));
                 else denCont.appendChild(eng.createChildTermElement(term.denominator, null, -1, term.id, 'denominator', side, term, list, idx, depth));
                 fracGroup.append(numCont, line, denCont); 
-                fracGroup.ondblclick = (e) => { e.stopPropagation(); eng.splitFraction(term, list, idx); };
-                fracGroup.ontouchend = (e) => { e.stopPropagation(); handleTap(e, () => eng.splitFraction(term, list, idx)); };
+                makeDoubleTap(fracGroup, () => { eng.splitFraction(term, list, idx); });
                 eng.setupDrag(fracGroup, term, side, list, idx, 'whole-fraction'); wrapper.appendChild(fracGroup); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
             } else {
                 let card = document.createElement('div'); card.className = term.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number'; card.innerText = term.value;
-                card.ondblclick = (e) => { e.stopPropagation(); eng.splitTerm(term, list, idx); };
-                card.ontouchend = (e) => { e.stopPropagation(); handleTap(e, () => eng.splitTerm(term, list, idx)); };
+                makeDoubleTap(card, () => { eng.splitTerm(term, list, idx); });
                 eng.setupDrag(card, term, side, list, idx, 'term'); wrapper.appendChild(card); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
             }
             return wrapper;
@@ -712,8 +735,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                 if(child.type === 'op') { 
                     el.className = 'term-card is-operator mx-1'; el.innerText = child.value;
                     if(child.value === '•' && list) { 
-                        el.ondblclick = (e) => { e.stopPropagation(); eng.combineSplitTerm(child, list, childIdx); eng.commitState(); }; 
-                        el.ontouchend = (e) => { e.stopPropagation(); handleTap(e, () => { eng.combineSplitTerm(child, list, childIdx); eng.commitState(); }); };
+                        makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); eng.commitState(); });
                     }
                     else if (child.value === '-' && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { el.classList.add('draggable-negative'); eng.setupDrag(el, child, side, list, childIdx, 'distribute-negative', parentFracTerm, mainList, mainIdx, context); }
                 } else {
@@ -721,8 +743,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                     if(list) el.dataset.childIdx = childIdx;
                     if (context === 'denominator' && !list) { el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, null, mainList, mainIdx, 'denominator', null, null, null, context); } 
                     else if(list) { 
-                        el.ondblclick = (e) => { e.stopPropagation(); eng.splitTerm(child, list, childIdx); }; 
-                        el.ontouchend = (e) => { e.stopPropagation(); handleTap(e, () => eng.splitTerm(child, list, childIdx)); };
+                        makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); });
                         eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); 
                     }
                 }
@@ -876,24 +897,24 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
             <style>{engineCSS}</style>
             
             {/* Header / Top Bar */}
-            <div className="flex justify-between items-center mb-2 md:mb-4 bg-white/70 backdrop-blur-md p-2 md:p-4 rounded-full shadow-sm border border-white relative z-20">
-                <button onClick={() => setView(isSandbox ? 'menu' : 'levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 md:px-6 py-1 md:py-2 rounded-full font-bold text-xs md:text-base">
+            <div className="flex justify-between items-center mb-2 md:mb-4 bg-white/80 backdrop-blur-md p-2 md:p-4 rounded-full shadow-sm border border-gray-100 relative z-20">
+                <button onClick={() => setView(isSandbox ? 'menu' : 'levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 md:px-5 py-1.5 md:py-2 rounded-full font-bold text-xs md:text-sm transition-colors flex items-center">
                     <i className="fas fa-arrow-left mr-1 md:mr-2"></i> กลับ
                 </button>
                 
-                <div className="text-sm md:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 truncate px-2">
-                    {isSandbox ? 'โหมดฝึกฝน' : `Map ${mapId} - Level ${levelId}`}
+                <div className="text-sm md:text-xl font-bold text-gray-800 truncate px-2">
+                    {isSandbox ? 'โหมดฝึกฝนสร้างโจทย์' : `Map ${mapId} - Level ${levelId}`}
                 </div>
                 
                 <div className="flex items-center gap-1 md:gap-3">
-                    <button onClick={() => setShowTutorial(true)} className="bg-yellow-100 text-yellow-700 px-2 py-1 md:px-4 md:py-2 rounded-full font-bold text-xs md:text-base">
-                        <i className="fas fa-question-circle"></i><span className="hidden md:inline ml-2">วิธีเล่น</span>
+                    <button onClick={() => setShowTutorial(true)} className="bg-yellow-50 text-yellow-600 px-2 py-1.5 md:px-4 md:py-2 rounded-full font-bold text-xs md:text-sm border border-yellow-200 hover:bg-yellow-100 transition-colors">
+                        <i className="fas fa-question-circle"></i><span className="hidden md:inline ml-1.5">วิธีเล่น</span>
                     </button>
-                    <div className="bg-blue-50 text-blue-800 px-2 md:px-4 py-1 md:py-2 rounded-full font-bold text-xs md:text-base border border-blue-200 whitespace-nowrap">
-                        ย้าย: <span className="text-sm md:text-xl text-blue-600">{moves}</span> 
-                        {!isSandbox && <span className="hidden md:inline ml-1 text-gray-500">/{levelData?.parMoves}</span>}
+                    <div className="bg-blue-50 text-blue-700 px-3 md:px-4 py-1.5 md:py-2 rounded-full font-bold text-xs md:text-sm border border-blue-200 whitespace-nowrap">
+                        ย้าย: <span className="text-sm md:text-lg text-blue-600 ml-1">{moves}</span> 
+                        {!isSandbox && <span className="hidden md:inline ml-1 text-gray-500 font-normal">/{levelData?.parMoves}</span>}
                     </div>
-                    <button onClick={() => { setGameState('playing'); isSandbox ? handleSandboxStart() : initEngine(levelData.lhsHtml, levelData.rhsHtml); }} className="bg-red-500 text-white px-2 py-1 md:px-4 md:py-2 rounded-full font-bold text-xs md:text-base">
+                    <button onClick={() => { setGameState('playing'); isSandbox ? handleSandboxStart() : initEngine(levelData.lhsHtml, levelData.rhsHtml); }} className="bg-red-50 text-red-600 border border-red-200 px-2 py-1.5 md:px-4 md:py-2 rounded-full font-bold text-xs md:text-sm hover:bg-red-100 transition-colors">
                         <i className="fas fa-sync-alt"></i>
                     </button>
                 </div>
@@ -901,62 +922,74 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
 
             {/* Sandbox Input - Flex Row Responsive */}
             {isSandbox && (
-                <div className="bg-white/90 backdrop-blur-md p-2 md:p-4 rounded-2xl shadow-sm border-2 border-white mb-2 flex flex-col gap-2 shrink-0">
-                    <div className="flex gap-2 items-center w-full">
-                        <VisualEditor id="sbLhs" label="ฝั่งซ้าย" value={sbLhsHtml} onChange={setSbLhsHtml} />
-                        <div className="text-2xl md:text-4xl font-black text-gray-400 mt-6">=</div>
-                        <VisualEditor id="sbRhs" label="ฝั่งขวา" value={sbRhsHtml} onChange={setSbRhsHtml} />
+                <div className="bg-white/95 backdrop-blur-md p-3 md:p-5 rounded-[2rem] shadow-md border border-gray-100 mb-2 md:mb-4 flex flex-col gap-3 shrink-0 mx-auto max-w-5xl w-full">
+                    <div className="flex flex-col md:flex-row gap-2 md:gap-4 items-center w-full justify-center">
+                        <div className="w-full md:w-5/12"><VisualEditor id="sbLhs" label="ฝั่งซ้าย (LHS)" value={sbLhsHtml} onChange={setSbLhsHtml} /></div>
+                        <div className="text-3xl md:text-4xl font-black text-gray-300 mt-2 md:mt-6">=</div>
+                        <div className="w-full md:w-5/12"><VisualEditor id="sbRhs" label="ฝั่งขวา (RHS)" value={sbRhsHtml} onChange={setSbRhsHtml} /></div>
                     </div>
-                    <button onClick={handleSandboxStart} className="bg-gradient-to-r from-blue-500 to-purple-500 text-white font-extrabold py-2 px-6 rounded-full text-sm md:text-lg self-center">
+                    <button onClick={handleSandboxStart} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2.5 px-6 rounded-full text-sm md:text-base self-center transition-colors">
                         <i className="fas fa-play mr-2"></i> เล่นสมการนี้
                     </button>
                 </div>
             )}
 
             {/* Engine Area */}
-            <div className="flex-1 flex flex-col relative bg-white/40 backdrop-blur-md rounded-2xl md:rounded-[3rem] p-2 md:p-4 border border-white min-h-[50vh]">
-                <div id="engine-playground" className="bg-white rounded-xl md:rounded-[2.5rem] border-4 border-white/80 shadow-inner flex items-center justify-center p-2 md:p-8 relative w-full h-full flex-1 overflow-x-auto">
-                    <div className="w-[2px] md:w-1 bg-gray-200/80 h-[80%] rounded-full absolute left-1/2 transform -translate-x-1/2 z-0"></div>
-                    <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-2 md:pr-10 gap-1 md:gap-3 z-10 w-1/2 overflow-visible"></div>
-                    <div className="bg-red-400 text-white w-8 h-8 md:w-[60px] md:h-[60px] rounded-full flex items-center justify-center text-xl md:text-3xl font-black z-20 border-2 border-white flex-shrink-0">=</div>
-                    <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-2 md:pl-10 gap-1 md:gap-3 z-10 w-1/2 overflow-visible"></div>
+            <div className="flex-1 flex flex-col relative bg-white/50 backdrop-blur-md rounded-[2rem] md:rounded-[3rem] p-2 md:p-4 border border-white min-h-[40vh]">
+                <div id="engine-playground" className="bg-white rounded-2xl md:rounded-[2.5rem] border-2 md:border-[6px] border-white/80 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full h-full flex-1 overflow-x-auto">
+                    <div className="w-[2px] bg-gray-200/80 h-[80%] rounded-full absolute left-1/2 transform -translate-x-1/2 z-0"></div>
+                    <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-2 md:pr-10 gap-1 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                    <div className="engine-equal bg-red-400 text-white rounded-full flex items-center justify-center font-black z-20 border-2 border-white flex-shrink-0">=</div>
+                    <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-2 md:pl-10 gap-1 md:gap-2 z-10 w-1/2 overflow-visible"></div>
                 </div>
 
-                <div className="absolute bottom-2 md:bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-2 md:gap-6 bg-white/90 px-4 md:px-8 py-2 md:py-3 rounded-full shadow-lg z-30 whitespace-nowrap">
-                    <button onClick={() => engineRef.current.undo()} className="text-gray-600 hover:text-blue-600 text-lg md:text-2xl bg-gray-100 w-8 h-8 md:w-12 md:h-12 rounded-full flex items-center justify-center"><i className="fas fa-undo"></i></button>
-                    <div className="text-gray-500 font-bold border-l-2 pl-2 md:pl-6 text-xs md:text-base border-gray-200">
-                        <i className="fas fa-hand-pointer text-blue-400 mr-1"></i>ลากวาง <span className="hidden md:inline">| แตะ 2 ครั้งเพื่อแยกส่วน</span>
+                <div className="absolute bottom-2 md:bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-2 md:gap-4 bg-white/95 px-4 md:px-6 py-2 md:py-2.5 rounded-full shadow-md z-30 whitespace-nowrap border border-gray-100">
+                    <button onClick={() => engineRef.current.undo()} className="text-gray-500 hover:text-blue-600 text-base md:text-xl bg-gray-50 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center border border-gray-200 transition-colors"><i className="fas fa-undo"></i></button>
+                    <div className="text-gray-500 font-semibold border-l-2 pl-2 md:pl-4 text-xs md:text-sm border-gray-200">
+                        <i className="fas fa-hand-pointer text-blue-400 mr-1.5"></i>ลากวาง <span className="hidden md:inline">| แตะเบิ้ล 2 ครั้งเพื่อแยก</span>
                     </div>
                 </div>
             </div>
 
+            {/* Win Overlay: Custom for Sandbox vs Campaign */}
             {gameState === 'won' && (
                 <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-[100]">
-                    <div className="bg-white p-6 md:p-12 rounded-3xl shadow-2xl border-4 border-yellow-300 text-center">
-                        <h2 className="text-4xl md:text-6xl font-black text-green-500 mb-4">ยอดเยี่ยม!</h2>
+                    <div className="bg-white p-6 md:p-12 rounded-[2rem] shadow-xl border-4 border-green-400 text-center max-w-lg w-11/12">
+                        <h2 className="text-3xl md:text-5xl font-black text-green-500 mb-2 md:mb-4">ยอดเยี่ยม!</h2>
+                        <p className="text-gray-600 text-sm md:text-lg mb-6">คุณแก้สมการสำเร็จแล้ว</p>
+                        
                         {!isSandbox && (
                             <div className="flex gap-2 justify-center mb-6 md:mb-8">
-                                {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-4xl md:text-6xl ${star <= starsEarned ? 'text-yellow-400' : 'text-gray-200'}`}></i>)}
+                                {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-4xl md:text-5xl ${star <= starsEarned ? 'text-yellow-400 drop-shadow-sm' : 'text-gray-200'}`}></i>)}
                             </div>
                         )}
-                        <div className="flex gap-4 justify-center">
-                            <button onClick={() => setView(isSandbox ? 'menu' : 'levelSelect')} className="bg-gray-200 text-gray-800 font-bold py-2 md:py-3 px-4 md:px-8 rounded-full text-sm md:text-xl">กลับเมนู</button>
-                            {!isSandbox && levelId < 10 && <button onClick={() => { setView('levelSelect'); setTimeout(()=>setView('play'), 100); }} className="bg-blue-500 text-white font-bold py-2 md:py-3 px-4 md:px-8 rounded-full text-sm md:text-xl">ด่านต่อไป</button>}
+                        
+                        <div className="flex gap-3 justify-center">
+                            {isSandbox ? (
+                                <button onClick={() => setGameState('playing')} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 md:py-3 px-6 md:px-10 rounded-full text-sm md:text-lg transition-colors shadow-sm">
+                                    ปิดหน้าต่างนี้
+                                </button>
+                            ) : (
+                                <>
+                                    <button onClick={() => setView('levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 md:py-3 px-4 md:px-6 rounded-full text-sm md:text-lg transition-colors">กลับเมนู</button>
+                                    {levelId < 10 && <button onClick={() => { setView('levelSelect'); setTimeout(()=>setView('play'), 100); }} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 md:py-3 px-4 md:px-6 rounded-full text-sm md:text-lg transition-colors shadow-sm">ด่านต่อไป</button>}
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
             )}
 
             {showTutorial && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4" onClick={() => setShowTutorial(false)}>
-                    <div className="bg-white rounded-3xl p-6 md:p-8 max-w-xl w-full shadow-2xl relative" onClick={e => e.stopPropagation()}>
-                        <h2 className="text-2xl md:text-3xl font-extrabold text-blue-600 mb-4"><i className="fas fa-book-open mr-2"></i>วิธีเล่น</h2>
-                        <ul className="space-y-4 text-sm md:text-lg text-gray-700">
-                            <li className="bg-blue-50 p-3 rounded-xl"><strong>ย้ายข้าง:</strong> แตะค้างที่ตัวเลขแล้วลากข้ามฝั่ง (บวกจะกลายเป็นลบ)</li>
-                            <li className="bg-green-50 p-3 rounded-xl"><strong>รวมพจน์:</strong> ลากตัวเลขที่เหมือนกันไปซ้อนกันเพื่อคำนวณ</li>
-                            <li className="bg-purple-50 p-3 rounded-xl"><strong>แยกส่วน:</strong> แตะไวๆ 2 ครั้ง (Double Tap) ที่ตัวเลขติดตัวแปร (เช่น 3x) เพื่อแยกตัวเลขออกมา</li>
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[200] p-4" onClick={() => setShowTutorial(false)}>
+                    <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                        <h2 className="text-xl md:text-2xl font-extrabold text-blue-600 mb-4 border-b pb-3"><i className="fas fa-book-open mr-2"></i>วิธีเล่นพื้นฐาน</h2>
+                        <ul className="space-y-3 text-sm md:text-base text-gray-700">
+                            <li className="bg-gray-50 p-3 rounded-xl border border-gray-100"><strong className="text-blue-500">1. ย้ายข้าง:</strong> แตะค้างที่ตัวเลขแล้วลากข้ามฝั่ง = (บวกจะกลายเป็นลบ อัตโนมัติ)</li>
+                            <li className="bg-gray-50 p-3 rounded-xl border border-gray-100"><strong className="text-green-500">2. รวมพจน์:</strong> ลากตัวเลขที่เหมือนกันไปซ้อนทับกันเพื่อบวก/ลบ/คูณ/หาร</li>
+                            <li className="bg-gray-50 p-3 rounded-xl border border-gray-100"><strong className="text-purple-500">3. แยกร่าง / รวมร่าง:</strong> แตะเบิ้ล 2 ครั้งไวๆ (Double Tap) ที่ตัวแปร (เช่น 3x) เพื่อแยกตัวเลข หรือแตะ 2 ครั้งที่จุดคูณ (•) เพื่อรวมกลับ</li>
                         </ul>
-                        <button onClick={() => setShowTutorial(false)} className="mt-6 w-full bg-blue-500 text-white font-bold py-3 rounded-full text-lg">เข้าใจแล้ว</button>
+                        <button onClick={() => setShowTutorial(false)} className="mt-5 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2.5 rounded-full text-base transition-colors">เข้าใจแล้ว</button>
                     </div>
                 </div>
             )}
