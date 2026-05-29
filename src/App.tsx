@@ -323,9 +323,8 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
         </div>
     );
 }
-
 // ==========================================
-// VISUAL EDITOR (Fixed CSS & Game-Style UI)
+// VISUAL EDITOR (For Admin & Sandbox)
 // ==========================================
 function VisualEditor({ id, label, value, onChange }) {
     const editorRef = useRef(null);
@@ -374,30 +373,31 @@ function VisualEditor({ id, label, value, onChange }) {
     const clearEditor = (e) => { e.preventDefault(); if(editorRef.current) { editorRef.current.innerHTML = ''; updateReactState(); } };
 
     return (
-        <div className="flex flex-col gap-3 w-full">
-            {/* ฝัง CSS เฉพาะสำหรับกล่องพิมพ์โจทย์ เพื่อแก้ปัญหาเศษส่วนล่องหน */}
+        <div className="flex flex-col gap-2 w-full">
+            {/* นำ CSS ของกล่องเศษส่วนกลับมาฝังที่นี่ครับ */}
             <style>{`
-                .visual-editor-content .editor-fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 6px; background: #e0f2fe; border-radius: 8px; padding: 4px; border: 2px dashed #93c5fd; user-select: none; }
-                .visual-editor-content .frac-num, .visual-editor-content .frac-den { min-width: 30px; min-height: 30px; text-align: center; outline: none; padding: 2px 6px; background: white; border-radius: 6px; border: 2px solid #cbd5e1; font-weight: bold; color: #1e3a8a; transition: all 0.2s;}
+                .visual-editor-content .editor-fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 4px; background: #f0f9ff; border-radius: 8px; padding: 4px; border: 2px dashed #bae6fd; user-select: none; }
+                .visual-editor-content .frac-num, .visual-editor-content .frac-den { min-width: 30px; min-height: 30px; text-align: center; outline: none; padding: 2px 6px; background: white; border-radius: 6px; border: 2px solid #cbd5e1; font-weight: bold; color: #1e3a8a; }
                 .visual-editor-content .frac-num:focus, .visual-editor-content .frac-den:focus { border-color: #3b82f6; background: #eff6ff; }
-                .visual-editor-content .frac-line { width: 100%; height: 4px; background-color: #3b82f6; margin: 4px 0; border-radius: 2px; }
+                .visual-editor-content .frac-num:empty::before, .visual-editor-content .frac-den:empty::before { content: '□'; color: #94a3b8; font-weight: normal; }
+                .visual-editor-content .frac-line { width: 100%; height: 3px; background-color: #3b82f6; margin: 4px 0; border-radius: 2px; }
             `}</style>
             
-            <div className="flex justify-center gap-2 flex-wrap bg-gray-100/80 p-3 rounded-2xl border-2 border-gray-200 shadow-inner">
-                <button onMouseDown={insertFraction} onTouchStart={insertFraction} className="bg-blue-500 text-white border-b-4 border-blue-700 hover:bg-blue-400 hover:border-blue-600 rounded-xl px-3 py-2 font-bold text-sm active:translate-y-1 active:border-b-0 transition-all flex items-center shadow-md"><i className="fas fa-columns rotate-90 mr-2"></i>เศษส่วน</button>
-                <button onMouseDown={e=>insertText(e,'•')} onTouchStart={e=>insertText(e,'•')} className="bg-purple-500 text-white border-b-4 border-purple-700 hover:bg-purple-400 hover:border-purple-600 rounded-xl px-3 py-2 font-bold text-sm active:translate-y-1 active:border-b-0 transition-all flex items-center shadow-md"><i className="fas fa-circle text-[8px] mr-2"></i>คูณ(•)</button>
-                <button onMouseDown={e=>insertText(e,'x')} onTouchStart={e=>insertText(e,'x')} className="bg-green-500 text-white border-b-4 border-green-700 hover:bg-green-400 hover:border-green-600 rounded-xl px-4 py-2 font-black text-sm active:translate-y-1 active:border-b-0 transition-all shadow-md">ตัวแปร x</button>
-                <button onMouseDown={e=>insertText(e,'+')} onTouchStart={e=>insertText(e,'+')} className="bg-white text-gray-700 border-b-4 border-gray-300 hover:bg-gray-50 rounded-xl px-4 py-2 font-black text-sm active:translate-y-1 active:border-b-0 transition-all shadow-md">+</button>
-                <button onMouseDown={e=>insertText(e,'-')} onTouchStart={e=>insertText(e,'-')} className="bg-white text-gray-700 border-b-4 border-gray-300 hover:bg-gray-50 rounded-xl px-4 py-2 font-black text-sm active:translate-y-1 active:border-b-0 transition-all shadow-md">-</button>
-                <button onMouseDown={clearEditor} onTouchStart={clearEditor} className="bg-red-500 text-white border-b-4 border-red-700 hover:bg-red-400 hover:border-red-600 rounded-xl px-3 py-2 font-bold text-sm active:translate-y-1 active:border-b-0 transition-all flex items-center shadow-md ml-auto"><i className="fas fa-trash-alt mr-2"></i>ล้าง</button>
+            <div className="flex justify-center gap-1.5 md:gap-2 flex-wrap bg-white p-2 rounded-2xl border-2 border-gray-200 shadow-sm">
+                <button onMouseDown={insertFraction} onTouchStart={insertFraction} className="bg-blue-50 border-2 border-blue-200 text-blue-700 hover:bg-blue-100 rounded-xl px-2 py-1.5 md:px-3 md:py-2 font-bold text-xs md:text-sm active:translate-y-1 transition-all flex items-center whitespace-nowrap"><i className="fas fa-columns rotate-90 mr-1.5"></i>เศษส่วน</button>
+                <button onMouseDown={e=>insertText(e,'•')} onTouchStart={e=>insertText(e,'•')} className="bg-purple-50 border-2 border-purple-200 text-purple-700 hover:bg-purple-100 rounded-xl px-2 py-1.5 md:px-3 md:py-2 font-bold text-xs md:text-sm active:translate-y-1 transition-all flex items-center whitespace-nowrap"><i className="fas fa-circle text-[8px] mr-1.5"></i>คูณ(•)</button>
+                <button onMouseDown={e=>insertText(e,'x')} onTouchStart={e=>insertText(e,'x')} className="bg-green-50 border-2 border-green-200 text-green-700 hover:bg-green-100 rounded-xl px-2 py-1.5 md:px-3 md:py-2 font-black text-xs md:text-sm active:translate-y-1 transition-all whitespace-nowrap">ตัวแปร x</button>
+                <button onMouseDown={e=>insertText(e,'+')} onTouchStart={e=>insertText(e,'+')} className="bg-gray-100 border-2 border-gray-300 text-gray-700 hover:bg-gray-200 rounded-xl px-3 py-1.5 md:px-4 md:py-2 font-black text-xs md:text-sm active:translate-y-1 transition-all">+</button>
+                <button onMouseDown={e=>insertText(e,'-')} onTouchStart={e=>insertText(e,'-')} className="bg-gray-100 border-2 border-gray-300 text-gray-700 hover:bg-gray-200 rounded-xl px-3 py-1.5 md:px-4 md:py-2 font-black text-xs md:text-sm active:translate-y-1 transition-all">-</button>
+                <button onMouseDown={clearEditor} onTouchStart={clearEditor} className="bg-red-50 border-2 border-red-200 text-red-600 hover:bg-red-100 rounded-xl px-2 py-1.5 md:px-3 md:py-2 font-bold text-xs md:text-sm active:translate-y-1 transition-all flex items-center whitespace-nowrap"><i className="fas fa-trash-alt mr-1.5"></i>ล้าง</button>
             </div>
             
-            <div className="w-full relative mt-2">
-                <label className="absolute -top-3 left-6 bg-white px-3 text-blue-600 font-black text-sm uppercase tracking-wider rounded-full shadow-sm border border-blue-100 z-10">{label}</label>
+            <div className="w-full relative">
+                <label className="absolute -top-3 left-4 bg-[#a8edea] px-2 text-gray-600 font-black text-xs md:text-sm z-10">{label}</label>
                 <div 
                     id={id}
                     ref={editorRef}
-                    className="visual-editor-content bg-white border-4 border-blue-200 rounded-[1.5rem] p-5 pt-6 flex items-center min-h-[90px] font-['Fredoka'] text-3xl color-gray-800 overflow-x-auto whitespace-nowrap cursor-text outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all w-full shadow-inner"
+                    className="visual-editor-content bg-white border-4 border-white/80 rounded-2xl p-4 flex items-center min-h-[70px] font-['Fredoka'] text-2xl md:text-3xl color-gray-800 overflow-x-auto whitespace-nowrap cursor-text outline-none focus:border-blue-400 transition-colors w-full shadow-inner"
                     contentEditable="true"
                     onInput={updateReactState}
                     onBlur={updateReactState}
