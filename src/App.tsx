@@ -501,7 +501,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
     const [gameState, setGameState] = useState('playing'); 
     const [starsEarned, setStarsEarned] = useState(0);
     const [showTutorial, setShowTutorial] = useState(false);
-    const [popupMessage, setPopupMessage] = useState(null); // State สำหรับ Custom Popup
+    
+    // Custom Popup State แทนที่ alert()
+    const [popupMessage, setPopupMessage] = useState(null);
     
     const isSandbox = view === 'sandbox';
     const [sbLhsHtml, setSbLhsHtml] = useState('<span class="editor-node editor-fraction" contenteditable="false"><span class="frac-num" contenteditable="true">x</span><div class="frac-line"></div><span class="frac-den" contenteditable="true">2</span></span>');
@@ -549,12 +551,50 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
             .numerator-container, .denominator-container { min-height: 45px; min-width: 60px; }
             .engine-equal { width: 60px; height: 60px; font-size: 2rem; }
         }
+        
+        @keyframes popIn {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
     `;
 
     const initEngine = (lhsHtmlSource, rhsHtmlSource) => {
         const eng = engineRef.current;
         eng.internalMoveCount = 0; setMoves(0); eng.historyStack = []; eng.historyIndex = -1;
+        
+        // กำหนดระบบเสียง 100%
         if(!eng.audioCtx) eng.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        eng.playTone = (type) => {
+            if (!eng.audioCtx) return;
+            if (eng.audioCtx.state === 'suspended') eng.audioCtx.resume();
+            const oscillator = eng.audioCtx.createOscillator();
+            const gainNode = eng.audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(eng.audioCtx.destination);
+            if (type === 'success') {
+                oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(500, eng.audioCtx.currentTime); oscillator.frequency.exponentialRampToValueAtTime(1000, eng.audioCtx.currentTime + 0.1); gainNode.gain.setValueAtTime(0.3, eng.audioCtx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, eng.audioCtx.currentTime + 0.3); oscillator.start(); oscillator.stop(eng.audioCtx.currentTime + 0.3);
+            } else if (type === 'error') {
+                oscillator.type = 'sawtooth'; oscillator.frequency.setValueAtTime(150, eng.audioCtx.currentTime); oscillator.frequency.linearRampToValueAtTime(100, eng.audioCtx.currentTime + 0.2); gainNode.gain.setValueAtTime(0.2, eng.audioCtx.currentTime); gainNode.gain.linearRampToValueAtTime(0.01, eng.audioCtx.currentTime + 0.2); oscillator.start(); oscillator.stop(eng.audioCtx.currentTime + 0.2);
+            } else if (type === 'pop') {
+                oscillator.type = 'triangle'; oscillator.frequency.setValueAtTime(400, eng.audioCtx.currentTime); oscillator.frequency.exponentialRampToValueAtTime(600, eng.audioCtx.currentTime + 0.05); gainNode.gain.setValueAtTime(0.2, eng.audioCtx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, eng.audioCtx.currentTime + 0.1); oscillator.start(); oscillator.stop(eng.audioCtx.currentTime + 0.1);
+            } else if (type === 'win') {
+                const now = eng.audioCtx.currentTime;
+                const notes = [261.63, 329.63, 392.00, 523.25]; // โน้ตเพลงตอนชนะ
+                notes.forEach((freq, i) => {
+                    const osc = eng.audioCtx.createOscillator();
+                    const gn = eng.audioCtx.createGain();
+                    osc.type = 'square'; osc.frequency.value = freq; osc.connect(gn); gn.connect(eng.audioCtx.destination);
+                    osc.start(now + i * 0.15); gn.gain.setValueAtTime(0.2, now + i * 0.15); gn.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.4); osc.stop(now + i * 0.15 + 0.4);
+                });
+            }
+        };
+
+        // Custom Popup สวยงาม แทน alert()
+        eng.showPopup = (msg) => {
+            eng.playTone('error');
+            setPopupMessage(msg);
+        };
 
         // Parser
         const parseHTMLtoMath = (htmlString) => {
@@ -609,14 +649,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
         // Utilities
         eng.gcd = (a, b) => b === 0 ? a : eng.gcd(b, a % b);
         eng.lcm = (a, b) => { if (a === 0 || b === 0) return 0; return Math.abs((a * b) / eng.gcd(a, b)); }
-        eng.playTone = (type) => { /* Tone logic omitted for simplicity */ };
-        
-        // ใช้ Custom Popup แทน alert()
-        eng.showPopup = (msg) => {
-            setPopupMessage(msg);
-            eng.playTone('error');
-        };
-        
         eng.shakeElement = (el) => { el.style.transform = 'translateX(5px)'; setTimeout(()=>el.style.transform='none', 200); }
 
         // Core Logic hooks
@@ -625,7 +657,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
             eng.simplifyList(eng.localGameState.lhs); eng.simplifyList(eng.localGameState.rhs);
             eng.historyStack.push(JSON.parse(JSON.stringify(eng.localGameState))); eng.historyIndex++; eng.render(); eng.checkWinCondition();
         };
-        eng.undo = () => { if (eng.historyIndex > 0) { eng.historyIndex--; eng.localGameState = JSON.parse(JSON.stringify(eng.historyStack[eng.historyIndex])); eng.render(); } };
+        eng.undo = () => { if (eng.historyIndex > 0) { eng.historyIndex--; eng.localGameState = JSON.parse(JSON.stringify(eng.historyStack[eng.historyIndex])); eng.render(); eng.playTone('pop'); } };
         
         eng.unwrapGroups = (list) => {
             for (let i = 0; i < list.length; i++) {
@@ -673,7 +705,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
             if(rhsZone) { rhsZone.innerHTML = ''; eng.localGameState.rhs.forEach((t, i) => rhsZone.appendChild(eng.createTermElement(t, 'rhs', eng.localGameState.rhs, i, 0))); }
         };
 
-        // ฟังก์ชันจับการแตะเบิ้ลสำหรับมือถือ (Double Tap Fix)
+        // ฟังก์ชันจับการแตะเบิ้ลสำหรับมือถือที่ปรับแต่งแล้ว
         const makeDoubleTap = (el, action) => {
             let tapCount = 0;
             let tapTimer = null;
@@ -682,14 +714,11 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                 action();
             };
             el.ontouchend = (e) => {
-                // ห้าม e.stopPropagation() เด็ดขาด เพื่อให้เหตุการณ์ปล่อยนิ้วทะลุไปถึงระบบวาง (Drop)
-                
-                // ถ้านิ้วมีการขยับลาก (Drag) ให้ถือว่าไม่ใช่การแตะเบิ้ล
+                // เช็คว่านิ้วขยับไหม ถ้านิ้วขยับแปลว่าเขาตั้งใจลาก ไม่ใช่แตะเบิ้ล
                 if (eng.dragSrc && eng.dragSrc.hasMoved) {
                     tapCount = 0;
                     return;
                 }
-
                 tapCount++;
                 if (tapCount === 1) {
                     tapTimer = setTimeout(() => { tapCount = 0; }, 300);
@@ -769,19 +798,11 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
         eng.setupDrag = (el, term, side, list, idx, role, parentFracTerm = null, mainList = null, mainIdx = null, sourceContext = null) => {
             const handleStart = (clientX, clientY, eOriginal) => {
                 eOriginal.stopPropagation(); 
-                // ป้องกันหน้าจอเลื่อน (Scroll) ตอนจิ้มลาก แต่ยังยอมให้ระบบ Tap ทำงานได้
-                if (eOriginal.type !== 'touchstart' && eOriginal.cancelable) {
-                    eOriginal.preventDefault();
-                }
+                if (eOriginal.type !== 'touchstart' && eOriginal.cancelable) eOriginal.preventDefault();
 
                 eng.internalMoveCount++; setMoves(eng.internalMoveCount);
-                
-                // เคลียร์ Ghost อันเก่า (ถ้ามีค้างอยู่) ก่อนสร้างอันใหม่
-                if (eng.dragSrc && eng.dragSrc.ghost) {
-                    eng.dragSrc.ghost.remove();
-                }
+                if (eng.dragSrc && eng.dragSrc.ghost) eng.dragSrc.ghost.remove();
 
-                // เพิ่ม hasMoved: false เพื่อคอยเช็คว่าลากจริงหรือไม่
                 eng.dragSrc = { el, term, side, list, idx, role, parentFracTerm, mainList, mainIdx, sourceContext, hasMoved: false };
                 let ghost = el.cloneNode(true); ghost.classList.add('dragging-ghost'); ghost.style.width = el.offsetWidth + 'px'; 
                 document.body.appendChild(ghost); eng.dragSrc.ghost = ghost;
@@ -795,14 +816,14 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                 moveGhost(clientX, clientY);
                 
                 const onMove = (ev) => { 
-                    let cx = ev.clientX ?? ev.touches?.[0]?.clientX; 
-                    let cy = ev.clientY ?? ev.touches?.[0]?.clientY; 
+                    let cx = ev.clientX ?? ev.touches?.[0]?.clientX; let cy = ev.clientY ?? ev.touches?.[0]?.clientY; 
                     if(cx && cy) {
-                        if (eng.dragSrc) eng.dragSrc.hasMoved = true; // ยืนยันว่ามีการลากนิ้วแล้ว
+                        if (eng.dragSrc) eng.dragSrc.hasMoved = true;
                         moveGhost(cx, cy); 
-                        if (ev.cancelable) ev.preventDefault(); // ป้องกันจอมือถือเลื่อนตามนิ้วขณะกำลังลาก
+                        if (ev.cancelable) ev.preventDefault();
                     }
                 };
+                
                 const onEnd = (ev) => {
                     document.removeEventListener('mousemove', onMove); document.removeEventListener('touchmove', onMove);
                     document.removeEventListener('mouseup', onEnd); document.removeEventListener('touchend', onEnd);
@@ -811,13 +832,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                     if (!eng.dragSrc) return;
                     let endX = ev.clientX ?? ev.changedTouches?.[0]?.clientX; let endY = ev.clientY ?? ev.changedTouches?.[0]?.clientY;
                     
-                    // บังคับลบ Ghost ทันทีที่ยกนิ้ว
-                    if (eng.dragSrc.ghost) {
-                        eng.dragSrc.ghost.remove();
-                    }
+                    if (eng.dragSrc.ghost) eng.dragSrc.ghost.remove();
 
                     let pg = document.getElementById('engine-playground');
-                    // เช็ค hasMoved ป้องกันกรณีแค่แตะ (Tap) ไม่ได้ตั้งใจลาก
                     if(pg && endX && endY && eng.dragSrc.hasMoved) {
                         let rect = pg.getBoundingClientRect(), midX = rect.left + rect.width/2;
                         let isGlobalMove = (role === 'term' || role === 'denominator' || role === 'whole-fraction');
@@ -827,9 +844,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                         if (isGlobalMove && (crossRight || crossLeft)) {
                             eng.dragSrc.side = currentSide; eng.executeMoveSide();
                         } else {
-                            // หา element ที่อยู่ข้างใต้จุดที่ยกนิ้ว (ลบโกสต์ไปแล้ว ทำให้หาเจอง่ายขึ้น)
                             let elemBelow = document.elementFromPoint(endX, endY); 
-                            
                             if (role === 'distribute-negative') {
                                 let cItem = eng.dragSrc.el.closest('.term-container'); let nItem = cItem ? cItem.nextElementSibling : null;
                                 if (nItem && (nItem === elemBelow || nItem.contains(elemBelow))) { eng.distributeNegative(eng.dragSrc.term, eng.dragSrc.list, eng.dragSrc.idx); }
@@ -839,14 +854,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                             }
                         }
                     }
-                    
-                    // ใช้ setTimeout หน่วงนิดเดียว เพื่อให้ฟังก์ชันแตะเบิ้ลตรวจสอบ hasMoved ได้ทันก่อนถูกทำลาย
-                    setTimeout(() => {
-                        if (eng.dragSrc && eng.dragSrc.ghost) {
-                            eng.dragSrc.ghost.remove();
-                        }
-                        eng.dragSrc = null;
-                    }, 0);
+                    setTimeout(() => { if (eng.dragSrc && eng.dragSrc.ghost) eng.dragSrc.ghost.remove(); eng.dragSrc = null; }, 0);
                 };
 
                 document.addEventListener('mousemove', onMove, {passive: false}); document.addEventListener('touchmove', onMove, {passive: false});
@@ -871,6 +879,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                 if(term.denominator.type === 'group' && term.denominator.children.length === 1) targetList.push(new eng.TermClass('op', '•'), term.denominator.children[0]);
                 else if (term.denominator.type === 'group') targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('group', null, term.denominator.children));
                 else targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', val));
+                eng.playTone('success');
             } else {
                 let isFactor = false, removeIdx = idx, removeCount = 1, nextTerm = (idx < list.length - 1) ? list[idx+1] : null, prevTerm = (idx > 0) ? list[idx-1] : null;
                 if (nextTerm && nextTerm.value === '•') { isFactor = true; removeCount = 2; } else if (prevTerm && prevTerm.value === '•') { isFactor = true; removeIdx = idx - 1; removeCount = 2; }
@@ -885,12 +894,14 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                     } else {
                         let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue)));
                     }
+                    eng.playTone('success');
                 } else {
                     let movingSign = '+'; if (idx > 0 && list[idx-1].type === 'op') { movingSign = list[idx-1].value; removeIdx = idx - 1; removeCount = 2; }
                     list.splice(removeIdx, removeCount); if(list.length > 0 && list[0].type === 'op' && (list[0].value === '+' || list[0].value === '•')) list.shift();
                     let newSign = movingSign === '+' ? '-' : '+';
                     if (targetList.length > 0) targetList.push(new eng.TermClass('op', newSign)); else if (newSign === '-') targetList.push(new eng.TermClass('op', '-'));
                     targetList.push(term);
+                    eng.playTone('success');
                 }
             }
             eng.commitState();
@@ -911,28 +922,53 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                         let s1 = (min > 0 && list[min-1].value === '-') ? -1 : 1, s2 = op.value === '-' ? -1 : 1;
                         let res = (p1.c * s1) + (p2.c * s2);
                         list.splice(min, 3, new eng.TermClass('term', res + (p1.v || '')));
-                        eng.commitState(); return;
+                        eng.commitState(); eng.playTone('success'); return;
                     }
                 } else if (op && op.value === '•') {
                      let p1 = parseInt(list[min].value), p2 = parseInt(list[max].value);
-                     if(!isNaN(p1) && !isNaN(p2)) { list.splice(min, 3, new eng.TermClass('term', (p1*p2).toString())); eng.commitState(); return; }
+                     if(!isNaN(p1) && !isNaN(p2)) { list.splice(min, 3, new eng.TermClass('term', (p1*p2).toString())); eng.commitState(); eng.playTone('success'); return; }
                 }
             }
         };
 
-        eng.splitFraction = (term, list, idx) => { let nt = []; term.children.forEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.commitState(); };
-        eng.splitTerm = (term, list, idx) => { let m = term.value.match(/^(-?\d+)([a-zA-Z]+)$/); if(m) { list.splice(idx, 1, new eng.TermClass('term', m[1]), new eng.TermClass('op', '•'), new eng.TermClass('term', m[2])); eng.commitState(); }};
-        eng.combineSplitTerm = (term, list, idx) => { if(idx>0 && idx<list.length-1) { list.splice(idx-1, 3, new eng.TermClass('term', list[idx-1].value + list[idx+1].value)); eng.commitState(); } };
-        eng.distributeNegative = (term, list, idx) => { if(idx >= list.length-1) return; let t = list[idx+1]; if(t.type==='group') { list[idx].value='+'; list.splice(idx+1, 1, ...t.children); eng.commitState(); } };
+        eng.splitFraction = (term, list, idx) => { let nt = []; term.children.forEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.commitState(); eng.playTone('pop'); };
+        eng.splitTerm = (term, list, idx) => { let m = term.value.match(/^(-?\d+)([a-zA-Z]+)$/); if(m) { list.splice(idx, 1, new eng.TermClass('term', m[1]), new eng.TermClass('op', '•'), new eng.TermClass('term', m[2])); eng.commitState(); eng.playTone('pop'); }};
+        eng.combineSplitTerm = (term, list, idx) => { if(idx>0 && idx<list.length-1) { list.splice(idx-1, 3, new eng.TermClass('term', list[idx-1].value + list[idx+1].value)); eng.commitState(); eng.playTone('success'); } };
+        eng.distributeNegative = (term, list, idx) => { if(idx >= list.length-1) return; let t = list[idx+1]; if(t.type==='group') { list[idx].value='+'; list.splice(idx+1, 1, ...t.children); eng.commitState(); eng.playTone('pop'); } };
 
         eng.checkWinCondition = () => {
             const isSolved = (list) => list.length === 1 && list[0].type === 'term' && (list[0].value === 'x' || list[0].value === '1x');
-            const isNum = (list) => list.length === 1 && list[0].type === 'term' && !isNaN(list[0].value);
-            if ((isSolved(eng.localGameState.lhs) && isNum(eng.localGameState.rhs)) || (isSolved(eng.localGameState.rhs) && isNum(eng.localGameState.lhs))) {
+            
+            const isNumericValue = (list) => {
+                if (list.length !== 1) return false;
+                let t = list[0];
+                if (t.type === 'term') return !isNaN(parseFloat(t.value)) && !t.value.match(/[a-zA-Z]/);
+                if (t.type === 'fraction') {
+                    if (!t.denominator) return false;
+                    let denIsNum = false;
+                    if (t.denominator.type === 'term' && !isNaN(parseFloat(t.denominator.value))) denIsNum = true;
+                    if (t.denominator.type === 'group' && t.denominator.children.length === 1 && t.denominator.children[0].type === 'term' && !isNaN(parseFloat(t.denominator.children[0].value))) denIsNum = true;
+                    
+                    let numIsNum = false;
+                    if (t.children.every(c => c.type === 'term' && !isNaN(parseFloat(c.value)))) numIsNum = true;
+                    if (t.children.length === 1 && t.children[0].type === 'group') {
+                        numIsNum = t.children[0].children.every(c => c.type === 'term' && !isNaN(parseFloat(c.value)));
+                    }
+                    return denIsNum && numIsNum;
+                }
+                return false;
+            };
+
+            if ((isSolved(eng.localGameState.lhs) && isNumericValue(eng.localGameState.rhs)) || 
+                (isSolved(eng.localGameState.rhs) && isNumericValue(eng.localGameState.lhs))) {
+                
+                eng.playTone('win');
                 confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#4ade80', '#3b82f6', '#fbbf24'] });
                 setGameState('won');
+                
                 if (!isSandbox) {
                     let calcStars = (eng.internalMoveCount <= levelData?.parMoves) ? 5 : (eng.internalMoveCount === levelData?.parMoves+1 ? 4 : (eng.internalMoveCount === levelData?.parMoves+2 ? 3 : (eng.internalMoveCount === levelData?.parMoves+3 ? 2 : 1)));
+                    if (calcStars < 1) calcStars = 1;
                     setStarsEarned(calcStars); saveProgress(mapId, levelId, calcStars);
                 }
             }
@@ -1008,6 +1044,18 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                 </div>
             </div>
 
+            {/* Custom Popup สำหรับแทนที่ alert() */}
+            {popupMessage && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[3000]">
+                    <div className="bg-white p-6 md:p-8 rounded-3xl text-center shadow-2xl max-w-sm w-11/12 transform animate-[popIn_0.3s_ease-out]">
+                        <div className="text-5xl md:text-6xl text-red-500 mb-3 md:mb-4"><i className="fas fa-exclamation-circle"></i></div>
+                        <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-2">ทำไม่ได้ครับ!</h2>
+                        <p className="text-gray-600 mb-5 md:mb-6 text-sm md:text-lg">{popupMessage}</p>
+                        <button onClick={() => setPopupMessage(null)} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 md:py-3 px-6 md:px-8 rounded-full transition-transform active:scale-95 text-sm md:text-base">เข้าใจแล้ว</button>
+                    </div>
+                </div>
+            )}
+
             {/* Win Overlay: Custom for Sandbox vs Campaign */}
             {gameState === 'won' && (
                 <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-[100]">
@@ -1017,11 +1065,11 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                         
                         {!isSandbox && (
                             <div className="flex gap-2 justify-center mb-6 md:mb-8">
-                                {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-4xl md:text-5xl ${star <= starsEarned ? 'text-yellow-400 drop-shadow-sm' : 'text-gray-200'}`}></i>)}
+                                {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-4xl md:text-5xl ${star <= starsEarned ? 'text-yellow-400 drop-shadow-sm animate-bounce' : 'text-gray-200'}`} style={{animationDelay: `${star * 100}ms`}}></i>)}
                             </div>
                         )}
                         
-                        <div className="flex gap-3 justify-center">
+                        <div className="flex flex-wrap gap-2 md:gap-3 justify-center">
                             {isSandbox ? (
                                 <button onClick={() => setGameState('playing')} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 md:py-3 px-6 md:px-10 rounded-full text-sm md:text-lg transition-colors shadow-sm">
                                     ปิดหน้าต่างนี้
@@ -1029,27 +1077,11 @@ function GameEngine({ view, setView, levelData, mapId, levelId, saveProgress }) 
                             ) : (
                                 <>
                                     <button onClick={() => setView('levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 md:py-3 px-4 md:px-6 rounded-full text-sm md:text-lg transition-colors">กลับเมนู</button>
+                                    <button onClick={() => { setGameState('playing'); initEngine(levelData.lhsHtml, levelData.rhsHtml); }} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 md:py-3 px-4 md:px-6 rounded-full text-sm md:text-lg transition-colors shadow-sm">เริ่มใหม่</button>
                                     {levelId < 10 && <button onClick={() => { setView('levelSelect'); setTimeout(()=>setView('play'), 100); }} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 md:py-3 px-4 md:px-6 rounded-full text-sm md:text-lg transition-colors shadow-sm">ด่านต่อไป</button>}
                                 </>
                             )}
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Custom Popup Overlay */}
-            {popupMessage && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center z-[300] p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-[2rem] p-6 md:p-8 max-w-sm w-full shadow-2xl text-center transform scale-100 animate-in zoom-in-95 duration-200 border-2 border-red-100">
-                        <div className="text-5xl text-red-500 mb-4 drop-shadow-sm"><i className="fas fa-exclamation-circle"></i></div>
-                        <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2">ทำไม่ได้ครับ!</h3>
-                        <p className="text-base md:text-lg text-gray-600 mb-6">{popupMessage}</p>
-                        <button 
-                            onClick={() => setPopupMessage(null)} 
-                            className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-10 rounded-full text-lg transition-transform active:scale-95 shadow-md"
-                        >
-                            ตกลง
-                        </button>
                     </div>
                 </div>
             )}
