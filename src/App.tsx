@@ -324,11 +324,8 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
     );
 }
 
-/* ==========================================
-   จบส่วนที่ 1 (รอคำสั่งส่งส่วนที่ 2)
-   ========================================== */
 // ==========================================
-// VISUAL EDITOR (For Admin & Sandbox)
+// VISUAL EDITOR (Fixed CSS & Game-Style UI)
 // ==========================================
 function VisualEditor({ id, label, value, onChange }) {
     const editorRef = useRef(null);
@@ -377,27 +374,116 @@ function VisualEditor({ id, label, value, onChange }) {
     const clearEditor = (e) => { e.preventDefault(); if(editorRef.current) { editorRef.current.innerHTML = ''; updateReactState(); } };
 
     return (
-        <div className="flex flex-col gap-2 w-full">
-            <div className="flex justify-center gap-1.5 md:gap-2 flex-wrap bg-white p-2 rounded-2xl border-2 border-gray-200 shadow-sm">
-                <button onMouseDown={insertFraction} onTouchStart={insertFraction} className="bg-blue-50 border-2 border-blue-200 text-blue-700 hover:bg-blue-100 rounded-xl px-2 py-1.5 md:px-3 md:py-2 font-bold text-xs md:text-sm active:translate-y-1 transition-all flex items-center whitespace-nowrap"><i className="fas fa-columns rotate-90 mr-1.5"></i>เศษส่วน</button>
-                <button onMouseDown={e=>insertText(e,'•')} onTouchStart={e=>insertText(e,'•')} className="bg-purple-50 border-2 border-purple-200 text-purple-700 hover:bg-purple-100 rounded-xl px-2 py-1.5 md:px-3 md:py-2 font-bold text-xs md:text-sm active:translate-y-1 transition-all flex items-center whitespace-nowrap"><i className="fas fa-circle text-[8px] mr-1.5"></i>คูณ(•)</button>
-                <button onMouseDown={e=>insertText(e,'x')} onTouchStart={e=>insertText(e,'x')} className="bg-green-50 border-2 border-green-200 text-green-700 hover:bg-green-100 rounded-xl px-2 py-1.5 md:px-3 md:py-2 font-black text-xs md:text-sm active:translate-y-1 transition-all whitespace-nowrap">ตัวแปร x</button>
-                <button onMouseDown={e=>insertText(e,'+')} onTouchStart={e=>insertText(e,'+')} className="bg-gray-100 border-2 border-gray-300 text-gray-700 hover:bg-gray-200 rounded-xl px-3 py-1.5 md:px-4 md:py-2 font-black text-xs md:text-sm active:translate-y-1 transition-all">+</button>
-                <button onMouseDown={e=>insertText(e,'-')} onTouchStart={e=>insertText(e,'-')} className="bg-gray-100 border-2 border-gray-300 text-gray-700 hover:bg-gray-200 rounded-xl px-3 py-1.5 md:px-4 md:py-2 font-black text-xs md:text-sm active:translate-y-1 transition-all">-</button>
-                <button onMouseDown={clearEditor} onTouchStart={clearEditor} className="bg-red-50 border-2 border-red-200 text-red-600 hover:bg-red-100 rounded-xl px-2 py-1.5 md:px-3 md:py-2 font-bold text-xs md:text-sm active:translate-y-1 transition-all flex items-center whitespace-nowrap"><i className="fas fa-trash-alt mr-1.5"></i>ล้าง</button>
+        <div className="flex flex-col gap-3 w-full">
+            {/* ฝัง CSS เฉพาะสำหรับกล่องพิมพ์โจทย์ เพื่อแก้ปัญหาเศษส่วนล่องหน */}
+            <style>{`
+                .visual-editor-content .editor-fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 6px; background: #e0f2fe; border-radius: 8px; padding: 4px; border: 2px dashed #93c5fd; user-select: none; }
+                .visual-editor-content .frac-num, .visual-editor-content .frac-den { min-width: 30px; min-height: 30px; text-align: center; outline: none; padding: 2px 6px; background: white; border-radius: 6px; border: 2px solid #cbd5e1; font-weight: bold; color: #1e3a8a; transition: all 0.2s;}
+                .visual-editor-content .frac-num:focus, .visual-editor-content .frac-den:focus { border-color: #3b82f6; background: #eff6ff; }
+                .visual-editor-content .frac-line { width: 100%; height: 4px; background-color: #3b82f6; margin: 4px 0; border-radius: 2px; }
+            `}</style>
+            
+            <div className="flex justify-center gap-2 flex-wrap bg-gray-100/80 p-3 rounded-2xl border-2 border-gray-200 shadow-inner">
+                <button onMouseDown={insertFraction} onTouchStart={insertFraction} className="bg-blue-500 text-white border-b-4 border-blue-700 hover:bg-blue-400 hover:border-blue-600 rounded-xl px-3 py-2 font-bold text-sm active:translate-y-1 active:border-b-0 transition-all flex items-center shadow-md"><i className="fas fa-columns rotate-90 mr-2"></i>เศษส่วน</button>
+                <button onMouseDown={e=>insertText(e,'•')} onTouchStart={e=>insertText(e,'•')} className="bg-purple-500 text-white border-b-4 border-purple-700 hover:bg-purple-400 hover:border-purple-600 rounded-xl px-3 py-2 font-bold text-sm active:translate-y-1 active:border-b-0 transition-all flex items-center shadow-md"><i className="fas fa-circle text-[8px] mr-2"></i>คูณ(•)</button>
+                <button onMouseDown={e=>insertText(e,'x')} onTouchStart={e=>insertText(e,'x')} className="bg-green-500 text-white border-b-4 border-green-700 hover:bg-green-400 hover:border-green-600 rounded-xl px-4 py-2 font-black text-sm active:translate-y-1 active:border-b-0 transition-all shadow-md">ตัวแปร x</button>
+                <button onMouseDown={e=>insertText(e,'+')} onTouchStart={e=>insertText(e,'+')} className="bg-white text-gray-700 border-b-4 border-gray-300 hover:bg-gray-50 rounded-xl px-4 py-2 font-black text-sm active:translate-y-1 active:border-b-0 transition-all shadow-md">+</button>
+                <button onMouseDown={e=>insertText(e,'-')} onTouchStart={e=>insertText(e,'-')} className="bg-white text-gray-700 border-b-4 border-gray-300 hover:bg-gray-50 rounded-xl px-4 py-2 font-black text-sm active:translate-y-1 active:border-b-0 transition-all shadow-md">-</button>
+                <button onMouseDown={clearEditor} onTouchStart={clearEditor} className="bg-red-500 text-white border-b-4 border-red-700 hover:bg-red-400 hover:border-red-600 rounded-xl px-3 py-2 font-bold text-sm active:translate-y-1 active:border-b-0 transition-all flex items-center shadow-md ml-auto"><i className="fas fa-trash-alt mr-2"></i>ล้าง</button>
             </div>
             
-            <div className="w-full relative">
-                <label className="absolute -top-3 left-4 bg-[#a8edea] px-2 text-gray-600 font-black text-xs md:text-sm z-10">{label}</label>
+            <div className="w-full relative mt-2">
+                <label className="absolute -top-3 left-6 bg-white px-3 text-blue-600 font-black text-sm uppercase tracking-wider rounded-full shadow-sm border border-blue-100 z-10">{label}</label>
                 <div 
                     id={id}
                     ref={editorRef}
-                    className="bg-white border-4 border-white/80 rounded-2xl p-4 flex items-center min-h-[70px] font-['Fredoka'] text-2xl md:text-3xl color-gray-800 overflow-x-auto whitespace-nowrap cursor-text outline-none focus:border-blue-400 transition-colors w-full shadow-inner"
+                    className="visual-editor-content bg-white border-4 border-blue-200 rounded-[1.5rem] p-5 pt-6 flex items-center min-h-[90px] font-['Fredoka'] text-3xl color-gray-800 overflow-x-auto whitespace-nowrap cursor-text outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all w-full shadow-inner"
                     contentEditable="true"
                     onInput={updateReactState}
                     onBlur={updateReactState}
                     suppressContentEditableWarning={true}
                 ></div>
+            </div>
+        </div>
+    );
+}
+
+// ==========================================
+// ADMIN PANEL (Game UI Design)
+// ==========================================
+function AdminPanel({ setView, allLevels }) {
+    const [mapId, setMapId] = useState(1);
+    const [levelId, setLevelId] = useState(1);
+    const [lhsHtml, setLhsHtml] = useState('');
+    const [rhsHtml, setRhsHtml] = useState('');
+    const [parMoves, setParMoves] = useState(3);
+    const [message, setMessage] = useState('');
+
+    useEffect(() => {
+        const levelKey = `map${mapId}_level${levelId}`;
+        const data = allLevels[levelKey];
+        if (data) {
+            setLhsHtml(data.lhsHtml || ''); setRhsHtml(data.rhsHtml || ''); setParMoves(data.parMoves || 3);
+        } else {
+            setLhsHtml(''); setRhsHtml(''); setParMoves(3);
+        }
+        setMessage('');
+    }, [mapId, levelId, allLevels]);
+
+    const handleSave = async () => {
+        if (!lhsHtml || !rhsHtml) { setMessage('กรุณาสร้างสมการให้ครบครับ'); return; }
+        const levelKey = `map${mapId}_level${levelId}`;
+        await set(ref(db, `levels/${levelKey}`), { mapId, levelId, lhsHtml, rhsHtml, parMoves: parseInt(parMoves) });
+        setMessage(`บันทึก Map ${mapId} เลเวล ${levelId} เรียบร้อย!`);
+        setTimeout(() => setMessage(''), 3000);
+    };
+
+    return (
+        <div className="p-4 md:p-8 h-screen overflow-y-auto relative bg-gradient-to-br from-blue-50 to-indigo-100">
+            <button onClick={() => setView('menu')} className="absolute top-4 left-4 bg-white text-gray-700 px-5 py-2.5 rounded-full font-black shadow-[0_4px_0_#d1d5db] active:translate-y-[4px] active:shadow-none transition-all border-2 border-gray-200 z-10 hover:bg-gray-50"><i className="fas fa-chevron-left mr-2"></i> กลับเมนู</button>
+            
+            <div className="bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-[2.5rem] shadow-[0_15px_40px_rgba(0,0,0,0.1)] border-4 border-white w-full max-w-5xl mx-auto mt-14 md:mt-4">
+                
+                <div className="text-center mb-8">
+                    <h1 className="text-3xl md:text-5xl font-black text-white inline-block bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-3 rounded-full shadow-[0_6px_0_#1e3a8a] border-4 border-white transform -rotate-1 tracking-wide"><i className="fas fa-tools text-yellow-300 mr-3"></i>จัดการด่าน (Admin)</h1>
+                </div>
+                
+                <div className="flex flex-col md:flex-row gap-4 mb-8 bg-blue-50/50 p-6 rounded-[2rem] border-2 border-blue-100 shadow-inner">
+                    <div className="flex-1">
+                        <label className="block text-blue-800 font-black text-sm mb-2 uppercase tracking-wide px-2"><i className="fas fa-map text-blue-500 mr-2"></i>Map</label>
+                        <select value={mapId} onChange={e => setMapId(parseInt(e.target.value))} className="w-full p-3 rounded-xl border-2 border-blue-200 text-lg font-bold bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none shadow-sm cursor-pointer transition-all">
+                            {Array.from({length: 10}, (_, i) => i + 1).map(n => <option key={n} value={n}>Map {n}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-blue-800 font-black text-sm mb-2 uppercase tracking-wide px-2"><i className="fas fa-layer-group text-blue-500 mr-2"></i>Level</label>
+                        <select value={levelId} onChange={e => setLevelId(parseInt(e.target.value))} className="w-full p-3 rounded-xl border-2 border-blue-200 text-lg font-bold bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none shadow-sm cursor-pointer transition-all">
+                            {Array.from({length: 10}, (_, i) => i + 1).map(n => <option key={n} value={n}>Level {n}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-blue-800 font-black text-sm mb-2 uppercase tracking-wide px-2"><i className="fas fa-crosshairs text-blue-500 mr-2"></i>เป้าหมาย (ครั้ง)</label>
+                        <input type="number" value={parMoves} onChange={e => setParMoves(e.target.value)} min="1" className="w-full p-3 rounded-xl border-2 border-blue-200 text-xl font-black bg-white text-center text-blue-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none shadow-sm transition-all" />
+                    </div>
+                </div>
+
+                <div className="flex flex-col xl:flex-row gap-6 items-stretch w-full mb-10">
+                    <div className="w-full xl:w-[45%] flex-1"><VisualEditor id="adminLhs" label="สมการฝั่งซ้าย (LHS)" value={lhsHtml} onChange={setLhsHtml} /></div>
+                    <div className="flex items-center justify-center py-4 xl:py-0">
+                        <div className="text-5xl font-black text-white bg-gradient-to-br from-red-400 to-pink-500 w-16 h-16 rounded-full flex items-center justify-center shadow-[0_4px_0_#be123c] border-4 border-white flex-shrink-0 z-10 transform hover:scale-110 transition-transform">=</div>
+                    </div>
+                    <div className="w-full xl:w-[45%] flex-1"><VisualEditor id="adminRhs" label="สมการฝั่งขวา (RHS)" value={rhsHtml} onChange={setRhsHtml} /></div>
+                </div>
+
+                {message && (
+                    <div className={`p-4 rounded-2xl mb-6 font-black text-center text-lg border-2 shadow-sm animate-bounce ${message.includes('เรียบร้อย') ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300'}`}>
+                        {message}
+                    </div>
+                )}
+
+                <button onClick={handleSave} className="w-full bg-gradient-to-b from-green-400 to-green-600 text-white font-black py-5 rounded-[1.5rem] text-2xl shadow-[0_8px_0_#166534] active:translate-y-[8px] active:shadow-none transition-all uppercase tracking-wider border-2 border-green-300 hover:brightness-110">
+                    <i className="fas fa-save mr-3"></i> บันทึกข้อมูลด่าน
+                </button>
             </div>
         </div>
     );
