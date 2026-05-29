@@ -703,8 +703,19 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             }
         };
 
-        eng.simplifyList = (list) => {
+eng.simplifyList = (list) => {
             while (list.length > 0 && list[0].type === 'op' && list[0].value === '+') list.shift();
+
+            // ดักจับกรณีเครื่องหมายลบโดดๆ อยู่หน้าสุด (แก้ปัญหา 14 = -x)
+            if (list.length >= 2 && list[0].type === 'op' && list[0].value === '-' && list[1].type === 'term') {
+                if (!list[1].value.startsWith('-')) {
+                    list[1].value = '-' + list[1].value;
+                } else {
+                    list[1].value = list[1].value.substring(1);
+                }
+                list.shift(); // ลบเครื่องหมายลบที่อยู่แยกออกไป
+            }
+
             for (let i = 0; i < list.length; i++) {
                 let term = list[i];
                 if (term.type === 'group') eng.simplifyList(term.children);
@@ -730,12 +741,21 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
 
         const makeDoubleTap = (el, action) => {
             let tapCount = 0; let tapTimer = null;
-            el.ondblclick = (e) => { e.stopPropagation(); action(); };
+            el.ondblclick = (e) => { 
+                e.stopPropagation(); 
+                eng.internalMoveCount -= 1; setMoves(eng.internalMoveCount); // หักลบสเตปส่วนเกิน
+                action(); 
+            };
             el.ontouchend = (e) => {
                 if (eng.dragSrc && eng.dragSrc.hasMoved) { tapCount = 0; return; }
                 tapCount++;
                 if (tapCount === 1) { tapTimer = setTimeout(() => { tapCount = 0; }, 300); } 
-                else if (tapCount === 2) { clearTimeout(tapTimer); tapCount = 0; if(e.cancelable) e.preventDefault(); action(); }
+                else if (tapCount === 2) { 
+                    clearTimeout(tapTimer); tapCount = 0; 
+                    if(e.cancelable) e.preventDefault(); 
+                    eng.internalMoveCount -= 1; setMoves(eng.internalMoveCount); // หักลบสเตปส่วนเกิน
+                    action(); 
+                }
             };
         };
 
@@ -996,6 +1016,11 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     else if (gc.length === 2 && gc[0].value === '-' && gc[1].type === 'term') val = "-" + gc[1].value;
                 }
                 
+                // ล้าง 0 ออกหากมีการย้ายตัวอื่นเข้ามา
+                if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') {
+                    targetList.length = 0;
+                }
+
                 if(term.denominator.type === 'group' && term.denominator.children.length === 1) targetList.push(new eng.TermClass('op', '•'), term.denominator.children[0]);
                 else if (term.denominator.type === 'group') targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('group', null, term.denominator.children));
                 else targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', val));
@@ -1008,6 +1033,13 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     let moveValue = term.value;
                     if(idx === 1 && list[0].type === 'op' && (list[0].value === '-' || list[0].value === '+')) { if(list[0].value === '-') moveValue = '-' + moveValue; removeIdx = 0; removeCount += 1; }
                     list.splice(removeIdx, removeCount);
+                    if (list.length === 0) list.push(new eng.TermClass('term', '1'));
+                    
+                    // ล้าง 0 ออกหากมีการย้ายตัวอื่นเข้ามา
+                    if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') {
+                        targetList.length = 0;
+                    }
+
                     if (sourceContext === 'denominator') {
                         if (targetList.length > 1) { let inner = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('group', null, inner)); }
                         targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', moveValue));
@@ -1018,7 +1050,17 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 } else {
                     let movingSign = '+'; if (idx > 0 && list[idx-1].type === 'op') { movingSign = list[idx-1].value; removeIdx = idx - 1; removeCount = 2; }
                     list.splice(removeIdx, removeCount); if(list.length > 0 && list[0].type === 'op' && (list[0].value === '+' || list[0].value === '•')) list.shift();
+                    
+                    // ใส่ 0 เข้าไปแทนที่หากฝั่งเดิมว่างเปล่า (ตอบโจทย์ที่ขอมา)
+                    if (list.length === 0) list.push(new eng.TermClass('term', '0'));
+                    
                     let newSign = movingSign === '+' ? '-' : '+';
+                    
+                    // ล้าง 0 ฝั่งปลายทางก่อนที่จะใส่ตัวใหม่เข้าไปรวม
+                    if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') {
+                        targetList.length = 0;
+                    }
+
                     if (targetList.length > 0) targetList.push(new eng.TermClass('op', newSign)); else if (newSign === '-') targetList.push(new eng.TermClass('op', '-'));
                     targetList.push(term);
                     eng.playTone('success');
@@ -1052,7 +1094,19 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         };
 
         eng.splitFraction = (term, list, idx) => { let nt = []; term.children.forEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.commitState(); eng.playTone('pop'); };
-        eng.splitTerm = (term, list, idx) => { let m = term.value.match(/^(-?\d+)([a-zA-Z]+)$/); if(m) { list.splice(idx, 1, new eng.TermClass('term', m[1]), new eng.TermClass('op', '•'), new eng.TermClass('term', m[2])); eng.commitState(); eng.playTone('pop'); }};
+        
+        // แยกตัวแปรติดลบ (-x จะแตกออกเป็น -1 • x ได้อย่างถูกต้อง)
+        eng.splitTerm = (term, list, idx) => { 
+            let m = term.value.match(/^(-?\d*)([a-zA-Z]+)$/); 
+            if(m) { 
+                let coef = m[1];
+                if (coef === '-') coef = '-1';
+                else if (coef === '' || coef === '+') coef = '1';
+                list.splice(idx, 1, new eng.TermClass('term', coef), new eng.TermClass('op', '•'), new eng.TermClass('term', m[2])); 
+                eng.commitState(); eng.playTone('pop'); 
+            }
+        };
+        
         eng.combineSplitTerm = (term, list, idx) => { if(idx>0 && idx<list.length-1) { list.splice(idx-1, 3, new eng.TermClass('term', list[idx-1].value + list[idx+1].value)); eng.commitState(); eng.playTone('success'); } };
         eng.distributeNegative = (term, list, idx) => { if(idx >= list.length-1) return; let t = list[idx+1]; if(t.type==='group') { list[idx].value='+'; list.splice(idx+1, 1, ...t.children); eng.commitState(); eng.playTone('pop'); } };
 
