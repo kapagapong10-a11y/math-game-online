@@ -510,6 +510,9 @@ function Leaderboard({ setView, leaderboard }) {
 // ==========================================
 // THE CORE GAME ENGINE WRAPPER (Perfected)
 // ==========================================
+// ==========================================
+// THE CORE GAME ENGINE WRAPPER (Perfected & Restored Division)
+// ==========================================
 function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel, setLevelData, allLevels, saveProgress }) {
     const gameContainerRef = useRef(null);
     const [moves, setMoves] = useState(0);
@@ -517,7 +520,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
     const [starsEarned, setStarsEarned] = useState(0);
     const [showTutorial, setShowTutorial] = useState(false);
     
+    // Popup & Final Answer State
     const [popupMessage, setPopupMessage] = useState(null);
+    const [finalAnswer, setFinalAnswer] = useState("");
     
     const isSandbox = view === 'sandbox';
     const [sbLhsHtml, setSbLhsHtml] = useState('<span class="editor-node editor-fraction" contenteditable="false"><span class="frac-num" contenteditable="true">x</span><div class="frac-line"></div><span class="frac-den" contenteditable="true">2</span></span>');
@@ -563,8 +568,12 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         }
         
         @keyframes slideUpFade {
-            0% { transform: translate(-50%, 20px); opacity: 0; }
-            100% { transform: translate(-50%, 0); opacity: 1; }
+            0% { transform: translateY(20px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes zoomInCenter {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
         }
     `;
 
@@ -657,6 +666,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
 
         eng.gcd = (a, b) => b === 0 ? a : eng.gcd(b, a % b);
         eng.lcm = (a, b) => { if (a === 0 || b === 0) return 0; return Math.abs((a * b) / eng.gcd(a, b)); }
+        eng.shakeElement = (el) => { el.style.transform = 'translateX(5px)'; setTimeout(()=>el.style.transform='none', 200); }
 
         eng.commitState = () => {
             for(let k=0; k<2; k++) { eng.simplifyList(eng.localGameState.lhs); eng.simplifyList(eng.localGameState.rhs); eng.unwrapGroups(eng.localGameState.lhs); eng.unwrapGroups(eng.localGameState.rhs); }
@@ -777,6 +787,108 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             return el;
         };
 
+        const findFractionTerm = (list, id) => {
+            for (let t of list) {
+                if (t.id === id && t.type === 'fraction') return t;
+                if (t.children) { let found = findFractionTerm(t.children, id); if (found) return found; }
+                if (t.denominator && t.denominator.type === 'group') { let found = findFractionTerm(t.denominator.children, id); if (found) return found; }
+            }
+            return null;
+        };
+
+        eng.handleFractionDivision = (targetElement) => {
+            let targetCard = targetElement.closest('.term-card'); if (!targetCard) return;
+            let parentFracId = targetCard.dataset.parentFracId;
+            let srcTerm = eng.dragSrc.term;
+
+            let numValStr = targetCard.innerText;
+            let denValStr;
+            if (eng.dragSrc.role === 'denominator') {
+                if (srcTerm.denominator.type === 'term') {
+                    denValStr = srcTerm.denominator.value;
+                } else if (srcTerm.denominator.type === 'group') {
+                    let gc = srcTerm.denominator.children;
+                    if (gc.length === 1 && gc[0].type === 'term') denValStr = gc[0].value;
+                    else if (gc.length === 2 && gc[0].value === '-' && gc[1].type === 'term') denValStr = "-" + gc[1].value;
+                    else return;
+                } else return;
+            } else { denValStr = srcTerm.value; }
+
+            let nVal = parseInt(numValStr), dVal = parseInt(denValStr);
+            if (isNaN(nVal) || isNaN(dVal)) return; if (dVal === 0) return;
+            let common = eng.gcd(Math.abs(nVal), Math.abs(dVal));
+
+            let mainList = (targetCard.dataset.side === 'lhs') ? eng.localGameState.lhs : eng.localGameState.rhs;
+            let fractionTerm = findFractionTerm(mainList, parentFracId);
+            if (!fractionTerm) return;
+            let numeratorList = fractionTerm.children;
+            let isTargetDenominator = targetCard.closest('.denominator-container') !== null;
+            let isTargetNumerator = targetCard.closest('.numerator-container') !== null;
+            
+            if (isTargetDenominator) {
+                if (common === 1 && Math.abs(dVal) !== 1) { eng.showPopup("ตัดทอนไม่ได้ (GCD=1)"); eng.shakeElement(targetElement); return; }
+                let newDenomVal = Math.abs(nVal) / common;
+                if (fractionTerm.denominator.type === 'term') fractionTerm.denominator.value = newDenomVal.toString();
+                else if (fractionTerm.denominator.children) fractionTerm.denominator.children[0].value = newDenomVal.toString();
+                
+                let newSourceVal = Math.abs(dVal) / common;
+                if (dVal < 0) newSourceVal = -newSourceVal;
+                if (eng.dragSrc.role === 'inner-term' || eng.dragSrc.role === 'term') eng.dragSrc.term.value = newSourceVal.toString();
+            }
+            else if (isTargetNumerator) {
+                let isPolynomial = numeratorList.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'));
+                if (isPolynomial) {
+                    let termsToDivide = [];
+                    for(let t of numeratorList) {
+                        if (t.type === 'term') {
+                            let val = parseInt(t.value);
+                            if (t.value.match(/[a-zA-Z]/)) {
+                                let m = t.value.match(/^(-?\d*)([a-zA-Z]+)$/);
+                                val = m[1] === '' ? 1 : (m[1] === '-' ? -1 : parseInt(m[1]));
+                            }
+                            termsToDivide.push(val);
+                        }
+                    }
+                    let allDivisible = termsToDivide.every(coef => coef % dVal === 0);
+                    if (!allDivisible) { eng.showPopup("ต้องหารลงตัวทุกพจน์พร้อมกันครับ"); eng.shakeElement(targetElement); return; }
+
+                    for(let t of numeratorList) {
+                        if (t.type === 'term') {
+                            let m = t.value.match(/^(-?\d*)([a-zA-Z]*)$/);
+                            if (m) {
+                                let coef = m[1] === '' ? 1 : (m[1] === '-' ? -1 : parseInt(m[1]));
+                                let variable = m[2];
+                                let newCoef = coef / dVal;
+                                t.value = newCoef + variable;
+                            }
+                        }
+                    }
+                    if (eng.dragSrc.role === 'inner-term' || eng.dragSrc.role === 'term') eng.dragSrc.term.value = "1";
+                } else {
+                    if (common === 1 && Math.abs(dVal) !== 1) { eng.showPopup("ตัดทอนไม่ได้ (GCD=1)"); eng.shakeElement(targetElement); return; }
+                    let resultSign = (nVal * dVal >= 0) ? 1 : -1;
+                    let newNumValCalc = (Math.abs(nVal) / common) * resultSign;
+                    let newSourceVal = Math.abs(dVal) / common;
+                    
+                    let targetNumTerm = numeratorList[parseInt(targetCard.dataset.childIdx)];
+                    let numVarMatch = targetNumTerm.value.match(/[a-zA-Z]+/);
+                    let numVar = numVarMatch ? numVarMatch[0] : "";
+                    targetNumTerm.value = newNumValCalc + numVar;
+                    
+                    if (eng.dragSrc.role === 'inner-term' || eng.dragSrc.role === 'term') eng.dragSrc.term.value = newSourceVal.toString();
+                }
+            }
+            
+            if (eng.dragSrc.role === 'denominator') {
+                if (isTargetNumerator) {
+                    let newSrcDenomVal = Math.abs(dVal) / common;
+                    eng.dragSrc.term.denominator = new eng.TermClass('term', newSrcDenomVal.toString());
+                }
+            }
+            eng.commitState();
+            eng.playTone('success');
+        };
+
         eng.setupDrag = (el, term, side, list, idx, role, parentFracTerm = null, mainList = null, mainIdx = null, sourceContext = null) => {
             const handleStart = (clientX, clientY, eOriginal) => {
                 eOriginal.stopPropagation(); 
@@ -822,12 +934,27 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                             eng.dragSrc.side = currentSide; eng.executeMoveSide();
                         } else {
                             let elemBelow = document.elementFromPoint(endX, endY); 
-                            if (role === 'distribute-negative') {
-                                let cItem = eng.dragSrc.el.closest('.term-container'); let nItem = cItem ? cItem.nextElementSibling : null;
-                                if (nItem && (nItem === elemBelow || nItem.contains(elemBelow))) { eng.distributeNegative(eng.dragSrc.term, eng.dragSrc.list, eng.dragSrc.idx); }
+                            
+                            // จัดการตรวจสอบการลากเข้าเศษส่วน (Fraction Division Integration)
+                            let numTarget = elemBelow ? elemBelow.closest('.numerator-container, .numerator-term') : null;
+                            if (numTarget && (role === 'denominator' || (role === 'inner-term' && sourceContext === 'numerator'))) {
+                                if (role === 'inner-term') { 
+                                    let targetEl = elemBelow.closest('.term-card, .numerator-term, .denominator-term, .term-container'); 
+                                    if(targetEl && targetEl !== eng.dragSrc.el) eng.tryCombine(targetEl);
+                                } else eng.handleFractionDivision(elemBelow);
                             } else {
-                                let targetWrapper = elemBelow ? elemBelow.closest('.term-container') : null;
-                                if (targetWrapper && targetWrapper !== eng.dragSrc.el.closest('.term-container')) eng.tryCombine(targetWrapper, elemBelow); 
+                                let denTarget = elemBelow ? elemBelow.closest('.denominator-container, .denominator-term') : null;
+                                if (denTarget) {
+                                    if (role === 'term' || role === 'inner-term') eng.handleFractionDivision(elemBelow);
+                                } else {
+                                    if (role === 'distribute-negative') {
+                                        let cItem = eng.dragSrc.el.closest('.term-container'); let nItem = cItem ? cItem.nextElementSibling : null;
+                                        if (nItem && (nItem === elemBelow || nItem.contains(elemBelow))) { eng.distributeNegative(eng.dragSrc.term, eng.dragSrc.list, eng.dragSrc.idx); }
+                                    } else {
+                                        let targetEl = elemBelow ? elemBelow.closest('.term-card, .numerator-term, .denominator-term, .term-container') : null;
+                                        if(targetEl && targetEl !== eng.dragSrc.el) eng.tryCombine(targetEl); 
+                                    }
+                                }
                             }
                         }
                     }
@@ -851,7 +978,15 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 if (list.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'))) return eng.showPopup("ต้องรวมเศษส่วนฝั่งนี้ให้เป็นก้อนเดียวกันก่อน จึงจะย้ายตัวหารได้ครับ");
                 list.splice(idx, 1, new eng.TermClass('group', null, JSON.parse(JSON.stringify(term.children))));
                 if (targetList.length > 1) { let inner = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('group', null, inner)); }
-                let val = term.denominator.value || "1";
+                
+                let val = "1";
+                if (term.denominator.type === 'term') val = term.denominator.value;
+                else if (term.denominator.type === 'group') {
+                    let gc = term.denominator.children;
+                    if (gc.length === 1 && gc[0].type === 'term') val = gc[0].value;
+                    else if (gc.length === 2 && gc[0].value === '-' && gc[1].type === 'term') val = "-" + gc[1].value;
+                }
+                
                 if(term.denominator.type === 'group' && term.denominator.children.length === 1) targetList.push(new eng.TermClass('op', '•'), term.denominator.children[0]);
                 else if (term.denominator.type === 'group') targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('group', null, term.denominator.children));
                 else targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', val));
@@ -915,7 +1050,15 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         eng.checkWinCondition = () => {
             const isSolved = (list) => list.length === 1 && list[0].type === 'term' && (list[0].value === 'x' || list[0].value === '1x');
             
-            // ปรับปรุงการเช็คคำตอบให้ตรวจว่าหารลงตัวหรือยัง และเป็นเศษส่วนอย่างต่ำไหม (แก้ปัญหา 16/-2)
+            const extractNum = (node) => {
+                if (node.type === 'term' && !isNaN(parseFloat(node.value))) return parseInt(node.value);
+                if (node.type === 'group') {
+                    if (node.children.length === 1 && node.children[0].type === 'term') return parseInt(node.children[0].value);
+                    if (node.children.length === 2 && node.children[0].value === '-' && node.children[1].type === 'term') return -parseInt(node.children[1].value);
+                }
+                return null;
+            };
+
             const isNumericValue = (list) => {
                 if (list.length !== 1) return false;
                 let t = list[0];
@@ -923,15 +1066,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 
                 if (t.type === 'fraction') {
                     if (!t.denominator) return false;
-                    
-                    const extractNum = (node) => {
-                        if (node.type === 'term' && !isNaN(parseFloat(node.value))) return parseInt(node.value);
-                        if (node.type === 'group' && node.children.length === 1 && node.children[0].type === 'term') {
-                            return parseInt(node.children[0].value);
-                        }
-                        return null;
-                    };
-
                     let denVal = extractNum(t.denominator);
                     if (denVal === null || denVal === 0) return false;
 
@@ -939,13 +1073,12 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     if (t.children.length === 1) numVal = extractNum(t.children[0]);
                     if (numVal === null) return false;
 
-                    // ถ้าหารลงตัว (เช่น 16 / -2 หรือ 10 / 2) แปลว่ายังไม่เสร็จ ต้องให้เด็กหารให้เสร็จ
+                    // ตรวจสอบว่าหารลงตัวหรือยัง (ถ้ายัง = ต้องทำต่อ)
                     if (numVal % denVal === 0) return false;
                     
-                    // ตรวจสอบว่าตัดทอนเป็นเศษส่วนอย่างต่ำหรือยัง (GCD ต้องเป็น 1)
+                    // ตรวจสอบว่าเป็นเศษส่วนอย่างต่ำหรือยัง
                     let common = eng.gcd(Math.abs(numVal), Math.abs(denVal));
                     if (common > 1) return false;
-
                     return true;
                 }
                 return false;
@@ -953,6 +1086,11 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
 
             if ((isSolved(eng.localGameState.lhs) && isNumericValue(eng.localGameState.rhs)) || 
                 (isSolved(eng.localGameState.rhs) && isNumericValue(eng.localGameState.lhs))) {
+                
+                // เก็บคำตอบสุดท้ายไว้โชว์
+                let lStr = document.getElementById('engine-lhs').innerText.replace(/\s+/g, '');
+                let rStr = document.getElementById('engine-rhs').innerText.replace(/\s+/g, '');
+                setFinalAnswer(`${lStr} = ${rStr}`);
                 
                 eng.playTone('win');
                 confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#4ade80', '#3b82f6', '#fbbf24', '#f87171'] });
@@ -1009,7 +1147,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         <div className="flex flex-col h-screen p-2 md:p-4 bg-[#a8edea]" ref={gameContainerRef}>
             <style>{engineCSS}</style>
             
-            {/* Header / Top Bar แบบเกมมือถือ */}
             <div className="flex justify-between items-center mb-2 md:mb-4 bg-white/90 backdrop-blur-md p-2 md:p-3 rounded-full shadow-[0_4px_0_#d1d5db] border-2 border-white relative z-20">
                 <button onClick={() => setView(isSandbox ? 'menu' : 'levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 md:px-6 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all flex items-center shadow-sm">
                     <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
@@ -1033,7 +1170,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 </div>
             </div>
 
-            {/* Sandbox Input Area */}
             {isSandbox && (
                 <div className="bg-white/95 backdrop-blur-md p-3 md:p-4 rounded-[1.5rem] shadow-md border-4 border-white mb-2 md:mb-4 flex flex-col gap-2 shrink-0 mx-auto max-w-5xl w-full">
                     <div className="flex flex-col md:flex-row gap-2 md:gap-4 items-center w-full justify-center">
@@ -1047,7 +1183,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 </div>
             )}
 
-            {/* Engine Area */}
             <div className="flex-1 flex flex-col relative bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white min-h-[40vh] shadow-inner">
                 <div id="engine-playground" className="bg-white rounded-2xl md:rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full h-full flex-1 overflow-x-auto">
                     <div className="w-[1px] bg-gray-300 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0"></div>
@@ -1064,7 +1199,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 </div>
             </div>
 
-            {/* Custom Popup (ขยับลงมาไม่บังสมการ) */}
             {popupMessage && (
                 <div className="absolute bottom-24 md:bottom-32 left-1/2 transform -translate-x-1/2 z-[3000] animate-[slideUpFade_0.3s_ease-out]">
                     <div className="bg-gray-800/90 backdrop-blur-md p-4 md:p-5 rounded-2xl text-center shadow-2xl max-w-sm w-max border-2 border-gray-700 flex flex-col items-center gap-3">
@@ -1077,29 +1211,36 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 </div>
             )}
 
-            {/* Win Overlay (ปรับให้เป็นแถบเล็กๆ ติดขอบล่าง จะได้ไม่บังสมการ) */}
+            {/* ป๊อปอัปชนะแบบใหม่ ใหญ่เต็มจอและโชว์คำตอบตรงกลาง! */}
             {gameState === 'won' && (
-                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[100] animate-[slideUpFade_0.4s_ease-out] w-full max-w-md px-2">
-                    <div className="bg-white/95 backdrop-blur-xl p-4 md:p-5 rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.2)] border-4 border-green-400 flex flex-col gap-3 items-center">
-                        <div className="flex items-center gap-4">
-                            <h2 className="text-2xl md:text-3xl font-black text-green-500 m-0">ยอดเยี่ยม!</h2>
-                            {!isSandbox && (
-                                <div className="flex gap-1">
-                                    {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-xl md:text-2xl ${star <= starsEarned ? 'text-yellow-400 drop-shadow-md animate-bounce' : 'text-gray-200'}`} style={{animationDelay: `${star * 100}ms`}}></i>)}
-                                </div>
-                            )}
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
+                    <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-8 border-green-400 text-center max-w-2xl w-full">
+                        <h2 className="text-4xl md:text-6xl font-black text-green-500 mb-2 drop-shadow-md">ยอดเยี่ยม!</h2>
+                        <p className="text-gray-500 text-base md:text-xl font-bold mb-6">คุณแก้สมการสำเร็จแล้ว</p>
+                        
+                        {/* โชว์คำตอบสุดท้าย */}
+                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 py-4 px-8 rounded-[2rem] border-2 border-blue-200 mb-8 inline-block shadow-inner">
+                            <span className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 tracking-wider">
+                                {finalAnswer}
+                            </span>
                         </div>
                         
-                        <div className="flex flex-wrap w-full gap-2 justify-center">
+                        {!isSandbox && (
+                            <div className="flex gap-2 justify-center mb-10">
+                                {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-4xl md:text-6xl ${star <= starsEarned ? 'text-yellow-400 drop-shadow-lg animate-bounce' : 'text-gray-200'}`} style={{animationDelay: `${star * 100}ms`}}></i>)}
+                            </div>
+                        )}
+                        
+                        <div className="flex flex-wrap gap-4 justify-center">
                             {isSandbox ? (
-                                <button onClick={() => setGameState('playing')} className="w-full bg-blue-500 text-white font-black py-2 px-6 rounded-full text-sm md:text-base shadow-[0_4px_0_#1d4ed8] active:translate-y-1 transition-all">
-                                    ฝึกโจทย์ใหม่
+                                <button onClick={() => setGameState('playing')} className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-black py-4 px-10 rounded-full text-lg md:text-xl shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none transition-all">
+                                    <i className="fas fa-redo mr-2"></i> ฝึกโจทย์ข้อใหม่
                                 </button>
                             ) : (
                                 <>
-                                    <button onClick={() => setView('levelSelect')} className="bg-gray-100 text-gray-700 font-bold py-2 px-4 rounded-full text-sm md:text-base shadow-[0_4px_0_#d1d5db] active:translate-y-1 transition-all"><i className="fas fa-bars"></i></button>
-                                    <button onClick={handleRestart} className="bg-orange-400 text-white font-bold py-2 px-4 rounded-full text-sm md:text-base shadow-[0_4px_0_#c2410c] active:translate-y-1 transition-all"><i className="fas fa-sync-alt"></i> เริ่มใหม่</button>
-                                    {levelId < 10 && <button onClick={handleNextLevel} className="flex-1 bg-blue-500 text-white font-black py-2 px-4 rounded-full text-sm md:text-base shadow-[0_4px_0_#1d4ed8] active:translate-y-1 transition-all">ด่านต่อไป <i className="fas fa-arrow-right ml-1"></i></button>}
+                                    <button onClick={() => setView('levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 md:py-4 px-6 md:px-8 rounded-full text-base md:text-lg shadow-[0_6px_0_#d1d5db] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-bars"></i> กลับเมนู</button>
+                                    <button onClick={handleRestart} className="bg-orange-400 hover:bg-orange-500 text-white font-bold py-3 md:py-4 px-6 md:px-8 rounded-full text-base md:text-lg shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-sync-alt"></i> เริ่มใหม่</button>
+                                    {levelId < 10 && <button onClick={handleNextLevel} className="flex-1 min-w-[150px] bg-blue-500 hover:bg-blue-600 text-white font-black py-3 md:py-4 px-6 md:px-8 rounded-full text-lg md:text-xl shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none transition-all">ด่านต่อไป <i className="fas fa-arrow-right ml-2"></i></button>}
                                 </>
                             )}
                         </div>
