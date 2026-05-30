@@ -38,11 +38,13 @@ export default function MathGameApp() {
     const [view, setView] = useState('login'); 
     const [isLandscape, setIsLandscape] = useState(true);
     
-    // Game State
     const [selectedMap, setSelectedMap] = useState(1);
     const [selectedLevel, setSelectedLevel] = useState(1);
     const [levelData, setLevelData] = useState(null);
+    
+    // Data States
     const [allLevels, setAllLevels] = useState({});
+    const [allMaps, setAllMaps] = useState({}); // สถานะสำหรับเก็บข้อมูลแผนที่ผจญภัย
     const [userProgress, setUserProgress] = useState({});
     const [leaderboard, setLeaderboard] = useState([]);
 
@@ -63,12 +65,7 @@ export default function MathGameApp() {
                     setUserData(snapshot.val());
                 } else {
                     const role = currentUser.email === 'admin@math.com' ? 'admin' : 'player';
-                    const newUserData = { 
-                        email: currentUser.email, 
-                        totalStars: 0, 
-                        role: role,
-                        displayName: currentUser.email.split('@')[0]
-                    };
+                    const newUserData = { email: currentUser.email, totalStars: 0, role: role, displayName: currentUser.email.split('@')[0] };
                     await set(userRef, newUserData);
                     setUserData(newUserData);
                 }
@@ -83,16 +80,21 @@ export default function MathGameApp() {
 
     useEffect(() => {
         if (!user) return;
+        
         const levelsRef = ref(db, 'levels');
         const unsubLevels = onValue(levelsRef, (snapshot) => {
-            if (snapshot.exists()) setAllLevels(snapshot.val());
-            else setAllLevels({});
+            if (snapshot.exists()) setAllLevels(snapshot.val()); else setAllLevels({});
+        });
+
+        // ดึงข้อมูลการตั้งค่ารูปและพิกัดของ Map
+        const mapsRef = ref(db, 'maps');
+        const unsubMaps = onValue(mapsRef, (snapshot) => {
+            if (snapshot.exists()) setAllMaps(snapshot.val()); else setAllMaps({});
         });
 
         const progressRef = ref(db, `users/${user.uid}/progress`);
         const unsubProgress = onValue(progressRef, (snapshot) => {
-            if (snapshot.exists()) setUserProgress(snapshot.val());
-            else setUserProgress({});
+            if (snapshot.exists()) setUserProgress(snapshot.val()); else setUserProgress({});
         });
 
         const usersRef = ref(db, 'users');
@@ -100,23 +102,18 @@ export default function MathGameApp() {
             let usersList = [];
             if (snapshot.exists()) {
                 const data = snapshot.val();
-                for (let uid in data) {
-                    if (data[uid].totalStars > 0) usersList.push({ id: uid, ...data[uid] });
-                }
+                for (let uid in data) { if (data[uid].totalStars > 0) usersList.push({ id: uid, ...data[uid] }); }
                 usersList.sort((a, b) => b.totalStars - a.totalStars);
             }
             setLeaderboard(usersList);
         });
 
-        // --- เพิ่มส่วนนี้: ดึงข้อมูลผู้เล่นแบบ Real-time (แก้ชาดดาวและชื่อไม่อัปเดต) ---
         const currentUserRef = ref(db, `users/${user.uid}`);
         const unsubCurrentUser = onValue(currentUserRef, (snapshot) => {
-            if (snapshot.exists()) {
-                setUserData(snapshot.val());
-            }
+            if (snapshot.exists()) setUserData(snapshot.val());
         });
 
-        return () => { unsubLevels(); unsubProgress(); unsubLeaderboard(); unsubCurrentUser(); };
+        return () => { unsubLevels(); unsubMaps(); unsubProgress(); unsubLeaderboard(); unsubCurrentUser(); };
     }, [user]);
 
     const handleSignOut = () => signOut(auth);
@@ -130,7 +127,6 @@ export default function MathGameApp() {
             const progressRef = ref(db, `users/${user.uid}/progress/${levelKey}`);
             await set(progressRef, { stars: starsEarned, mapId, levelId });
             
-            // คำนวณรวมดาวทั้งหมดใหม่จากฐานข้อมูล เพื่อความแม่นยำ 100% (แก้ปัญหาดาวไม่ตรง)
             const userProgressRef = ref(db, `users/${user.uid}/progress`);
             const snapshot = await get(userProgressRef);
             let sum = 0;
@@ -155,13 +151,11 @@ export default function MathGameApp() {
 
     return (
         <div className="min-h-screen bg-[#a8edea] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] font-['Kanit'] overflow-hidden relative selection:bg-blue-300">
-            {/* Game-like Top Bar for User Info */}
             {user && view !== 'play' && view !== 'sandbox' && view !== 'profile' && (
                 <div className="absolute top-2 right-2 md:top-4 md:right-4 flex items-center gap-2 md:gap-4 bg-white/90 backdrop-blur-md px-3 py-1.5 md:px-5 md:py-2.5 rounded-full shadow-[0_4px_0_rgba(0,0,0,0.1)] border-2 border-white z-50 transform transition hover:scale-105">
                     <div className="text-sm md:text-xl font-black text-gray-800 flex items-center bg-yellow-100 px-3 py-1 rounded-full shadow-inner">
                         <i className="fas fa-star text-yellow-500 mr-1 md:mr-2 drop-shadow-sm"></i> {userData?.totalStars || 0}
                     </div>
-                    {/* ปุ่มชื่อผู้เล่น กดเพื่อเข้าหน้าตั้งค่าโปรไฟล์ */}
                     <button onClick={() => setView('profile')} className="text-xs md:text-base text-gray-700 hover:text-blue-600 font-bold flex items-center pl-2 md:pl-4 border-l-2 border-gray-200 transition-colors cursor-pointer group">
                         <i className="fas fa-user-astronaut text-blue-500 mr-1 md:mr-2 text-lg"></i> {userData?.displayName} <i className="fas fa-cog ml-2 text-gray-400 group-hover:animate-spin"></i>
                     </button>
@@ -174,22 +168,16 @@ export default function MathGameApp() {
             {view === 'login' && <LoginScreen />}
             {view === 'menu' && <MainMenu setView={setView} isAdmin={userData?.role === 'admin'} />}
             {view === 'mapSelect' && <MapSelect setView={setView} setSelectedMap={setSelectedMap} userProgress={userProgress} />}
-            {view === 'levelSelect' && <LevelSelect setView={setView} mapId={selectedMap} setSelectedLevel={setSelectedLevel} setLevelData={setLevelData} allLevels={allLevels} userProgress={userProgress} />}
-            {view === 'admin' && <AdminPanel setView={setView} allLevels={allLevels} />}
+            {view === 'levelSelect' && <LevelSelect setView={setView} mapId={selectedMap} setSelectedLevel={setSelectedLevel} setLevelData={setLevelData} allLevels={allLevels} allMaps={allMaps} userProgress={userProgress} />}
+            {view === 'admin' && <AdminPanel setView={setView} allLevels={allLevels} allMaps={allMaps} />}
             {view === 'leaderboard' && <Leaderboard setView={setView} leaderboard={leaderboard} />}
             {view === 'profile' && <ProfileSettings setView={setView} user={user} userData={userData} />}
             
             {(view === 'play' || view === 'sandbox') && (
                 <GameEngine 
-                    view={view} 
-                    setView={setView} 
-                    levelData={view === 'play' ? levelData : null} 
-                    mapId={selectedMap}
-                    levelId={selectedLevel}
-                    setSelectedLevel={setSelectedLevel}
-                    setLevelData={setLevelData}
-                    allLevels={allLevels}
-                    saveProgress={saveProgress}
+                    view={view} setView={setView} levelData={view === 'play' ? levelData : null} 
+                    mapId={selectedMap} levelId={selectedLevel} setSelectedLevel={setSelectedLevel} 
+                    setLevelData={setLevelData} allLevels={allLevels} saveProgress={saveProgress}
                 />
             )}
         </div>
@@ -206,8 +194,7 @@ function LoginScreen() {
     const [error, setError] = useState('');
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
+        e.preventDefault(); setError('');
         try {
             if (isLogin) await signInWithEmailAndPassword(auth, email, password);
             else await createUserWithEmailAndPassword(auth, email, password);
@@ -216,7 +203,6 @@ function LoginScreen() {
 
     return (
         <div className="flex h-screen items-center justify-center p-2 bg-gradient-to-br from-blue-400/50 to-purple-500/50">
-            {/* ปรับให้กรอบเล็กลง และซ่อนส่วนที่ล้นด้วย overflow */}
             <div className="bg-white p-4 md:p-8 rounded-[2rem] shadow-[0_8px_0_rgba(0,0,0,0.1)] border-4 border-white max-w-sm w-full text-center relative transform transition-all hover:scale-[1.02] flex flex-col justify-center max-h-[95vh] overflow-y-auto">
                 <div className="text-4xl md:text-5xl mb-2 text-blue-500 drop-shadow-md"><i className="fas fa-gamepad"></i></div>
                 <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-1">สมาร์ทแมท AI</h1>
@@ -227,19 +213,16 @@ function LoginScreen() {
                 <form onSubmit={handleSubmit} className="flex flex-col gap-3 relative z-10">
                     <div className="relative">
                         <i className="fas fa-envelope absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <input type="email" placeholder="อีเมลของคุณ" required value={email} onChange={e => setEmail(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-blue-400 outline-none text-sm font-medium transition-colors" />
+                        <input type="email" placeholder="อีเมลของคุณ" required value={email} onChange={e => setEmail(e.target.value)} className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-blue-400 outline-none text-sm font-medium transition-colors" />
                     </div>
                     <div className="relative">
                         <i className="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <input type="password" placeholder="รหัสผ่าน" required value={password} onChange={e => setPassword(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-blue-400 outline-none text-sm font-medium transition-colors" />
+                        <input type="password" placeholder="รหัสผ่าน" required value={password} onChange={e => setPassword(e.target.value)} className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-blue-400 outline-none text-sm font-medium transition-colors" />
                     </div>
                     <button type="submit" className="bg-gradient-to-b from-blue-400 to-blue-600 text-white font-black py-2.5 rounded-xl shadow-[0_4px_0_#1e3a8a] active:translate-y-[4px] active:shadow-none text-base transition-all mt-1 uppercase tracking-wide">
                         {isLogin ? 'เข้าสู่ระบบ ลุย!' : 'สร้างบัญชีใหม่!'}
                     </button>
                 </form>
-                
                 <button onClick={() => setIsLogin(!isLogin)} className="mt-4 text-xs text-gray-500 font-bold hover:text-blue-600 transition-colors underline decoration-2 underline-offset-4">
                     {isLogin ? 'ผู้เล่นใหม่? สมัครตรงนี้' : 'มีบัญชีแล้ว? เข้าเกมเลย'}
                 </button>
@@ -248,9 +231,6 @@ function LoginScreen() {
     );
 }
 
-// ==========================================
-// PROFILE SETTINGS
-// ==========================================
 function ProfileSettings({ setView, user, userData }) {
     const [newName, setNewName] = useState(userData?.displayName || '');
     const [newPass, setNewPass] = useState('');
@@ -258,28 +238,22 @@ function ProfileSettings({ setView, user, userData }) {
     const [isError, setIsError] = useState(false);
 
     const handleSave = async (e) => {
-        e.preventDefault();
-        setMessage(''); setIsError(false);
+        e.preventDefault(); setMessage(''); setIsError(false);
         try {
             if (newName.trim() !== '') {
                 const userRef = ref(db, `users/${user.uid}`);
                 await update(userRef, { displayName: newName.trim() });
             }
             if (newPass.length > 0) {
-                if (newPass.length < 6) {
-                    setIsError(true); setMessage('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษรครับ'); return;
-                }
+                if (newPass.length < 6) { setIsError(true); setMessage('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษรครับ'); return; }
                 await updatePassword(user, newPass);
             }
             setMessage('บันทึกการตั้งค่าเรียบร้อยแล้ว!');
             setTimeout(() => setView('menu'), 1500);
         } catch (error) {
             setIsError(true);
-            if (error.code === 'auth/requires-recent-login') {
-                setMessage('เพื่อความปลอดภัย กรุณาล็อกเอาท์และล็อกอินใหม่ก่อนเปลี่ยนรหัสผ่านครับ');
-            } else {
-                setMessage('เกิดข้อผิดพลาด: ' + error.message);
-            }
+            if (error.code === 'auth/requires-recent-login') setMessage('เพื่อความปลอดภัย กรุณาล็อกเอาท์และล็อกอินใหม่ก่อนเปลี่ยนรหัสผ่านครับ');
+            else setMessage('เกิดข้อผิดพลาด: ' + error.message);
         }
     };
 
@@ -292,27 +266,22 @@ function ProfileSettings({ setView, user, userData }) {
                     <div className="w-20 h-20 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 border-4 border-blue-200 shadow-inner"><i className="fas fa-user-edit"></i></div>
                     <h2 className="text-2xl md:text-3xl font-black text-gray-800">ตั้งค่าโปรไฟล์</h2>
                 </div>
-
                 {message && <div className={`p-3 rounded-xl mb-4 font-bold text-center text-sm border-2 ${isError ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-600 border-green-200'}`}>{message}</div>}
-
                 <form onSubmit={handleSave} className="flex flex-col gap-4">
                     <div>
                         <label className="block text-gray-500 font-bold text-xs md:text-sm mb-1 ml-1 uppercase">ชื่อที่ต้องการให้แสดงในเกม</label>
                         <div className="relative">
                             <i className="fas fa-id-badge absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400"></i>
-                            <input type="text" value={newName} onChange={e => setNewName(e.target.value)} required
-                                className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100 outline-none text-sm font-bold transition-all shadow-sm" />
+                            <input type="text" value={newName} onChange={e => setNewName(e.target.value)} required className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100 outline-none text-sm font-bold transition-all shadow-sm" />
                         </div>
                     </div>
                     <div>
                         <label className="block text-gray-500 font-bold text-xs md:text-sm mb-1 ml-1 uppercase">ตั้งรหัสผ่านใหม่ <span className="text-gray-400 font-normal">(เว้นว่างถ้าไม่เปลี่ยน)</span></label>
                         <div className="relative">
                             <i className="fas fa-key absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-400"></i>
-                            <input type="password" placeholder="พิมพ์รหัสผ่านใหม่ตรงนี้..." value={newPass} onChange={e => setNewPass(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-orange-400 focus:ring-4 focus:ring-orange-100 outline-none text-sm font-bold transition-all shadow-sm" />
+                            <input type="password" placeholder="พิมพ์รหัสผ่านใหม่ตรงนี้..." value={newPass} onChange={e => setNewPass(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-orange-400 focus:ring-4 focus:ring-orange-100 outline-none text-sm font-bold transition-all shadow-sm" />
                         </div>
                     </div>
-                    
                     <button type="submit" className="bg-gradient-to-b from-green-400 to-green-600 text-white font-black py-3 rounded-xl shadow-[0_6px_0_#166534] active:translate-y-[6px] active:shadow-none text-lg transition-all mt-4 uppercase tracking-wider">
                         <i className="fas fa-save mr-2"></i> บันทึกข้อมูล
                     </button>
@@ -326,9 +295,7 @@ function MainMenu({ setView, isAdmin }) {
     return (
         <div className="flex h-screen items-center justify-center p-2 md:p-6">
             <div className="w-full max-w-4xl text-center">
-                <h1 className="text-4xl md:text-6xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.3)] mb-8 md:mb-12" style={{ WebkitTextStroke: '2px #1e3a8a' }}>
-                    เลือกโหมดการเล่น
-                </h1>
+                <h1 className="text-4xl md:text-6xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.3)] mb-8 md:mb-12" style={{ WebkitTextStroke: '2px #1e3a8a' }}>เลือกโหมดการเล่น</h1>
                 <div className="grid grid-cols-2 gap-4 md:gap-8 px-4">
                     <MenuButton icon="fa-map-marked-alt" text="ลุยด่าน (Play)" color="from-green-400 to-green-600" shadowColor="#166534" onClick={() => setView('mapSelect')} />
                     <MenuButton icon="fa-flask" text="ฝึกฝน (Sandbox)" color="from-orange-400 to-orange-600" shadowColor="#9a3412" onClick={() => setView('sandbox')} />
@@ -343,8 +310,7 @@ function MainMenu({ setView, isAdmin }) {
 function MenuButton({ icon, text, color, shadowColor, textColor = "text-white", onClick, colSpan = 1 }) {
     return (
         <button onClick={onClick} className={`bg-gradient-to-b ${color} ${textColor} font-black py-6 px-2 md:py-10 md:px-4 rounded-[2rem] shadow-[0_8px_0_${shadowColor}] transform transition-all active:translate-y-[8px] active:shadow-none text-xl md:text-3xl flex flex-col items-center justify-center gap-2 md:gap-4 col-span-${colSpan} border-4 border-white/30 hover:brightness-110`}>
-            <i className={`fas ${icon} text-4xl md:text-6xl drop-shadow-md`}></i> 
-            <span className="tracking-wide drop-shadow-sm">{text}</span>
+            <i className={`fas ${icon} text-4xl md:text-6xl drop-shadow-md`}></i> <span className="tracking-wide drop-shadow-sm">{text}</span>
         </button>
     );
 }
@@ -356,11 +322,9 @@ function MapSelect({ setView, setSelectedMap, userProgress }) {
     return (
         <div className="p-4 md:p-8 h-screen overflow-y-auto relative">
             <button onClick={() => setView('menu')} className="absolute top-4 left-4 md:top-8 md:left-8 bg-white text-blue-600 px-4 py-2 md:px-6 md:py-3 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm md:text-lg border-2 border-blue-200 z-10"><i className="fas fa-chevron-left mr-2"></i> กลับ</button>
-            
             <div className="mt-14 md:mt-4 mb-8 md:mb-12 text-center">
                 <h1 className="text-4xl md:text-6xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.3)] inline-block px-10 py-3 bg-blue-500 rounded-full border-4 border-white" style={{ WebkitTextStroke: '1.5px #1e3a8a' }}>เลือกแผนที่</h1>
             </div>
-
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-6 max-w-5xl mx-auto pb-10 px-2">
                 {maps.map(mapNum => {
                     const unlocked = isMapUnlocked(mapNum);
@@ -378,18 +342,66 @@ function MapSelect({ setView, setSelectedMap, userProgress }) {
     );
 }
 
-function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels, userProgress }) {
+// ==========================================
+// NEW: ADVENTURE MAP (LevelSelect)
+// ==========================================
+function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels, allMaps, userProgress }) {
     const levels = Array.from({ length: 10 }, (_, i) => i + 1);
     const isLevelUnlocked = (l) => l === 1 || (userProgress[`map${mapId}_level${l - 1}`]?.stars || 0) > 0;
+    
+    // ดึงการตั้งค่าของ Map ปัจจุบัน (รูปภาพ และ พิกัด)
+    const currentMapConfig = allMaps && allMaps[mapId] ? allMaps[mapId] : null;
 
+    // ถ้ารูปแผนที่ตั้งค่าไว้ จะแสดงผลแบบผจญภัย
+    if (currentMapConfig && currentMapConfig.bgUrl) {
+        return (
+            <div className="relative w-full h-screen bg-black overflow-hidden flex items-center justify-center">
+                <button onClick={() => setView('mapSelect')} className="absolute top-4 left-4 md:top-8 md:left-8 bg-white text-green-600 px-4 py-2 md:px-6 md:py-3 rounded-full font-black shadow-[0_4px_0_#86efac] active:translate-y-[4px] active:shadow-none transition-all text-sm md:text-lg border-2 border-green-200 z-50"><i className="fas fa-chevron-left mr-2"></i> แผนที่</button>
+                <div className="absolute top-4 md:top-8 right-4 md:right-8 bg-white/90 backdrop-blur-md px-6 py-2 rounded-full shadow-lg border-2 border-white z-50">
+                    <h1 className="text-xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-blue-600">MAP {mapId}</h1>
+                </div>
+
+                {/* กล่องแสดงแผนที่ ผูกกับ CSS Aspect Ratio ให้ได้สัดส่วนภาพสมจริง */}
+                <div className="relative w-full max-w-6xl aspect-video bg-contain bg-center bg-no-repeat shadow-2xl rounded-2xl md:rounded-[3rem] border-4 border-white/20" style={{ backgroundImage: `url(${currentMapConfig.bgUrl})` }}>
+                    {levels.map(lvlNum => {
+                        const levelKey = `map${mapId}_level${lvlNum}`;
+                        const levelExists = allLevels[levelKey];
+                        const unlocked = isLevelUnlocked(lvlNum) && levelExists;
+                        const stars = userProgress[levelKey]?.stars || 0;
+                        const position = currentMapConfig.levels ? currentMapConfig.levels[lvlNum] : null;
+
+                        // ถ้าด่านนี้มีพิกัด ให้วางปุ่มลงไปบนรูปภาพ
+                        if (position) {
+                            return (
+                                <button key={lvlNum} disabled={!unlocked && levelExists} onClick={() => { if(levelExists) { setSelectedLevel(lvlNum); setLevelData(allLevels[levelKey]); setView('play'); } else alert("คุณครูกำลังสร้างด่านนี้อยู่ครับ!"); }}
+                                    className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-12 h-12 md:w-20 md:h-20 rounded-full border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-green-400 to-green-600 border-white shadow-[0_6px_0_#14532d] active:translate-y-[4px] active:shadow-none cursor-pointer hover:scale-110 z-20' : (!levelExists ? 'bg-red-400 border-red-200 shadow-md z-10' : 'bg-gray-400 border-gray-200 shadow-md opacity-90 cursor-not-allowed z-10')}`}
+                                    style={{ left: `${position.x}%`, top: `${position.y}%` }}
+                                >
+                                    <span className={`text-xl md:text-3xl font-black text-white drop-shadow-md ${!unlocked && 'opacity-50'}`}>{lvlNum}</span>
+                                    {unlocked && (
+                                        <div className="absolute -bottom-3 md:-bottom-4 flex gap-[1px] bg-gray-900/80 px-2 py-0.5 rounded-full shadow-lg border border-gray-600">
+                                            {[1,2,3].map(star => <i key={star} className={`fas fa-star text-[8px] md:text-[10px] ${star <= Math.ceil(stars * 0.6) ? 'text-yellow-400 drop-shadow' : 'text-gray-500'}`}></i>)}
+                                        </div>
+                                    )}
+                                    {!unlocked && levelExists && <div className="absolute inset-0 flex items-center justify-center bg-gray-900/40 rounded-full"><i className="fas fa-lock text-white/80 text-lg md:text-2xl drop-shadow-md"></i></div>}
+                                </button>
+                            );
+                        }
+                        return null; // ถ้าไม่มีพิกัด ก็ไม่โชว์
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    // ถ้ารูปแผนที่ยังไม่ถูกตั้งค่า (Fallback) ให้โชว์เป็นปุ่มตารางเหมือนเดิม
     return (
         <div className="p-4 md:p-8 h-screen overflow-y-auto relative">
             <button onClick={() => setView('mapSelect')} className="absolute top-4 left-4 md:top-8 md:left-8 bg-white text-green-600 px-4 py-2 md:px-6 md:py-3 rounded-full font-black shadow-[0_4px_0_#86efac] active:translate-y-[4px] active:shadow-none transition-all text-sm md:text-lg border-2 border-green-200 z-10"><i className="fas fa-chevron-left mr-2"></i> แผนที่</button>
-            
             <div className="mt-14 md:mt-4 mb-8 md:mb-12 text-center">
                 <h1 className="text-4xl md:text-6xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.3)] inline-block px-10 py-3 bg-green-500 rounded-full border-4 border-white" style={{ WebkitTextStroke: '1.5px #14532d' }}>MAP {mapId}</h1>
+                <p className="mt-2 font-bold text-red-500 bg-white inline-block px-4 py-1 rounded-full shadow-sm">(แอดมินยังไม่ได้กำหนดรูปแผนที่ ด่านจึงแสดงเป็นตาราง)</p>
             </div>
-
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-6 max-w-5xl mx-auto pb-10 px-2">
                 {levels.map(lvlNum => {
                     const levelKey = `map${mapId}_level${lvlNum}`;
@@ -397,14 +409,12 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
                     const unlocked = isLevelUnlocked(lvlNum) && levelExists;
                     const stars = userProgress[levelKey]?.stars || 0;
                     return (
-                        <button key={lvlNum} disabled={!unlocked && levelExists} onClick={() => { if(levelExists) { setSelectedLevel(lvlNum); setLevelData(allLevels[levelKey]); setView('play'); } else alert("คุณครูกำลังสร้างด่านนี้อยู่ครับ รอแป๊บนึงนะ!"); }}
+                        <button key={lvlNum} disabled={!unlocked && levelExists} onClick={() => { if(levelExists) { setSelectedLevel(lvlNum); setLevelData(allLevels[levelKey]); setView('play'); } else alert("คุณครูกำลังสร้างด่านนี้อยู่ครับ!"); }}
                             className={`relative flex flex-col items-center justify-center h-28 md:h-40 rounded-[2rem] border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-green-50 to-white border-green-400 shadow-[0_6px_0_#4ade80] active:translate-y-[6px] active:shadow-none cursor-pointer hover:border-green-500' : (!levelExists ? 'bg-red-50 border-red-200 shadow-[0_6px_0_#fecaca]' : 'bg-gray-200 border-gray-300 shadow-[0_6px_0_#d1d5db] opacity-90 cursor-not-allowed')}`}>
                             <span className={`text-4xl md:text-6xl font-black ${unlocked ? 'text-green-600 drop-shadow-sm' : 'text-gray-400'}`}>{lvlNum}</span>
-                            
                             <div className="flex gap-1 md:gap-1.5 mt-2 md:mt-3 bg-gray-800/10 px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-inner">
                                 {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-[10px] md:text-sm ${star <= stars ? 'text-yellow-400 drop-shadow' : 'text-gray-300/50'}`}></i>)}
                             </div>
-                            
                             {!unlocked && levelExists && <div className="absolute inset-0 flex items-center justify-center bg-gray-800/10 rounded-[1.75rem]"><i className="fas fa-lock text-gray-500/70 text-3xl md:text-5xl"></i></div>}
                             {!levelExists && <div className="absolute bottom-2 text-[10px] md:text-xs font-bold text-red-500 bg-red-100 px-2 py-1 rounded-full uppercase tracking-wider">Coming Soon</div>}
                         </button>
@@ -415,6 +425,9 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
     );
 }
 
+/* ==========================================
+   จบส่วนที่ 1 (รอคำสั่งส่งส่วนที่ 2)
+   ========================================== */
 // ==========================================
 // VISUAL EDITOR (For Admin & Sandbox)
 // ==========================================
@@ -483,12 +496,12 @@ function VisualEditor({ id, label, value, onChange }) {
                 <button onMouseDown={clearEditor} onTouchStart={clearEditor} className="bg-red-50 border-2 border-red-200 text-red-600 hover:bg-red-100 rounded-xl px-2 py-1.5 md:px-3 md:py-2 font-bold text-xs md:text-sm active:translate-y-1 transition-all flex items-center whitespace-nowrap"><i className="fas fa-trash-alt mr-1.5"></i>ล้าง</button>
             </div>
             
-            <div className="w-full relative">
-                <label className="absolute -top-3 left-4 bg-[#a8edea] px-2 text-gray-600 font-black text-xs md:text-sm z-10">{label}</label>
+            <div className="w-full relative mt-2 md:mt-4">
+                <label className="absolute -top-3 left-6 bg-[#a8edea] px-3 text-blue-800 font-black text-xs md:text-sm uppercase tracking-wider rounded-full shadow-sm border-2 border-blue-200 z-10">{label}</label>
                 <div 
                     id={id}
                     ref={editorRef}
-                    className="visual-editor-content bg-white border-4 border-white/80 rounded-2xl p-4 flex items-center min-h-[70px] font-['Fredoka'] text-2xl md:text-3xl color-gray-800 overflow-x-auto whitespace-nowrap cursor-text outline-none focus:border-blue-400 transition-colors w-full shadow-inner"
+                    className="visual-editor-content bg-white border-4 border-blue-200 rounded-[1.5rem] p-5 pt-6 flex items-center min-h-[90px] font-['Fredoka'] text-3xl color-gray-800 overflow-x-auto whitespace-nowrap cursor-text outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all w-full shadow-inner"
                     contentEditable="true"
                     onInput={updateReactState}
                     onBlur={updateReactState}
@@ -499,9 +512,6 @@ function VisualEditor({ id, label, value, onChange }) {
     );
 }
 
-// ==========================================
-// ADMIN PANEL (Game UI Design)
-// ==========================================
 function AdminPanel({ setView, allLevels }) {
     const [mapId, setMapId] = useState(1);
     const [levelId, setLevelId] = useState(1);
@@ -534,7 +544,6 @@ function AdminPanel({ setView, allLevels }) {
             <button onClick={() => setView('menu')} className="absolute top-4 left-4 bg-white text-gray-700 px-5 py-2.5 rounded-full font-black shadow-[0_4px_0_#d1d5db] active:translate-y-[4px] active:shadow-none transition-all border-2 border-gray-200 z-10 hover:bg-gray-50"><i className="fas fa-chevron-left mr-2"></i> กลับเมนู</button>
             
             <div className="bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-[2.5rem] shadow-[0_15px_40px_rgba(0,0,0,0.1)] border-4 border-white w-full max-w-5xl mx-auto mt-14 md:mt-4">
-                
                 <div className="text-center mb-8">
                     <h1 className="text-3xl md:text-5xl font-black text-white inline-block bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-3 rounded-full shadow-[0_6px_0_#1e3a8a] border-4 border-white transform -rotate-1 tracking-wide"><i className="fas fa-tools text-yellow-300 mr-3"></i>จัดการด่าน (Admin)</h1>
                 </div>
@@ -613,9 +622,6 @@ function Leaderboard({ setView, leaderboard }) {
 // ==========================================
 // THE CORE GAME ENGINE WRAPPER (Perfected & Restored Division)
 // ==========================================
-// ==========================================
-// THE CORE GAME ENGINE WRAPPER (Perfected & Fix Final Answer HTML)
-// ==========================================
 function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel, setLevelData, allLevels, saveProgress }) {
     const gameContainerRef = useRef(null);
     const [moves, setMoves] = useState(0);
@@ -623,7 +629,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
     const [starsEarned, setStarsEarned] = useState(0);
     const [showTutorial, setShowTutorial] = useState(false);
     
-    // Popup & Final Answer State (แก้ไขให้เก็บเป็น Object รองรับ HTML เศษส่วน)
+    // Popup & Final Answer State
     const [popupMessage, setPopupMessage] = useState(null);
     const [finalAnswer, setFinalAnswer] = useState({ lhs: "", rhs: "" });
     
@@ -671,8 +677,8 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         }
         
         @keyframes slideUpFade {
-            0% { transform: translate(-50%, 20px); opacity: 0; }
-            100% { transform: translate(-50%, 0); opacity: 1; }
+            0% { transform: translateY(20px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
         }
         @keyframes zoomInCenter {
             0% { transform: scale(0.8); opacity: 0; }
@@ -715,6 +721,12 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         eng.showPopup = (msg) => {
             eng.playTone('error');
             setPopupMessage(msg);
+        };
+
+        // ฟังก์ชันบวกคะแนน (นับตามการกระทำจริง)
+        eng.incrementMove = () => {
+            eng.internalMoveCount++;
+            setMoves(eng.internalMoveCount);
         };
 
         const parseHTMLtoMath = (htmlString) => {
@@ -801,12 +813,10 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         eng.simplifyList = (list) => {
             while (list.length > 0 && list[0].type === 'op' && list[0].value === '+') list.shift();
 
+            // จัดการ 14 = -x 
             if (list.length >= 2 && list[0].type === 'op' && list[0].value === '-' && list[1].type === 'term') {
-                if (!list[1].value.startsWith('-')) {
-                    list[1].value = '-' + list[1].value;
-                } else {
-                    list[1].value = list[1].value.substring(1);
-                }
+                if (!list[1].value.startsWith('-')) list[1].value = '-' + list[1].value;
+                else list[1].value = list[1].value.substring(1);
                 list.shift(); 
             }
 
@@ -833,18 +843,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             if(rhsZone) { rhsZone.innerHTML = ''; eng.localGameState.rhs.forEach((t, i) => rhsZone.appendChild(eng.createTermElement(t, 'rhs', eng.localGameState.rhs, i, 0))); }
         };
 
-// ฟังก์ชันนับสเตป จะถูกเรียกใช้เฉพาะตอนแก้สมการสำเร็จเท่านั้น!
-        eng.incrementMove = () => {
-            eng.internalMoveCount++; 
-            setMoves(eng.internalMoveCount);
-        };
-
         const makeDoubleTap = (el, action) => {
             let tapCount = 0; let tapTimer = null;
-            el.ondblclick = (e) => { 
-                e.stopPropagation(); 
-                action(); 
-            };
+            el.ondblclick = (e) => { e.stopPropagation(); action(); };
             el.ontouchend = (e) => {
                 if (eng.dragSrc && eng.dragSrc.hasMoved) { tapCount = 0; return; }
                 tapCount++;
@@ -952,7 +953,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             let isTargetNumerator = targetCard.closest('.numerator-container') !== null;
             
             if (isTargetDenominator) {
-                // เพิ่ม && dVal > 0 เข้าไป เพื่อยอมให้ลากตัวลบมาทับได้แม้ไม่มีตัวหารร่วมกัน
                 if (common === 1 && Math.abs(dVal) !== 1 && dVal > 0) { eng.showPopup("ตัดทอนไม่ได้ (ไม่มีตัวหารร่วมกันครับ)"); eng.shakeElement(targetElement); return; }
                 let newDenomVal = Math.abs(nVal) / common;
                 if (fractionTerm.denominator.type === 'term') fractionTerm.denominator.value = newDenomVal.toString();
@@ -992,7 +992,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     }
                     if (eng.dragSrc.role === 'inner-term' || eng.dragSrc.role === 'term') eng.dragSrc.term.value = "1";
                 } else {
-                    // เพิ่ม && dVal > 0 เพื่อยอมให้เอาตัวส่วนติดลบขึ้นมาหารเครื่องหมายได้
                     if (common === 1 && Math.abs(dVal) !== 1 && dVal > 0) { eng.showPopup("ตัดทอนไม่ได้ (ไม่มีตัวหารร่วมกันครับ)"); eng.shakeElement(targetElement); return; }
                     let resultSign = (nVal * dVal >= 0) ? 1 : -1;
                     let newNumValCalc = (Math.abs(nVal) / common) * resultSign;
@@ -1197,6 +1196,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         };
 
         eng.splitFraction = (term, list, idx) => { let nt = []; term.children.forEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.incrementMove(); eng.commitState(); eng.playTone('pop'); };
+        
         eng.splitTerm = (term, list, idx) => { 
             let m = term.value.match(/^(-?\d*)([a-zA-Z]+)$/); 
             if(m) { 
@@ -1208,7 +1208,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 eng.commitState(); eng.playTone('pop'); 
             }
         };
+        
         eng.combineSplitTerm = (term, list, idx) => { if(idx>0 && idx<list.length-1) { list.splice(idx-1, 3, new eng.TermClass('term', list[idx-1].value + list[idx+1].value)); eng.incrementMove(); eng.commitState(); eng.playTone('success'); } };
+        
         eng.distributeNegative = (term, list, idx) => { if(idx >= list.length-1) return; let t = list[idx+1]; if(t.type==='group') { list[idx].value='+'; list.splice(idx+1, 1, ...t.children); eng.incrementMove(); eng.commitState(); eng.playTone('pop'); } };
 
         eng.checkWinCondition = () => {
@@ -1238,8 +1240,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     if (numVal === null) return false;
 
                     if (numVal % denVal === 0) return false;
-                    
-                    // --- กฎใหม่: ตัวส่วนติดลบ ห้ามจบเกม! ต้องหารเครื่องหมายก่อน ---
                     if (denVal < 0) return false;
                     
                     let common = eng.gcd(Math.abs(numVal), Math.abs(denVal));
@@ -1252,7 +1252,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             if ((isSolved(eng.localGameState.lhs) && isNumericValue(eng.localGameState.rhs)) || 
                 (isSolved(eng.localGameState.rhs) && isNumericValue(eng.localGameState.lhs))) {
                 
-                // ดึง HTML ออกมาเพื่อโชว์คำตอบในป๊อปอัปแบบเป็นเศษส่วนสวยๆ
                 let lHtml = document.getElementById('engine-lhs').innerHTML;
                 let rHtml = document.getElementById('engine-rhs').innerHTML;
                 setFinalAnswer({ lhs: lHtml, rhs: rHtml });
@@ -1376,14 +1375,12 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 </div>
             )}
 
-            {/* วิงหน้าต่างชนะ (ใช้ dangerouslySetInnerHTML เพื่อแสดงเศษส่วนแบบ HTML) */}
             {gameState === 'won' && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
                     <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-8 border-green-400 text-center max-w-2xl w-full">
                         <h2 className="text-4xl md:text-6xl font-black text-green-500 mb-2 drop-shadow-md">ยอดเยี่ยม!</h2>
                         <p className="text-gray-500 text-base md:text-xl font-bold mb-4">คุณแก้สมการสำเร็จแล้ว</p>
                         
-                        {/* โชว์คำตอบสุดท้ายแบบรักษารูปแบบ DOM เดิม (เศษส่วน/การจัดวาง) */}
                         <div className="bg-gradient-to-r from-blue-50 to-purple-50 py-3 px-6 md:py-4 md:px-8 rounded-xl md:rounded-[2rem] border-2 border-blue-200 mb-4 md:mb-8 flex items-center justify-center gap-3 shadow-inner overflow-hidden">
                             <div dangerouslySetInnerHTML={{ __html: finalAnswer.lhs }} className="flex items-center scale-[0.7] md:scale-100 origin-right pointer-events-none" />
                             <span className="text-3xl md:text-5xl font-black text-gray-400">=</span>
