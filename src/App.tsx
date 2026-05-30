@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAnalytics } from "firebase/analytics";
 import { 
     getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
-    signOut, onAuthStateChanged 
+    signOut, onAuthStateChanged, updatePassword 
 } from 'firebase/auth';
 import { 
     getDatabase, ref, set, get, onValue, update 
@@ -114,7 +114,7 @@ export default function MathGameApp() {
     const handleSignOut = () => signOut(auth);
 
     const saveProgress = async (mapId, levelId, starsEarned) => {
-        if (!user || !userData) return;
+        if (!user) return;
         const levelKey = `map${mapId}_level${levelId}`;
         const previousStars = userProgress[levelKey]?.stars || 0;
         
@@ -122,9 +122,16 @@ export default function MathGameApp() {
             const progressRef = ref(db, `users/${user.uid}/progress/${levelKey}`);
             await set(progressRef, { stars: starsEarned, mapId, levelId });
             
-            const starDifference = starsEarned - previousStars;
+            // คำนวณรวมดาวทั้งหมดใหม่จากฐานข้อมูล เพื่อความแม่นยำ 100% (แก้ปัญหาดาวไม่ตรง)
+            const userProgressRef = ref(db, `users/${user.uid}/progress`);
+            const snapshot = await get(userProgressRef);
+            let sum = 0;
+            if(snapshot.exists()) {
+                const prog = snapshot.val();
+                for(let k in prog) sum += prog[k].stars;
+            }
             const userRef = ref(db, `users/${user.uid}`);
-            await update(userRef, { totalStars: userData.totalStars + starDifference });
+            await update(userRef, { totalStars: sum });
         }
     };
 
@@ -141,14 +148,15 @@ export default function MathGameApp() {
     return (
         <div className="min-h-screen bg-[#a8edea] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] font-['Kanit'] overflow-hidden relative selection:bg-blue-300">
             {/* Game-like Top Bar for User Info */}
-            {user && view !== 'play' && view !== 'sandbox' && (
+            {user && view !== 'play' && view !== 'sandbox' && view !== 'profile' && (
                 <div className="absolute top-2 right-2 md:top-4 md:right-4 flex items-center gap-2 md:gap-4 bg-white/90 backdrop-blur-md px-3 py-1.5 md:px-5 md:py-2.5 rounded-full shadow-[0_4px_0_rgba(0,0,0,0.1)] border-2 border-white z-50 transform transition hover:scale-105">
                     <div className="text-sm md:text-xl font-black text-gray-800 flex items-center bg-yellow-100 px-3 py-1 rounded-full shadow-inner">
                         <i className="fas fa-star text-yellow-500 mr-1 md:mr-2 drop-shadow-sm"></i> {userData?.totalStars || 0}
                     </div>
-                    <div className="text-xs md:text-base text-gray-700 font-bold flex items-center pl-2 md:pl-4 border-l-2 border-gray-200">
-                        <i className="fas fa-user-astronaut text-blue-500 mr-1 md:mr-2 text-lg"></i> {userData?.displayName}
-                    </div>
+                    {/* ปุ่มชื่อผู้เล่น กดเพื่อเข้าหน้าตั้งค่าโปรไฟล์ */}
+                    <button onClick={() => setView('profile')} className="text-xs md:text-base text-gray-700 hover:text-blue-600 font-bold flex items-center pl-2 md:pl-4 border-l-2 border-gray-200 transition-colors cursor-pointer group">
+                        <i className="fas fa-user-astronaut text-blue-500 mr-1 md:mr-2 text-lg"></i> {userData?.displayName} <i className="fas fa-cog ml-2 text-gray-400 group-hover:animate-spin"></i>
+                    </button>
                     <button onClick={handleSignOut} className="text-white text-xs md:text-sm ml-1 md:ml-2 bg-red-500 hover:bg-red-600 px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-[0_2px_0_#b91c1c] active:translate-y-[2px] active:shadow-none transition-all">
                         <i className="fas fa-sign-out-alt"></i>
                     </button>
@@ -161,6 +169,7 @@ export default function MathGameApp() {
             {view === 'levelSelect' && <LevelSelect setView={setView} mapId={selectedMap} setSelectedLevel={setSelectedLevel} setLevelData={setLevelData} allLevels={allLevels} userProgress={userProgress} />}
             {view === 'admin' && <AdminPanel setView={setView} allLevels={allLevels} />}
             {view === 'leaderboard' && <Leaderboard setView={setView} leaderboard={leaderboard} />}
+            {view === 'profile' && <ProfileSettings setView={setView} user={user} userData={userData} />}
             
             {(view === 'play' || view === 'sandbox') && (
                 <GameEngine 
@@ -198,33 +207,108 @@ function LoginScreen() {
     };
 
     return (
-        <div className="flex h-screen items-center justify-center p-2 md:p-4 bg-gradient-to-br from-blue-400/50 to-purple-500/50">
-            <div className="bg-white p-6 md:p-10 rounded-[2rem] shadow-[0_10px_0_rgba(0,0,0,0.1)] border-4 border-white max-w-sm w-full text-center relative overflow-hidden transform transition-all hover:scale-[1.02]">
-                <div className="text-5xl md:text-6xl mb-3 text-blue-500 drop-shadow-md"><i className="fas fa-gamepad"></i></div>
-                <h1 className="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-1">สมาร์ทแมท AI</h1>
-                <h2 className="text-xs md:text-sm text-gray-500 font-bold mb-6 bg-gray-100 inline-block px-4 py-1 rounded-full">โดย ครูจักรวรรดิ ไชยโคตร</h2>
+        <div className="flex h-screen items-center justify-center p-2 bg-gradient-to-br from-blue-400/50 to-purple-500/50">
+            {/* ปรับให้กรอบเล็กลง และซ่อนส่วนที่ล้นด้วย overflow */}
+            <div className="bg-white p-4 md:p-8 rounded-[2rem] shadow-[0_8px_0_rgba(0,0,0,0.1)] border-4 border-white max-w-sm w-full text-center relative transform transition-all hover:scale-[1.02] flex flex-col justify-center max-h-[95vh] overflow-y-auto">
+                <div className="text-4xl md:text-5xl mb-2 text-blue-500 drop-shadow-md"><i className="fas fa-gamepad"></i></div>
+                <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-1">สมาร์ทแมท AI</h1>
+                <h2 className="text-[10px] md:text-xs text-gray-500 font-bold mb-4 bg-gray-100 inline-block px-3 py-1 rounded-full mx-auto">โดย ครูจักรวรรดิ ไชยโคตร</h2>
                 
-                {error && <div className="bg-red-500 text-white p-2 rounded-xl mb-3 text-xs md:text-sm font-bold animate-bounce shadow-md">{error}</div>}
+                {error && <div className="bg-red-500 text-white p-2 rounded-xl mb-3 text-xs font-bold animate-bounce shadow-md">{error}</div>}
                 
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4 relative z-10">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-3 relative z-10">
                     <div className="relative">
                         <i className="fas fa-envelope absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                         <input type="email" placeholder="อีเมลของคุณ" required value={email} onChange={e => setEmail(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-blue-400 outline-none text-sm md:text-base font-medium transition-colors" />
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-blue-400 outline-none text-sm font-medium transition-colors" />
                     </div>
                     <div className="relative">
                         <i className="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                         <input type="password" placeholder="รหัสผ่าน" required value={password} onChange={e => setPassword(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-blue-400 outline-none text-sm md:text-base font-medium transition-colors" />
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-blue-400 outline-none text-sm font-medium transition-colors" />
                     </div>
-                    <button type="submit" className="bg-gradient-to-b from-blue-400 to-blue-600 text-white font-black py-3 rounded-2xl shadow-[0_6px_0_#1e3a8a] active:translate-y-[6px] active:shadow-none text-lg transition-all mt-2 uppercase tracking-wide">
+                    <button type="submit" className="bg-gradient-to-b from-blue-400 to-blue-600 text-white font-black py-2.5 rounded-xl shadow-[0_4px_0_#1e3a8a] active:translate-y-[4px] active:shadow-none text-base transition-all mt-1 uppercase tracking-wide">
                         {isLogin ? 'เข้าสู่ระบบ ลุย!' : 'สร้างบัญชีใหม่!'}
                     </button>
                 </form>
                 
-                <button onClick={() => setIsLogin(!isLogin)} className="mt-6 text-sm text-gray-500 font-bold hover:text-blue-600 transition-colors underline decoration-2 underline-offset-4">
+                <button onClick={() => setIsLogin(!isLogin)} className="mt-4 text-xs text-gray-500 font-bold hover:text-blue-600 transition-colors underline decoration-2 underline-offset-4">
                     {isLogin ? 'ผู้เล่นใหม่? สมัครตรงนี้' : 'มีบัญชีแล้ว? เข้าเกมเลย'}
                 </button>
+            </div>
+        </div>
+    );
+}
+
+// ==========================================
+// PROFILE SETTINGS
+// ==========================================
+function ProfileSettings({ setView, user, userData }) {
+    const [newName, setNewName] = useState(userData?.displayName || '');
+    const [newPass, setNewPass] = useState('');
+    const [message, setMessage] = useState('');
+    const [isError, setIsError] = useState(false);
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        setMessage(''); setIsError(false);
+        try {
+            if (newName.trim() !== '') {
+                const userRef = ref(db, `users/${user.uid}`);
+                await update(userRef, { displayName: newName.trim() });
+            }
+            if (newPass.length > 0) {
+                if (newPass.length < 6) {
+                    setIsError(true); setMessage('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษรครับ'); return;
+                }
+                await updatePassword(user, newPass);
+            }
+            setMessage('บันทึกการตั้งค่าเรียบร้อยแล้ว!');
+            setTimeout(() => setView('menu'), 1500);
+        } catch (error) {
+            setIsError(true);
+            if (error.code === 'auth/requires-recent-login') {
+                setMessage('เพื่อความปลอดภัย กรุณาล็อกเอาท์และล็อกอินใหม่ก่อนเปลี่ยนรหัสผ่านครับ');
+            } else {
+                setMessage('เกิดข้อผิดพลาด: ' + error.message);
+            }
+        }
+    };
+
+    return (
+        <div className="flex h-screen items-center justify-center p-4 bg-gradient-to-br from-indigo-100 to-purple-100 relative">
+            <button onClick={() => setView('menu')} className="absolute top-4 left-4 md:top-8 md:left-8 bg-white text-gray-700 px-4 py-2 md:px-6 md:py-3 rounded-full font-black shadow-[0_4px_0_#d1d5db] active:translate-y-[4px] active:shadow-none transition-all text-sm md:text-lg border-2 border-gray-200 z-10"><i className="fas fa-chevron-left mr-2"></i> กลับเมนู</button>
+            
+            <div className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-[0_15px_40px_rgba(0,0,0,0.1)] border-4 border-white max-w-md w-full max-h-[95vh] overflow-y-auto">
+                <div className="text-center mb-6">
+                    <div className="w-20 h-20 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 border-4 border-blue-200 shadow-inner"><i className="fas fa-user-edit"></i></div>
+                    <h2 className="text-2xl md:text-3xl font-black text-gray-800">ตั้งค่าโปรไฟล์</h2>
+                </div>
+
+                {message && <div className={`p-3 rounded-xl mb-4 font-bold text-center text-sm border-2 ${isError ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-600 border-green-200'}`}>{message}</div>}
+
+                <form onSubmit={handleSave} className="flex flex-col gap-4">
+                    <div>
+                        <label className="block text-gray-500 font-bold text-xs md:text-sm mb-1 ml-1 uppercase">ชื่อที่ต้องการให้แสดงในเกม</label>
+                        <div className="relative">
+                            <i className="fas fa-id-badge absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400"></i>
+                            <input type="text" value={newName} onChange={e => setNewName(e.target.value)} required
+                                className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100 outline-none text-sm font-bold transition-all shadow-sm" />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-gray-500 font-bold text-xs md:text-sm mb-1 ml-1 uppercase">ตั้งรหัสผ่านใหม่ <span className="text-gray-400 font-normal">(เว้นว่างถ้าไม่เปลี่ยน)</span></label>
+                        <div className="relative">
+                            <i className="fas fa-key absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-400"></i>
+                            <input type="password" placeholder="พิมพ์รหัสผ่านใหม่ตรงนี้..." value={newPass} onChange={e => setNewPass(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:bg-white focus:border-orange-400 focus:ring-4 focus:ring-orange-100 outline-none text-sm font-bold transition-all shadow-sm" />
+                        </div>
+                    </div>
+                    
+                    <button type="submit" className="bg-gradient-to-b from-green-400 to-green-600 text-white font-black py-3 rounded-xl shadow-[0_6px_0_#166534] active:translate-y-[6px] active:shadow-none text-lg transition-all mt-4 uppercase tracking-wider">
+                        <i className="fas fa-save mr-2"></i> บันทึกข้อมูล
+                    </button>
+                </form>
             </div>
         </div>
     );
