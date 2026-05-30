@@ -166,10 +166,10 @@ export default function MathGameApp() {
             )}
 
             {view === 'login' && <LoginScreen />}
-            {view === 'menu' && <MainMenu setView={setView} is={userData?.role === ''} />}
+            {view === 'menu' && <MainMenu setView={setView} isAdmin={user?.email === 'admin@math.com' || userData?.role === 'admin'} />}
             {view === 'mapSelect' && <MapSelect setView={setView} setSelectedMap={setSelectedMap} userProgress={userProgress} />}
             {view === 'levelSelect' && <LevelSelect setView={setView} mapId={selectedMap} setSelectedLevel={setSelectedLevel} setLevelData={setLevelData} allLevels={allLevels} allMaps={allMaps} userProgress={userProgress} />}
-            {view === '' && <Panel setView={setView} allLevels={allLevels} allMaps={allMaps} />}
+            {view === 'admin' && <AdminPanel setView={setView} allLevels={allLevels} allMaps={allMaps} />}
             {view === 'leaderboard' && <Leaderboard setView={setView} leaderboard={leaderboard} />}
             {view === 'profile' && <ProfileSettings setView={setView} user={user} userData={userData} />}
             
