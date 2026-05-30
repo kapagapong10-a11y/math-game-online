@@ -32,6 +32,9 @@ const db = getDatabase(app);
 // ==========================================
 // 2. MAIN APP COMPONENT
 // ==========================================
+// ==========================================
+// 2. MAIN APP COMPONENT
+// ==========================================
 export default function MathGameApp() {
     const [user, setUser] = useState(null);
     const [userData, setUserData] = useState(null);
@@ -44,7 +47,8 @@ export default function MathGameApp() {
     
     // Data States
     const [allLevels, setAllLevels] = useState({});
-    const [allMaps, setAllMaps] = useState({}); // สถานะสำหรับเก็บข้อมูลแผนที่ผจญภัย
+    const [allMaps, setAllMaps] = useState({}); 
+    const [globalSettings, setGlobalSettings] = useState({}); // สถานะใหม่สำหรับตั้งค่าหน้าหลักและแผนที่โลก
     const [userProgress, setUserProgress] = useState({});
     const [leaderboard, setLeaderboard] = useState([]);
 
@@ -86,10 +90,15 @@ export default function MathGameApp() {
             if (snapshot.exists()) setAllLevels(snapshot.val()); else setAllLevels({});
         });
 
-        // ดึงข้อมูลการตั้งค่ารูปและพิกัดของ Map
         const mapsRef = ref(db, 'maps');
         const unsubMaps = onValue(mapsRef, (snapshot) => {
             if (snapshot.exists()) setAllMaps(snapshot.val()); else setAllMaps({});
+        });
+
+        // โหลด Global Settings (หน้าแรก, แผนที่โลก)
+        const settingsRef = ref(db, 'globalSettings');
+        const unsubSettings = onValue(settingsRef, (snapshot) => {
+            if (snapshot.exists()) setGlobalSettings(snapshot.val()); else setGlobalSettings({});
         });
 
         const progressRef = ref(db, `users/${user.uid}/progress`);
@@ -113,7 +122,7 @@ export default function MathGameApp() {
             if (snapshot.exists()) setUserData(snapshot.val());
         });
 
-        return () => { unsubLevels(); unsubMaps(); unsubProgress(); unsubLeaderboard(); unsubCurrentUser(); };
+        return () => { unsubLevels(); unsubMaps(); unsubSettings(); unsubProgress(); unsubLeaderboard(); unsubCurrentUser(); };
     }, [user]);
 
     const handleSignOut = () => signOut(auth);
@@ -151,25 +160,26 @@ export default function MathGameApp() {
 
     return (
         <div className="min-h-screen bg-[#a8edea] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] font-['Kanit'] overflow-hidden relative selection:bg-blue-300">
+            {/* ย่อขนาด UI ด้านบน และจัดชิดมุมมากขึ้น */}
             {user && view !== 'play' && view !== 'sandbox' && view !== 'profile' && (
-                <div className="absolute top-2 right-2 md:top-4 md:right-4 flex items-center gap-2 md:gap-4 bg-white/90 backdrop-blur-md px-3 py-1.5 md:px-5 md:py-2.5 rounded-full shadow-[0_4px_0_rgba(0,0,0,0.1)] border-2 border-white z-50 transform transition hover:scale-105">
-                    <div className="text-sm md:text-xl font-black text-gray-800 flex items-center bg-yellow-100 px-3 py-1 rounded-full shadow-inner">
-                        <i className="fas fa-star text-yellow-500 mr-1 md:mr-2 drop-shadow-sm"></i> {userData?.totalStars || 0}
+                <div className="absolute top-2 right-2 md:top-3 md:right-3 flex items-center gap-1.5 md:gap-3 bg-white/90 backdrop-blur-md px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-[0_4px_0_rgba(0,0,0,0.1)] border border-white/50 z-50 transform transition hover:scale-105 origin-top-right scale-90 md:scale-100">
+                    <div className="text-xs md:text-base font-black text-gray-800 flex items-center bg-yellow-100 px-2.5 py-0.5 rounded-full shadow-inner">
+                        <i className="fas fa-star text-yellow-500 mr-1 drop-shadow-sm"></i> {userData?.totalStars || 0}
                     </div>
-                    <button onClick={() => setView('profile')} className="text-xs md:text-base text-gray-700 hover:text-blue-600 font-bold flex items-center pl-2 md:pl-4 border-l-2 border-gray-200 transition-colors cursor-pointer group">
-                        <i className="fas fa-user-astronaut text-blue-500 mr-1 md:mr-2 text-lg"></i> {userData?.displayName} <i className="fas fa-cog ml-2 text-gray-400 group-hover:animate-spin"></i>
+                    <button onClick={() => setView('profile')} className="text-[10px] md:text-sm text-gray-700 hover:text-blue-600 font-bold flex items-center pl-1.5 md:pl-3 border-l-2 border-gray-200 transition-colors cursor-pointer group">
+                        <i className="fas fa-user-astronaut text-blue-500 mr-1 text-base"></i> {userData?.displayName} <i className="fas fa-cog ml-1.5 text-gray-400 group-hover:animate-spin"></i>
                     </button>
-                    <button onClick={handleSignOut} className="text-white text-xs md:text-sm ml-1 md:ml-2 bg-red-500 hover:bg-red-600 px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-[0_2px_0_#b91c1c] active:translate-y-[2px] active:shadow-none transition-all">
+                    <button onClick={handleSignOut} className="text-white text-[10px] md:text-xs ml-1 bg-red-500 hover:bg-red-600 px-2 py-1 md:px-2.5 md:py-1 rounded-full shadow-[0_2px_0_#b91c1c] active:translate-y-[2px] active:shadow-none transition-all">
                         <i className="fas fa-sign-out-alt"></i>
                     </button>
                 </div>
             )}
 
             {view === 'login' && <LoginScreen />}
-            {view === 'menu' && <MainMenu setView={setView} isAdmin={userData?.role === 'admin' || user?.email?.includes('admin')} />}
-            {view === 'mapSelect' && <MapSelect setView={setView} setSelectedMap={setSelectedMap} userProgress={userProgress} />}
+            {view === 'menu' && <MainMenu setView={setView} isAdmin={userData?.role === 'admin' || user?.email?.includes('admin')} globalSettings={globalSettings} />}
+            {view === 'mapSelect' && <MapSelect setView={setView} setSelectedMap={setSelectedMap} userProgress={userProgress} globalSettings={globalSettings} />}
             {view === 'levelSelect' && <LevelSelect setView={setView} mapId={selectedMap} setSelectedLevel={setSelectedLevel} setLevelData={setLevelData} allLevels={allLevels} allMaps={allMaps} userProgress={userProgress} />}
-            {view === 'admin' && <AdminPanel setView={setView} allLevels={allLevels} allMaps={allMaps} />}
+            {view === 'admin' && <AdminPanel setView={setView} allLevels={allLevels} allMaps={allMaps} globalSettings={globalSettings} />}
             {view === 'leaderboard' && <Leaderboard setView={setView} leaderboard={leaderboard} />}
             {view === 'profile' && <ProfileSettings setView={setView} user={user} userData={userData} />}
             
@@ -291,49 +301,98 @@ function ProfileSettings({ setView, user, userData }) {
     );
 }
 
-function MainMenu({ setView, isAdmin }) {
+// ออกแบบหน้าแรกใหม่: ใช้รูปภาพเป็นปุ่ม และจัดเรียงด้านข้าง/ล่างได้ตามสไตล์เกม
+function MainMenu({ setView, isAdmin, globalSettings }) {
+    const bgStyle = globalSettings?.mainMenuBgUrl ? { backgroundImage: `url(${globalSettings.mainMenuBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {};
+    
     return (
-        <div className="flex h-screen items-center justify-center p-2 md:p-6">
-            <div className="w-full max-w-4xl text-center">
-                <h1 className="text-4xl md:text-6xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.3)] mb-8 md:mb-12" style={{ WebkitTextStroke: '2px #1e3a8a' }}>เลือกโหมดการเล่น</h1>
-                <div className="grid grid-cols-2 gap-4 md:gap-8 px-4">
-                    <MenuButton icon="fa-map-marked-alt" text="ลุยด่าน (Play)" color="from-green-400 to-green-600" shadowColor="#166534" onClick={() => setView('mapSelect')} />
-                    <MenuButton icon="fa-flask" text="ฝึกฝน (Sandbox)" color="from-orange-400 to-orange-600" shadowColor="#9a3412" onClick={() => setView('sandbox')} />
-                    <MenuButton icon="fa-trophy" text="ตารางอันดับ" color="from-yellow-300 to-yellow-500" shadowColor="#a16207" textColor="text-yellow-900" onClick={() => setView('leaderboard')} colSpan={isAdmin ? 1 : 2} />
-                    {isAdmin && <MenuButton icon="fa-cogs" text="จัดการด่าน" color="from-gray-500 to-gray-700" shadowColor="#374151" onClick={() => setView('admin')} />}
-                </div>
+        <div className="flex h-screen w-full items-end md:items-center justify-end p-6 md:p-12 relative overflow-hidden bg-gradient-to-b from-blue-300 to-blue-500" style={bgStyle}>
+            {/* ซ่อนข้อความ 'เลือกโหมดการเล่น' ตามคำขอ และวางปุ่มไว้ขวาล่างเพื่อโชว์ภาพพื้นหลังเต็มๆ */}
+            <div className="flex flex-col gap-3 w-full max-w-[200px] md:max-w-[280px] z-10">
+                <MenuButton icon="fa-map-marked-alt" text="ลุยด่าน (Play)" color="from-green-400 to-green-600" shadowColor="#166534" imgUrl={globalSettings?.btnPlay} onClick={() => setView('mapSelect')} />
+                <MenuButton icon="fa-flask" text="ฝึกฝน (Sandbox)" color="from-orange-400 to-orange-600" shadowColor="#9a3412" imgUrl={globalSettings?.btnSandbox} onClick={() => setView('sandbox')} />
+                <MenuButton icon="fa-trophy" text="ตารางอันดับ" color="from-yellow-300 to-yellow-500" shadowColor="#a16207" textColor="text-yellow-900" imgUrl={globalSettings?.btnRank} onClick={() => setView('leaderboard')} />
+                {isAdmin && <MenuButton icon="fa-cogs" text="ตั้งค่าเกม" color="from-gray-600 to-gray-800" shadowColor="#374151" imgUrl={globalSettings?.btnAdmin} onClick={() => setView('admin')} />}
             </div>
         </div>
     );
 }
 
-function MenuButton({ icon, text, color, shadowColor, textColor = "text-white", onClick, colSpan = 1 }) {
+function MenuButton({ icon, text, color, shadowColor, textColor = "text-white", onClick, imgUrl }) {
+    // ถ้าอัปโหลดรูปปุ่มมา จะโชว์รูปแทนกรอบสี่เหลี่ยม
+    if (imgUrl) {
+        return (
+            <button onClick={onClick} className="w-full transform transition-transform hover:scale-105 active:scale-95 origin-center focus:outline-none filter drop-shadow-xl hover:brightness-110">
+                <img src={imgUrl} alt={text} className="w-full h-auto object-contain rounded-2xl" />
+            </button>
+        );
+    }
+    // ปุ่มสำรองกรณีไม่ได้อัปโหลดรูป
     return (
-        <button onClick={onClick} className={`bg-gradient-to-b ${color} ${textColor} font-black py-6 px-2 md:py-10 md:px-4 rounded-[2rem] shadow-[0_8px_0_${shadowColor}] transform transition-all active:translate-y-[8px] active:shadow-none text-xl md:text-3xl flex flex-col items-center justify-center gap-2 md:gap-4 col-span-${colSpan} border-4 border-white/30 hover:brightness-110`}>
-            <i className={`fas ${icon} text-4xl md:text-6xl drop-shadow-md`}></i> <span className="tracking-wide drop-shadow-sm">{text}</span>
+        <button onClick={onClick} className={`w-full bg-gradient-to-b ${color} ${textColor} font-black py-4 px-4 rounded-[1.5rem] shadow-[0_6px_0_${shadowColor}] transform transition-all active:translate-y-[6px] active:shadow-none text-base md:text-xl flex items-center justify-center gap-3 border-2 border-white/30 hover:brightness-110`}>
+            <i className={`fas ${icon} text-2xl md:text-3xl drop-shadow-sm`}></i> <span className="tracking-wide drop-shadow-sm">{text}</span>
         </button>
     );
 }
 
-function MapSelect({ setView, setSelectedMap, userProgress }) {
+// ระบบแผนที่โลกแนวตั้ง (เลื่อนจากล่างขึ้นบน + ลากวาง)
+function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
     const maps = Array.from({ length: 10 }, (_, i) => i + 1);
     const isMapUnlocked = (m) => m === 1 || (userProgress[`map${m - 1}_level10`]?.stars || 0) > 0;
+    
+    // ตั้งค่าให้เลื่อนลงไปจุดล่างสุดเสมอเมื่อเปิดหน้านี้ (จุดเริ่มต้นผจญภัย)
+    const scrollRef = useRef(null);
+    useEffect(() => { if(scrollRef.current) { scrollRef.current.scrollTop = scrollRef.current.scrollHeight; } }, []);
 
+    if (globalSettings?.worldMapBgUrl) {
+        return (
+            <div className="relative w-full h-screen bg-black overflow-y-auto overflow-x-hidden flex flex-col items-center custom-scrollbar" ref={scrollRef}>
+                {/* ปุ่มกลับยังลอยอยู่ซ้ายบนเสมอ */}
+                <button onClick={() => setView('menu')} className="fixed top-4 left-4 md:top-6 md:left-6 bg-white/90 backdrop-blur-md text-blue-600 px-4 py-2 md:px-5 md:py-2.5 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-blue-200 z-50">
+                    <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
+                </button>
+                
+                {/* แมพแนวตั้ง (ตั้งความสูงยาวๆ เพื่อให้เลื่อนได้) */}
+                <div className="relative w-full max-w-2xl min-h-[200vh] bg-cover bg-bottom bg-no-repeat" style={{ backgroundImage: `url(${globalSettings.worldMapBgUrl})` }}>
+                    {maps.map(mapNum => {
+                        const unlocked = isMapUnlocked(mapNum);
+                        const pos = globalSettings?.worldPositions ? globalSettings.worldPositions[mapNum] : null;
+                        
+                        if (pos) {
+                            return (
+                                <button key={mapNum} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
+                                    className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-16 h-16 md:w-24 md:h-24 rounded-full border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-blue-400 to-blue-600 border-white shadow-[0_8px_0_#1e3a8a] active:translate-y-[6px] active:shadow-none cursor-pointer hover:scale-110 z-20' : 'bg-gray-400 border-gray-200 shadow-md opacity-90 cursor-not-allowed z-10'}`}
+                                    style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                                >
+                                    <span className="text-[10px] md:text-xs font-bold text-blue-100 uppercase tracking-widest mb-[-4px]">Map</span>
+                                    <span className={`text-2xl md:text-4xl font-black text-white drop-shadow-md ${!unlocked && 'opacity-50'}`}>{mapNum}</span>
+                                    {!unlocked && <div className="absolute inset-0 flex items-center justify-center bg-gray-900/40 rounded-full"><i className="fas fa-lock text-white/80 text-xl md:text-3xl drop-shadow-md"></i></div>}
+                                </button>
+                            );
+                        }
+                        return null;
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    // รูปแบบสำรองกรณีแอดมินยังไม่อัปโหลดรูป
     return (
         <div className="p-4 md:p-8 h-screen overflow-y-auto relative">
-            <button onClick={() => setView('menu')} className="absolute top-4 left-4 md:top-8 md:left-8 bg-white text-blue-600 px-4 py-2 md:px-6 md:py-3 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm md:text-lg border-2 border-blue-200 z-10"><i className="fas fa-chevron-left mr-2"></i> กลับ</button>
-            <div className="mt-14 md:mt-4 mb-8 md:mb-12 text-center">
-                <h1 className="text-4xl md:text-6xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.3)] inline-block px-10 py-3 bg-blue-500 rounded-full border-4 border-white" style={{ WebkitTextStroke: '1.5px #1e3a8a' }}>เลือกแผนที่</h1>
+            <button onClick={() => setView('menu')} className="absolute top-4 left-4 bg-white text-blue-600 px-4 py-2 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-blue-200 z-10"><i className="fas fa-chevron-left mr-2"></i> กลับ</button>
+            <div className="mt-14 mb-8 text-center">
+                <h1 className="text-4xl font-black text-white drop-shadow-md inline-block px-10 py-3 bg-blue-500 rounded-full border-4 border-white">เลือกแผนที่</h1>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-6 max-w-5xl mx-auto pb-10 px-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 max-w-5xl mx-auto pb-10 px-2">
                 {maps.map(mapNum => {
                     const unlocked = isMapUnlocked(mapNum);
                     return (
                         <button key={mapNum} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
-                            className={`relative flex flex-col items-center justify-center h-28 md:h-40 rounded-[2rem] border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-blue-100 to-white border-blue-400 shadow-[0_6px_0_#60a5fa] active:translate-y-[6px] active:shadow-none cursor-pointer hover:border-blue-500' : 'bg-gray-200 border-gray-300 shadow-[0_6px_0_#d1d5db] opacity-80 cursor-not-allowed'}`}>
-                            <span className={`text-sm md:text-xl font-bold ${unlocked ? 'text-blue-500' : 'text-gray-400'} uppercase tracking-widest mb-1`}>Map</span>
-                            <span className={`text-4xl md:text-6xl font-black ${unlocked ? 'text-blue-700 drop-shadow-sm' : 'text-gray-400'}`}>{mapNum}</span>
-                            {!unlocked && <div className="absolute inset-0 bg-black/5 rounded-[1.75rem] flex items-center justify-center"><i className="fas fa-lock text-gray-500/50 text-3xl md:text-5xl"></i></div>}
+                            className={`relative flex flex-col items-center justify-center h-28 rounded-[2rem] border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-blue-100 to-white border-blue-400 shadow-[0_6px_0_#60a5fa] active:translate-y-[6px] active:shadow-none cursor-pointer' : 'bg-gray-200 border-gray-300 shadow-sm opacity-80 cursor-not-allowed'}`}>
+                            <span className="text-sm font-bold text-blue-500 uppercase tracking-widest mb-1">Map</span>
+                            <span className={`text-4xl font-black ${unlocked ? 'text-blue-700' : 'text-gray-400'}`}>{mapNum}</span>
+                            {!unlocked && <div className="absolute inset-0 bg-black/5 rounded-[1.75rem] flex items-center justify-center"><i className="fas fa-lock text-gray-500/50 text-3xl"></i></div>}
                         </button>
                     )
                 })}
@@ -342,26 +401,26 @@ function MapSelect({ setView, setSelectedMap, userProgress }) {
     );
 }
 
-// ==========================================
-// NEW: ADVENTURE MAP (LevelSelect)
-// ==========================================
+// แผนที่ระดับ Level
 function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels, allMaps, userProgress }) {
     const levels = Array.from({ length: 10 }, (_, i) => i + 1);
     const isLevelUnlocked = (l) => l === 1 || (userProgress[`map${mapId}_level${l - 1}`]?.stars || 0) > 0;
     
-    // ดึงการตั้งค่าของ Map ปัจจุบัน (รูปภาพ และ พิกัด)
     const currentMapConfig = allMaps && allMaps[mapId] ? allMaps[mapId] : null;
 
-    // ถ้ารูปแผนที่ตั้งค่าไว้ จะแสดงผลแบบผจญภัย
     if (currentMapConfig && currentMapConfig.bgUrl) {
         return (
             <div className="relative w-full h-screen bg-black overflow-hidden flex items-center justify-center">
-                <button onClick={() => setView('mapSelect')} className="absolute top-4 left-4 md:top-8 md:left-8 bg-white text-green-600 px-4 py-2 md:px-6 md:py-3 rounded-full font-black shadow-[0_4px_0_#86efac] active:translate-y-[4px] active:shadow-none transition-all text-sm md:text-lg border-2 border-green-200 z-50"><i className="fas fa-chevron-left mr-2"></i> แผนที่</button>
-                <div className="absolute top-4 md:top-8 right-4 md:right-8 bg-white/90 backdrop-blur-md px-6 py-2 rounded-full shadow-lg border-2 border-white z-50">
-                    <h1 className="text-xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-blue-600">MAP {mapId}</h1>
+                {/* ปรับ UI ส่วนหัว เอาชื่อ MAP ไปไว้ติดกับปุ่มกลับ ตามที่ขอมาในข้อ 1 */}
+                <div className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center gap-2 md:gap-4 z-50">
+                    <button onClick={() => setView('mapSelect')} className="bg-white/90 backdrop-blur-md text-green-600 px-3 py-1.5 md:px-5 md:py-2 rounded-full font-black shadow-[0_4px_0_#86efac] active:translate-y-[4px] active:shadow-none transition-all text-sm md:text-base border-2 border-green-200">
+                        <i className="fas fa-chevron-left mr-1 md:mr-2"></i> แผนที่
+                    </button>
+                    <div className="bg-white/90 backdrop-blur-md px-4 py-1.5 md:px-6 md:py-2 rounded-full shadow-lg border-2 border-white flex items-center justify-center">
+                        <h1 className="text-base md:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-blue-600 m-0 tracking-wide uppercase leading-none">MAP {mapId}</h1>
+                    </div>
                 </div>
 
-                {/* กล่องแสดงแผนที่ ผูกกับ CSS Aspect Ratio ให้ได้สัดส่วนภาพสมจริง */}
                 <div className="relative w-full max-w-6xl aspect-video bg-contain bg-center bg-no-repeat shadow-2xl rounded-2xl md:rounded-[3rem] border-4 border-white/20" style={{ backgroundImage: `url(${currentMapConfig.bgUrl})` }}>
                     {levels.map(lvlNum => {
                         const levelKey = `map${mapId}_level${lvlNum}`;
@@ -370,7 +429,6 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
                         const stars = userProgress[levelKey]?.stars || 0;
                         const position = currentMapConfig.levels ? currentMapConfig.levels[lvlNum] : null;
 
-                        // ถ้าด่านนี้มีพิกัด ให้วางปุ่มลงไปบนรูปภาพ
                         if (position) {
                             return (
                                 <button key={lvlNum} disabled={!unlocked && levelExists} onClick={() => { if(levelExists) { setSelectedLevel(lvlNum); setLevelData(allLevels[levelKey]); setView('play'); } else alert("คุณครูกำลังสร้างด่านนี้อยู่ครับ!"); }}
@@ -379,30 +437,28 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
                                 >
                                     <span className={`text-xl md:text-3xl font-black text-white drop-shadow-md ${!unlocked && 'opacity-50'}`}>{lvlNum}</span>
                                     {unlocked && (
+                                        // ปรับโชว์ดาวให้เต็ม 5 ดาว ตามข้อ 2
                                         <div className="absolute -bottom-3 md:-bottom-4 flex gap-[1px] bg-gray-900/80 px-2 py-0.5 rounded-full shadow-lg border border-gray-600">
-                                            {[1,2,3].map(star => <i key={star} className={`fas fa-star text-[8px] md:text-[10px] ${star <= Math.ceil(stars * 0.6) ? 'text-yellow-400 drop-shadow' : 'text-gray-500'}`}></i>)}
+                                            {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-[7px] md:text-[10px] ${star <= stars ? 'text-yellow-400 drop-shadow' : 'text-gray-500/50'}`}></i>)}
                                         </div>
                                     )}
                                     {!unlocked && levelExists && <div className="absolute inset-0 flex items-center justify-center bg-gray-900/40 rounded-full"><i className="fas fa-lock text-white/80 text-lg md:text-2xl drop-shadow-md"></i></div>}
                                 </button>
                             );
                         }
-                        return null; // ถ้าไม่มีพิกัด ก็ไม่โชว์
+                        return null;
                     })}
                 </div>
             </div>
         );
     }
-
-    // ถ้ารูปแผนที่ยังไม่ถูกตั้งค่า (Fallback) ให้โชว์เป็นปุ่มตารางเหมือนเดิม
     return (
         <div className="p-4 md:p-8 h-screen overflow-y-auto relative">
-            <button onClick={() => setView('mapSelect')} className="absolute top-4 left-4 md:top-8 md:left-8 bg-white text-green-600 px-4 py-2 md:px-6 md:py-3 rounded-full font-black shadow-[0_4px_0_#86efac] active:translate-y-[4px] active:shadow-none transition-all text-sm md:text-lg border-2 border-green-200 z-10"><i className="fas fa-chevron-left mr-2"></i> แผนที่</button>
-            <div className="mt-14 md:mt-4 mb-8 md:mb-12 text-center">
-                <h1 className="text-4xl md:text-6xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.3)] inline-block px-10 py-3 bg-green-500 rounded-full border-4 border-white" style={{ WebkitTextStroke: '1.5px #14532d' }}>MAP {mapId}</h1>
-                <p className="mt-2 font-bold text-red-500 bg-white inline-block px-4 py-1 rounded-full shadow-sm">(แอดมินยังไม่ได้กำหนดรูปแผนที่ ด่านจึงแสดงเป็นตาราง)</p>
+            <button onClick={() => setView('mapSelect')} className="absolute top-4 left-4 bg-white text-green-600 px-4 py-2 rounded-full font-black shadow-[0_4px_0_#86efac] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-green-200 z-10"><i className="fas fa-chevron-left mr-2"></i> แผนที่</button>
+            <div className="mt-14 mb-8 text-center">
+                <h1 className="text-4xl font-black text-white drop-shadow-md inline-block px-10 py-3 bg-green-500 rounded-full border-4 border-white">MAP {mapId}</h1>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-6 max-w-5xl mx-auto pb-10 px-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 max-w-5xl mx-auto pb-10 px-2">
                 {levels.map(lvlNum => {
                     const levelKey = `map${mapId}_level${lvlNum}`;
                     const levelExists = allLevels[levelKey];
@@ -410,13 +466,12 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
                     const stars = userProgress[levelKey]?.stars || 0;
                     return (
                         <button key={lvlNum} disabled={!unlocked && levelExists} onClick={() => { if(levelExists) { setSelectedLevel(lvlNum); setLevelData(allLevels[levelKey]); setView('play'); } else alert("คุณครูกำลังสร้างด่านนี้อยู่ครับ!"); }}
-                            className={`relative flex flex-col items-center justify-center h-28 md:h-40 rounded-[2rem] border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-green-50 to-white border-green-400 shadow-[0_6px_0_#4ade80] active:translate-y-[6px] active:shadow-none cursor-pointer hover:border-green-500' : (!levelExists ? 'bg-red-50 border-red-200 shadow-[0_6px_0_#fecaca]' : 'bg-gray-200 border-gray-300 shadow-[0_6px_0_#d1d5db] opacity-90 cursor-not-allowed')}`}>
-                            <span className={`text-4xl md:text-6xl font-black ${unlocked ? 'text-green-600 drop-shadow-sm' : 'text-gray-400'}`}>{lvlNum}</span>
-                            <div className="flex gap-1 md:gap-1.5 mt-2 md:mt-3 bg-gray-800/10 px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-inner">
-                                {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-[10px] md:text-sm ${star <= stars ? 'text-yellow-400 drop-shadow' : 'text-gray-300/50'}`}></i>)}
+                            className={`relative flex flex-col items-center justify-center h-28 rounded-[2rem] border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-green-50 to-white border-green-400 shadow-[0_6px_0_#4ade80] active:translate-y-[6px] active:shadow-none cursor-pointer' : 'bg-gray-200 border-gray-300 shadow-sm opacity-90 cursor-not-allowed'}`}>
+                            <span className={`text-4xl font-black ${unlocked ? 'text-green-600' : 'text-gray-400'}`}>{lvlNum}</span>
+                            <div className="flex gap-1 mt-2 bg-gray-800/10 px-2 py-1 rounded-full">
+                                {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-[10px] ${star <= stars ? 'text-yellow-400' : 'text-gray-300/50'}`}></i>)}
                             </div>
-                            {!unlocked && levelExists && <div className="absolute inset-0 flex items-center justify-center bg-gray-800/10 rounded-[1.75rem]"><i className="fas fa-lock text-gray-500/70 text-3xl md:text-5xl"></i></div>}
-                            {!levelExists && <div className="absolute bottom-2 text-[10px] md:text-xs font-bold text-red-500 bg-red-100 px-2 py-1 rounded-full uppercase tracking-wider">Coming Soon</div>}
+                            {!unlocked && levelExists && <div className="absolute inset-0 flex items-center justify-center bg-gray-800/10 rounded-[1.75rem]"><i className="fas fa-lock text-gray-500/70 text-3xl"></i></div>}
                         </button>
                     )
                 })}
@@ -425,9 +480,7 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
     );
 }
 
-/* ==========================================
-   จบส่วนที่ 1 (รอคำสั่งส่งส่วนที่ 2)
-   ========================================== */
+
 // ==========================================
 // VISUAL EDITOR (For  & Sandbox)
 // ==========================================
@@ -515,89 +568,90 @@ function VisualEditor({ id, label, value, onChange }) {
 // ==========================================
 // ADMIN PANEL (Game UI Design + Map Editor)
 // ==========================================
-function AdminPanel({ setView, allLevels, allMaps }) {
-    const [tab, setTab] = useState('equations'); // 'equations' หรือ 'map'
+// ==========================================
+// ADMIN PANEL (Game UI Design + Advanced Settings)
+// ==========================================
+function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
+    const [tab, setTab] = useState('equations'); // equations, levelmap, worldmap, mainmenu
     const [mapId, setMapId] = useState(1);
+    const [message, setMessage] = useState('');
     
-    // สถานะสำหรับโหมดสร้างสมการ
+    // States: Equations
     const [levelId, setLevelId] = useState(1);
     const [lhsHtml, setLhsHtml] = useState('');
     const [rhsHtml, setRhsHtml] = useState('');
     const [parMoves, setParMoves] = useState(3);
     
-    // สถานะสำหรับโหมดสร้างแผนที่ (Map Editor)
+    // States: Level Map & World Map
     const [bgUrl, setBgUrl] = useState('');
     const [positions, setPositions] = useState({});
     const [draggingNode, setDraggingNode] = useState(null);
     const mapContainerRef = useRef(null);
-    
-    const [message, setMessage] = useState('');
 
-    // ดึงข้อมูลสมการเมื่อเปลี่ยนด่าน
+    // States: Main Menu Settings
+    const [menuBgUrl, setMenuBgUrl] = useState('');
+    const [btnPlay, setBtnPlay] = useState('');
+    const [btnSandbox, setBtnSandbox] = useState('');
+    const [btnRank, setBtnRank] = useState('');
+    const [btnAdmin, setBtnAdmin] = useState('');
+
     useEffect(() => {
         if (tab === 'equations') {
             const levelKey = `map${mapId}_level${levelId}`;
             const data = allLevels[levelKey];
             if (data) { setLhsHtml(data.lhsHtml || ''); setRhsHtml(data.rhsHtml || ''); setParMoves(data.parMoves || 3); } 
             else { setLhsHtml(''); setRhsHtml(''); setParMoves(3); }
-        }
-        setMessage('');
-    }, [mapId, levelId, allLevels, tab]);
-
-    // ดึงข้อมูลแผนที่เมื่อเปลี่ยน Map
-    useEffect(() => {
-        if (tab === 'map') {
+        } else if (tab === 'levelmap') {
             const mapData = allMaps && allMaps[mapId];
-            if (mapData && mapData.bgUrl) {
-                setBgUrl(mapData.bgUrl);
-                setPositions(mapData.levels || {});
-            } else {
-                setBgUrl('');
-                // ถ้าเป็นแผนที่ใหม่ ให้เรียงปุ่มด่าน 1-10 ไว้ตรงกลางจอรอให้ลาก
-                let defPos = {};
-                for(let i=1; i<=10; i++) defPos[i] = { x: i * 8.5, y: 50 };
-                setPositions(defPos);
-            }
+            if (mapData && mapData.bgUrl) { setBgUrl(mapData.bgUrl); setPositions(mapData.levels || {}); } 
+            else { setBgUrl(''); let defPos = {}; for(let i=1; i<=10; i++) defPos[i] = { x: i * 8.5, y: 50 }; setPositions(defPos); }
+        } else if (tab === 'worldmap') {
+            if (globalSettings?.worldMapBgUrl) { setBgUrl(globalSettings.worldMapBgUrl); setPositions(globalSettings.worldPositions || {}); } 
+            else { setBgUrl(''); let defPos = {}; for(let i=1; i<=10; i++) defPos[i] = { x: 50, y: 100 - (i * 9) }; setPositions(defPos); }
+        } else if (tab === 'mainmenu') {
+            setMenuBgUrl(globalSettings?.mainMenuBgUrl || '');
+            setBtnPlay(globalSettings?.btnPlay || ''); setBtnSandbox(globalSettings?.btnSandbox || '');
+            setBtnRank(globalSettings?.btnRank || ''); setBtnAdmin(globalSettings?.btnAdmin || '');
         }
         setMessage('');
-    }, [mapId, allMaps, tab]);
+    }, [mapId, levelId, allLevels, allMaps, globalSettings, tab]);
 
-    // บันทึกสมการ
     const handleSaveEquations = async () => {
         if (!lhsHtml || !rhsHtml) { setMessage('กรุณาสร้างสมการให้ครบครับ'); return; }
-        const levelKey = `map${mapId}_level${levelId}`;
-        await set(ref(db, `levels/${levelKey}`), { mapId, levelId, lhsHtml, rhsHtml, parMoves: parseInt(parMoves) });
-        setMessage(`บันทึก Map ${mapId} เลเวล ${levelId} เรียบร้อย!`);
-        setTimeout(() => setMessage(''), 3000);
+        await set(ref(db, `levels/map${mapId}_level${levelId}`), { mapId, levelId, lhsHtml, rhsHtml, parMoves: parseInt(parMoves) });
+        setMessage(`บันทึก Map ${mapId} เลเวล ${levelId} เรียบร้อย!`); setTimeout(() => setMessage(''), 3000);
     };
 
-    // บันทึกแผนที่
-    const handleSaveMap = async () => {
+    const handleSaveLevelMap = async () => {
         if (!bgUrl) { setMessage('กรุณาอัปโหลดรูปแผนที่ก่อนครับ'); return; }
         await set(ref(db, `maps/${mapId}`), { mapId, bgUrl, levels: positions });
-        setMessage(`บันทึกแผนที่ Map ${mapId} สำเร็จ!`);
-        setTimeout(() => setMessage(''), 3000);
+        setMessage(`บันทึกแผนที่ Map ${mapId} สำเร็จ!`); setTimeout(() => setMessage(''), 3000);
     };
 
-    // แปลงรูปภาพที่อัปโหลดให้เป็น Base64
-    const handleImageUpload = (e) => {
+    const handleSaveWorldMap = async () => {
+        if (!bgUrl) { setMessage('กรุณาอัปโหลดรูปแผนที่โลกแนวตั้งก่อนครับ'); return; }
+        await update(ref(db, `globalSettings`), { worldMapBgUrl: bgUrl, worldPositions: positions });
+        setMessage(`บันทึกแผนที่โลกสำเร็จ!`); setTimeout(() => setMessage(''), 3000);
+    };
+
+    const handleSaveMainMenu = async () => {
+        await update(ref(db, `globalSettings`), { 
+            mainMenuBgUrl: menuBgUrl, btnPlay: btnPlay, btnSandbox: btnSandbox, btnRank: btnRank, btnAdmin: btnAdmin 
+        });
+        setMessage(`บันทึกการตั้งค่าหน้าเมนูหลักสำเร็จ!`); setTimeout(() => setMessage(''), 3000);
+    };
+
+    const handleImageUpload = (setter) => (e) => {
         const file = e.target.files[0];
         if (file) {
-            if (file.size > 2 * 1024 * 1024) { // จำกัดไม่เกิน 2MB
-                alert('ไฟล์รูปใหญ่เกินไปครับ แนะนำให้ใช้รูปขนาดไม่เกิน 2MB เพื่อความลื่นไหลของเกม');
-                return;
-            }
+            if (file.size > 2.5 * 1024 * 1024) { alert('ไฟล์รูปใหญ่เกิน 2.5MB ครับ ระบบอาจบันทึกไม่ได้ แนะนำให้ลดขนาดก่อนครับ'); return; }
             const reader = new FileReader();
-            reader.onloadend = () => setBgUrl(reader.result);
+            reader.onloadend = () => setter(reader.result);
             reader.readAsDataURL(file);
         }
     };
 
-    // ระบบ Drag & Drop ปุ่มบนแผนที่
-    const handlePointerDown = (e, lvl) => {
-        setDraggingNode(lvl);
-        e.currentTarget.setPointerCapture(e.pointerId);
-    };
+    const handlePointerDown = (e, lvl) => { setDraggingNode(lvl); e.currentTarget.setPointerCapture(e.pointerId); };
     const handlePointerMove = (e) => {
         if (!draggingNode || !mapContainerRef.current) return;
         const rect = mapContainerRef.current.getBoundingClientRect();
@@ -606,119 +660,143 @@ function AdminPanel({ setView, allLevels, allMaps }) {
         x = Math.max(0, Math.min(100, x)); y = Math.max(0, Math.min(100, y));
         setPositions(prev => ({ ...prev, [draggingNode]: { x, y } }));
     };
-    const handlePointerUp = (e) => {
-        if (draggingNode) {
-            e.currentTarget.releasePointerCapture(e.pointerId);
-            setDraggingNode(null);
-        }
-    };
+    const handlePointerUp = (e) => { if (draggingNode) { e.currentTarget.releasePointerCapture(e.pointerId); setDraggingNode(null); } };
 
     return (
-        <div className="p-4 md:p-8 h-screen overflow-y-auto relative bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="p-4 md:p-8 h-screen overflow-y-auto relative bg-gradient-to-br from-gray-100 to-gray-200">
             <button onClick={() => setView('menu')} className="absolute top-4 left-4 bg-white text-gray-700 px-5 py-2.5 rounded-full font-black shadow-[0_4px_0_#d1d5db] active:translate-y-[4px] active:shadow-none transition-all border-2 border-gray-200 z-50 hover:bg-gray-50"><i className="fas fa-chevron-left mr-2"></i> กลับเมนู</button>
             
-            <div className="bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-[2.5rem] shadow-[0_15px_40px_rgba(0,0,0,0.1)] border-4 border-white w-full max-w-5xl mx-auto mt-14 md:mt-4 flex flex-col min-h-[85vh]">
-                
-                {/* หัวข้อและสลับแท็บ */}
+            <div className="bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-[2.5rem] shadow-xl border-4 border-white w-full max-w-6xl mx-auto mt-14 md:mt-4 flex flex-col min-h-[85vh]">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b-2 border-gray-100 pb-6">
                     <h1 className="text-3xl md:text-4xl font-black text-gray-800 tracking-wide"><i className="fas fa-cogs text-blue-500 mr-3"></i>ผู้ดูแลระบบ</h1>
-                    <div className="flex gap-2 bg-gray-100 p-1.5 rounded-full border-2 border-gray-200 shadow-inner">
-                        <button onClick={() => setTab('equations')} className={`px-6 py-2 rounded-full font-bold text-sm md:text-base transition-all ${tab === 'equations' ? 'bg-blue-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}>สร้างโจทย์สมการ</button>
-                        <button onClick={() => setTab('map')} className={`px-6 py-2 rounded-full font-bold text-sm md:text-base transition-all ${tab === 'map' ? 'bg-green-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}>วาดแผนที่ผจญภัย</button>
+                    {/* เมนูแบบใหม่ มี 4 แท็บ ครอบคลุมการตั้งค่าทั้งเกม */}
+                    <div className="flex flex-wrap justify-center gap-2 bg-gray-100 p-1.5 rounded-xl border-2 border-gray-200 shadow-inner">
+                        <button onClick={() => setTab('equations')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'equations' ? 'bg-blue-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-calculator mr-1"></i> 1. โจทย์สมการ</button>
+                        <button onClick={() => setTab('levelmap')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'levelmap' ? 'bg-green-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-map mr-1"></i> 2. แผนที่ย่อย</button>
+                        <button onClick={() => setTab('worldmap')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'worldmap' ? 'bg-purple-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-globe mr-1"></i> 3. แผนที่โลก (เลื่อน)</button>
+                        <button onClick={() => setTab('mainmenu')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'mainmenu' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-home mr-1"></i> 4. หน้าแรก</button>
                     </div>
                 </div>
                 
-                {/* ================= โหมดสร้างสมการ ================= */}
+                {/* แท็บที่ 1: สร้างโจทย์ */}
                 {tab === 'equations' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out]">
+                        {/* โค้ดสร้างโจทย์เหมือนเดิม... */}
                         <div className="flex flex-col md:flex-row gap-4 mb-8 bg-blue-50/50 p-6 rounded-[2rem] border-2 border-blue-100 shadow-inner">
                             <div className="flex-1">
-                                <label className="block text-blue-800 font-black text-sm mb-2 uppercase px-2"><i className="fas fa-map text-blue-500 mr-2"></i>Map</label>
-                                <select value={mapId} onChange={e => setMapId(parseInt(e.target.value))} className="w-full p-3 rounded-xl border-2 border-blue-200 text-lg font-bold focus:border-blue-500 outline-none">
-                                    {Array.from({length: 10}, (_, i) => i + 1).map(n => <option key={n} value={n}>Map {n}</option>)}
-                                </select>
+                                <label className="block text-blue-800 font-black text-sm mb-2 uppercase px-2">Map</label>
+                                <select value={mapId} onChange={e => setMapId(parseInt(e.target.value))} className="w-full p-3 rounded-xl border-2 border-blue-200 text-lg font-bold focus:border-blue-500 outline-none">{Array.from({length: 10}, (_, i) => i + 1).map(n => <option key={n} value={n}>Map {n}</option>)}</select>
                             </div>
                             <div className="flex-1">
-                                <label className="block text-blue-800 font-black text-sm mb-2 uppercase px-2"><i className="fas fa-layer-group text-blue-500 mr-2"></i>Level</label>
-                                <select value={levelId} onChange={e => setLevelId(parseInt(e.target.value))} className="w-full p-3 rounded-xl border-2 border-blue-200 text-lg font-bold focus:border-blue-500 outline-none">
-                                    {Array.from({length: 10}, (_, i) => i + 1).map(n => <option key={n} value={n}>Level {n}</option>)}
-                                </select>
+                                <label className="block text-blue-800 font-black text-sm mb-2 uppercase px-2">Level</label>
+                                <select value={levelId} onChange={e => setLevelId(parseInt(e.target.value))} className="w-full p-3 rounded-xl border-2 border-blue-200 text-lg font-bold focus:border-blue-500 outline-none">{Array.from({length: 10}, (_, i) => i + 1).map(n => <option key={n} value={n}>Level {n}</option>)}</select>
                             </div>
                             <div className="flex-1">
-                                <label className="block text-blue-800 font-black text-sm mb-2 uppercase px-2"><i className="fas fa-crosshairs text-blue-500 mr-2"></i>เป้าหมายย้าย (ครั้ง)</label>
+                                <label className="block text-blue-800 font-black text-sm mb-2 uppercase px-2">เป้าหมาย (ครั้ง)</label>
                                 <input type="number" value={parMoves} onChange={e => setParMoves(e.target.value)} min="1" className="w-full p-3 rounded-xl border-2 border-blue-200 text-xl font-black text-center text-blue-700 outline-none" />
                             </div>
                         </div>
-
                         <div className="flex flex-col xl:flex-row gap-6 items-stretch w-full mb-10 flex-1">
                             <div className="w-full xl:w-[45%] flex-1"><VisualEditor id="adminLhs" label="ฝั่งซ้าย" value={lhsHtml} onChange={setLhsHtml} /></div>
                             <div className="flex items-center justify-center py-4 xl:py-0"><div className="text-5xl font-black text-white bg-red-400 w-14 h-14 rounded-full flex items-center justify-center border-4 border-white shadow-md">=</div></div>
                             <div className="w-full xl:w-[45%] flex-1"><VisualEditor id="adminRhs" label="ฝั่งขวา" value={rhsHtml} onChange={setRhsHtml} /></div>
                         </div>
-
-                        {message && <div className={`p-3 rounded-2xl mb-4 font-bold text-center border-2 animate-bounce ${message.includes('เรียบร้อย') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{message}</div>}
-                        <button onClick={handleSaveEquations} className="w-full bg-blue-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none transition-all uppercase tracking-wider border-2 border-blue-300">
-                            <i className="fas fa-save mr-2"></i> บันทึกสมการ
-                        </button>
+                        {message && <div className="p-3 rounded-2xl mb-4 font-bold text-center border-2 bg-green-100 text-green-700">{message}</div>}
+                        <button onClick={handleSaveEquations} className="w-full bg-blue-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none transition-all uppercase">บันทึกสมการ</button>
                     </div>
                 )}
 
-                {/* ================= โหมดสร้างแผนที่ ================= */}
-                {tab === 'map' && (
+                {/* แท็บที่ 2: แผนที่ย่อย (แนวนอน) */}
+                {tab === 'levelmap' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out]">
-                        <div className="flex flex-col md:flex-row items-end gap-4 mb-6 bg-green-50/50 p-4 md:p-6 rounded-[2rem] border-2 border-green-100 shadow-inner">
+                        <div className="flex flex-col md:flex-row items-end gap-4 mb-6 bg-green-50 p-4 md:p-6 rounded-[2rem] border-2 border-green-100 shadow-inner">
                             <div className="w-full md:w-1/3">
-                                <label className="block text-green-800 font-black text-sm mb-2 uppercase px-2"><i className="fas fa-map-marked text-green-500 mr-2"></i>เลือก Map ที่จะจัดหน้าตา</label>
-                                <select value={mapId} onChange={e => setMapId(parseInt(e.target.value))} className="w-full p-3 rounded-xl border-2 border-green-200 text-lg font-bold focus:border-green-500 outline-none">
-                                    {Array.from({length: 10}, (_, i) => i + 1).map(n => <option key={n} value={n}>Map {n}</option>)}
-                                </select>
+                                <label className="block text-green-800 font-black text-sm mb-2">เลือก Map</label>
+                                <select value={mapId} onChange={e => setMapId(parseInt(e.target.value))} className="w-full p-3 rounded-xl border-2 border-green-200 text-lg font-bold focus:border-green-500 outline-none">{Array.from({length: 10}, (_, i) => i + 1).map(n => <option key={n} value={n}>Map {n}</option>)}</select>
                             </div>
                             <div className="w-full md:w-2/3">
-                                <label className="block text-green-800 font-black text-sm mb-2 uppercase px-2"><i className="fas fa-upload text-green-500 mr-2"></i>อัปโหลดรูปพื้นหลังแผนที่</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 bg-white border-2 border-green-200 rounded-xl px-2 py-1 outline-none" />
+                                <label className="block text-green-800 font-black text-sm mb-2">อัปโหลดรูปพื้นหลัง (16:9 แนวนอน)</label>
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl)} className="w-full bg-white border-2 border-green-200 rounded-xl px-2 py-1 outline-none" />
                             </div>
                         </div>
-
-                        {/* พื้นที่ Map Editor */}
                         <div className="flex-1 bg-gray-900 rounded-[2rem] border-4 border-gray-200 shadow-inner relative overflow-hidden flex items-center justify-center min-h-[400px]">
-                            {!bgUrl ? (
-                                <div className="text-gray-500 text-center font-bold">
-                                    <i className="fas fa-image text-6xl mb-4 opacity-50 block"></i>
-                                    อัปโหลดรูปแผนที่เพื่อเริ่มลากวางตำแหน่งด่าน
-                                </div>
-                            ) : (
-                                <div 
-                                    ref={mapContainerRef} 
-                                    className="relative w-full max-w-5xl aspect-video bg-contain bg-center bg-no-repeat shadow-md border border-white/10" 
-                                    style={{ backgroundImage: `url(${bgUrl})` }}
-                                >
+                            {!bgUrl ? (<div className="text-gray-500 text-center font-bold">อัปโหลดรูปแผนที่แนวนอนเพื่อเริ่มจัดวาง 10 ด่านย่อย</div>) : (
+                                <div ref={mapContainerRef} className="relative w-full max-w-5xl aspect-video bg-contain bg-center bg-no-repeat shadow-md" style={{ backgroundImage: `url(${bgUrl})` }}>
                                     {Array.from({ length: 10 }, (_, i) => i + 1).map(lvl => (
-                                        <div 
-                                            key={lvl}
-                                            onPointerDown={(e) => handlePointerDown(e, lvl)}
-                                            onPointerMove={handlePointerMove}
-                                            onPointerUp={handlePointerUp}
-                                            onPointerCancel={handlePointerUp}
-                                            className="absolute transform -translate-x-1/2 -translate-y-1/2 w-10 h-10 md:w-14 md:h-14 bg-green-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-white font-black text-lg md:text-2xl cursor-grab active:cursor-grabbing hover:scale-110 transition-transform touch-none select-none z-10"
-                                            style={{ left: `${positions[lvl]?.x || 50}%`, top: `${positions[lvl]?.y || 50}%` }}
-                                        >
-                                            {lvl}
-                                        </div>
+                                        <div key={lvl} onPointerDown={(e) => handlePointerDown(e, lvl)} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
+                                            className="absolute transform -translate-x-1/2 -translate-y-1/2 w-10 h-10 md:w-14 md:h-14 bg-green-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-white font-black text-lg md:text-2xl cursor-grab active:cursor-grabbing hover:scale-110 z-10 touch-none select-none"
+                                            style={{ left: `${positions[lvl]?.x || 50}%`, top: `${positions[lvl]?.y || 50}%` }}>{lvl}</div>
                                     ))}
-                                    <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-3 py-1 rounded-full pointer-events-none">
-                                        💡 ใช้เมาส์หรือนิ้วลากวงกลมไปวางตามเส้นทาง
-                                    </div>
                                 </div>
                             )}
                         </div>
-
-                        {message && <div className={`p-3 rounded-2xl mt-6 font-bold text-center border-2 animate-bounce ${message.includes('สำเร็จ') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{message}</div>}
-                        <button onClick={handleSaveMap} className="w-full bg-green-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#15803d] active:translate-y-[6px] active:shadow-none transition-all uppercase tracking-wider border-2 border-green-300 mt-6">
-                            <i className="fas fa-save mr-2"></i> บันทึกแผนที่
-                        </button>
+                        {message && <div className="p-3 rounded-2xl mt-4 font-bold text-center border-2 bg-green-100 text-green-700">{message}</div>}
+                        <button onClick={handleSaveLevelMap} className="w-full bg-green-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#15803d] active:translate-y-[6px] active:shadow-none transition-all uppercase mt-6">บันทึกแผนที่แนวนอน</button>
                     </div>
                 )}
 
+                {/* แท็บที่ 3: แผนที่โลก (แนวตั้ง เลื่อนขึ้นลง) */}
+                {tab === 'worldmap' && (
+                    <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out]">
+                        <div className="flex flex-col mb-6 bg-purple-50 p-4 md:p-6 rounded-[2rem] border-2 border-purple-100 shadow-inner">
+                            <label className="block text-purple-800 font-black text-sm mb-2">อัปโหลดรูปแผนที่โลก (9:16 แนวตั้ง ยาวๆ เลื่อนขึ้นลง)</label>
+                            <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl)} className="w-full bg-white border-2 border-purple-200 rounded-xl px-2 py-1 outline-none" />
+                        </div>
+                        {/* Editor แผนที่แนวตั้ง จำลองหน้าจอมือถือ */}
+                        <div className="flex-1 bg-gray-900 rounded-[2rem] border-4 border-gray-200 shadow-inner relative overflow-y-auto overflow-x-hidden flex justify-center h-[500px] custom-scrollbar">
+                            {!bgUrl ? (<div className="text-gray-500 text-center font-bold mt-20">อัปโหลดรูปแผนที่แนวตั้งยาวๆ เพื่อจัดวาง 10 Maps หลัก</div>) : (
+                                <div ref={mapContainerRef} className="relative w-full max-w-lg min-h-[200vh] bg-cover bg-bottom bg-no-repeat shadow-md" style={{ backgroundImage: `url(${bgUrl})` }}>
+                                    {Array.from({ length: 10 }, (_, i) => i + 1).map(lvl => (
+                                        <div key={lvl} onPointerDown={(e) => handlePointerDown(e, lvl)} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
+                                            className="absolute transform -translate-x-1/2 -translate-y-1/2 w-14 h-14 md:w-20 md:h-20 bg-blue-500 rounded-full border-4 border-white shadow-lg flex flex-col items-center justify-center text-white font-black cursor-grab active:cursor-grabbing hover:scale-110 z-10 touch-none select-none"
+                                            style={{ left: `${positions[lvl]?.x || 50}%`, top: `${positions[lvl]?.y || 50}%` }}>
+                                            <span className="text-[10px] uppercase">Map</span><span className="text-2xl leading-none">{lvl}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        {message && <div className="p-3 rounded-2xl mt-4 font-bold text-center border-2 bg-green-100 text-green-700">{message}</div>}
+                        <button onClick={handleSaveWorldMap} className="w-full bg-purple-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#7e22ce] active:translate-y-[6px] active:shadow-none transition-all uppercase mt-6">บันทึกแผนที่โลก (แนวตั้ง)</button>
+                    </div>
+                )}
+
+                {/* แท็บที่ 4: ตั้งค่าหน้าเมนูหลัก */}
+                {tab === 'mainmenu' && (
+                    <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out] gap-4">
+                        <div className="bg-orange-50 p-6 rounded-[2rem] border-2 border-orange-100 shadow-inner">
+                            <label className="block text-orange-800 font-black text-sm mb-2"><i className="fas fa-image mr-2"></i>อัปโหลดพื้นหลังหน้าแรก (16:9 แนวนอน)</label>
+                            <input type="file" accept="image/*" onChange={handleImageUpload(setMenuBgUrl)} className="w-full bg-white border-2 border-orange-200 rounded-xl px-2 py-1 outline-none mb-2" />
+                            {menuBgUrl && <img src={menuBgUrl} alt="Preview BG" className="h-32 rounded-xl object-cover border-2 border-orange-200 shadow-sm mx-auto" />}
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-gray-50 p-4 rounded-[1.5rem] border-2 border-gray-200">
+                                <label className="block font-black text-sm mb-2 text-green-600">รูปปุ่ม: ลุยด่าน (Play)</label>
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnPlay)} className="w-full text-xs" />
+                                {btnPlay && <img src={btnPlay} className="h-16 mt-2 object-contain mx-auto" />}
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-[1.5rem] border-2 border-gray-200">
+                                <label className="block font-black text-sm mb-2 text-orange-600">รูปปุ่ม: ฝึกฝน (Sandbox)</label>
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnSandbox)} className="w-full text-xs" />
+                                {btnSandbox && <img src={btnSandbox} className="h-16 mt-2 object-contain mx-auto" />}
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-[1.5rem] border-2 border-gray-200">
+                                <label className="block font-black text-sm mb-2 text-yellow-600">รูปปุ่ม: ตารางอันดับ</label>
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnRank)} className="w-full text-xs" />
+                                {btnRank && <img src={btnRank} className="h-16 mt-2 object-contain mx-auto" />}
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-[1.5rem] border-2 border-gray-200">
+                                <label className="block font-black text-sm mb-2 text-gray-700">รูปปุ่ม: ตั้งค่าเกม (Admin)</label>
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnAdmin)} className="w-full text-xs" />
+                                {btnAdmin && <img src={btnAdmin} className="h-16 mt-2 object-contain mx-auto" />}
+                            </div>
+                        </div>
+
+                        {message && <div className="p-3 rounded-2xl mt-4 font-bold text-center border-2 bg-green-100 text-green-700">{message}</div>}
+                        <button onClick={handleSaveMainMenu} className="w-full bg-orange-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all uppercase mt-2">บันทึกหน้าเมนูหลัก</button>
+                    </div>
+                )}
             </div>
         </div>
     );
