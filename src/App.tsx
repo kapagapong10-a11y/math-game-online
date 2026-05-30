@@ -741,11 +741,16 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             if(rhsZone) { rhsZone.innerHTML = ''; eng.localGameState.rhs.forEach((t, i) => rhsZone.appendChild(eng.createTermElement(t, 'rhs', eng.localGameState.rhs, i, 0))); }
         };
 
+// ฟังก์ชันนับสเตป จะถูกเรียกใช้เฉพาะตอนแก้สมการสำเร็จเท่านั้น!
+        eng.incrementMove = () => {
+            eng.internalMoveCount++; 
+            setMoves(eng.internalMoveCount);
+        };
+
         const makeDoubleTap = (el, action) => {
             let tapCount = 0; let tapTimer = null;
             el.ondblclick = (e) => { 
                 e.stopPropagation(); 
-                eng.internalMoveCount -= 1; setMoves(eng.internalMoveCount); 
                 action(); 
             };
             el.ontouchend = (e) => {
@@ -755,7 +760,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 else if (tapCount === 2) { 
                     clearTimeout(tapTimer); tapCount = 0; 
                     if(e.cancelable) e.preventDefault(); 
-                    eng.internalMoveCount -= 1; setMoves(eng.internalMoveCount); 
                     action(); 
                 }
             };
@@ -765,7 +769,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             let wrapper = document.createElement('div'); wrapper.className = 'term-container'; wrapper.dataset.idx = idx; wrapper.dataset.side = side;
             if (term.type === 'op') {
                 let card = document.createElement('div'); card.className = 'term-card is-operator'; card.innerText = term.value;
-                if (term.value === '•') { makeDoubleTap(card, () => { eng.combineSplitTerm(term, list, idx); eng.commitState(); }); } 
+                if (term.value === '•') { makeDoubleTap(card, () => { eng.combineSplitTerm(term, list, idx); }); } 
                 else if (term.value === '-' && idx < list.length - 1 && (list[idx+1].type === 'group' || list[idx+1].type === 'fraction')) { card.classList.add('draggable-negative'); eng.setupDrag(card, term, side, list, idx, 'distribute-negative'); }
                 wrapper.appendChild(card);
             } else if (term.type === 'group') {
@@ -804,7 +808,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 if (parentId) el.dataset.parentFracId = parentId; 
                 if(child.type === 'op') { 
                     el.className = 'term-card is-operator mx-1'; el.innerText = child.value;
-                    if(child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); eng.commitState(); }); }
+                    if(child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); }); }
                     else if (child.value === '-' && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { el.classList.add('draggable-negative'); eng.setupDrag(el, child, side, list, childIdx, 'distribute-negative', parentFracTerm, mainList, mainIdx, context); }
                 } else {
                     el.className = (child.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number') + ' px-1 py-1 min-w-[20px] ' + context + '-term'; el.innerText = child.value; el.dataset.parentFracId = parentId; 
@@ -915,6 +919,8 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     eng.dragSrc.term.denominator = new eng.TermClass('term', newSrcDenomVal.toString());
                 }
             }
+            // นับ 1 สเตป เฉพาะตอนที่ตัดทอน/หารสำเร็จ
+            eng.incrementMove();
             eng.commitState();
             eng.playTone('success');
         };
@@ -924,7 +930,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 eOriginal.stopPropagation(); 
                 if (eOriginal.type !== 'touchstart' && eOriginal.cancelable) eOriginal.preventDefault();
 
-                eng.internalMoveCount++; setMoves(eng.internalMoveCount);
+                // ลบการบวกคะแนนตอนสัมผัสหน้าจอทิ้งไปแล้ว
                 if (eng.dragSrc && eng.dragSrc.ghost) eng.dragSrc.ghost.remove();
 
                 eng.dragSrc = { el, term, side, list, idx, role, parentFracTerm, mainList, mainIdx, sourceContext, hasMoved: false };
@@ -1025,6 +1031,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 if(term.denominator.type === 'group' && term.denominator.children.length === 1) targetList.push(new eng.TermClass('op', '•'), term.denominator.children[0]);
                 else if (term.denominator.type === 'group') targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('group', null, term.denominator.children));
                 else targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', val));
+                
+                // นับ 1 สเตปเมื่อย้ายข้างสำเร็จ
+                eng.incrementMove();
                 eng.playTone('success');
             } else {
                 let isFactor = false, removeIdx = idx, removeCount = 1, nextTerm = (idx < list.length - 1) ? list[idx+1] : null, prevTerm = (idx > 0) ? list[idx-1] : null;
@@ -1046,6 +1055,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     } else {
                         let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue)));
                     }
+                    
+                    // นับ 1 สเตปเมื่อย้ายข้างสำเร็จ
+                    eng.incrementMove();
                     eng.playTone('success');
                 } else {
                     let movingSign = '+'; if (idx > 0 && list[idx-1].type === 'op') { movingSign = list[idx-1].value; removeIdx = idx - 1; removeCount = 2; }
@@ -1060,6 +1072,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
 
                     if (targetList.length > 0) targetList.push(new eng.TermClass('op', newSign)); else if (newSign === '-') targetList.push(new eng.TermClass('op', '-'));
                     targetList.push(term);
+                    
+                    // นับ 1 สเตปเมื่อย้ายข้างสำเร็จ
+                    eng.incrementMove();
                     eng.playTone('success');
                 }
             }
@@ -1081,17 +1096,31 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                         let s1 = (min > 0 && list[min-1].value === '-') ? -1 : 1, s2 = op.value === '-' ? -1 : 1;
                         let res = (p1.c * s1) + (p2.c * s2);
                         list.splice(min, 3, new eng.TermClass('term', res + (p1.v || '')));
-                        eng.commitState(); eng.playTone('success'); return;
+                        
+                        eng.incrementMove(); // นับ 1 สเตปเมื่อบวกลบกันสำเร็จ
+                        eng.commitState(); 
+                        eng.playTone('success'); return;
                     } else { eng.shakeElement(targetWrapper); }
                 } else if (op && op.value === '•') {
                      let p1 = parseInt(list[min].value), p2 = parseInt(list[max].value);
-                     if(!isNaN(p1) && !isNaN(p2)) { list.splice(min, 3, new eng.TermClass('term', (p1*p2).toString())); eng.commitState(); eng.playTone('success'); return; }
+                     if(!isNaN(p1) && !isNaN(p2)) { 
+                         list.splice(min, 3, new eng.TermClass('term', (p1*p2).toString())); 
+                         eng.incrementMove(); // นับ 1 สเตปเมื่อคูณสำเร็จ
+                         eng.commitState(); 
+                         eng.playTone('success'); return; 
+                     }
                      else { eng.shakeElement(targetWrapper); }
                 }
             } else { eng.shakeElement(targetWrapper); }
         };
 
-        eng.splitFraction = (term, list, idx) => { let nt = []; term.children.forEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.commitState(); eng.playTone('pop'); };
+        eng.splitFraction = (term, list, idx) => { 
+            let nt = []; term.children.forEach(t => nt.push(t)); list.splice(idx, 1, ...nt); 
+            eng.incrementMove(); // นับ 1 สเตปเมื่อแยกเศษส่วนสำเร็จ
+            eng.commitState(); 
+            eng.playTone('pop'); 
+        };
+        
         eng.splitTerm = (term, list, idx) => { 
             let m = term.value.match(/^(-?\d*)([a-zA-Z]+)$/); 
             if(m) { 
@@ -1099,12 +1128,30 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 if (coef === '-') coef = '-1';
                 else if (coef === '' || coef === '+') coef = '1';
                 list.splice(idx, 1, new eng.TermClass('term', coef), new eng.TermClass('op', '•'), new eng.TermClass('term', m[2])); 
-                eng.commitState(); eng.playTone('pop'); 
+                eng.incrementMove(); // นับ 1 สเตปเมื่อแยกตัวแปรสำเร็จ
+                eng.commitState(); 
+                eng.playTone('pop'); 
             }
         };
-        eng.combineSplitTerm = (term, list, idx) => { if(idx>0 && idx<list.length-1) { list.splice(idx-1, 3, new eng.TermClass('term', list[idx-1].value + list[idx+1].value)); eng.commitState(); eng.playTone('success'); } };
-        eng.distributeNegative = (term, list, idx) => { if(idx >= list.length-1) return; let t = list[idx+1]; if(t.type==='group') { list[idx].value='+'; list.splice(idx+1, 1, ...t.children); eng.commitState(); eng.playTone('pop'); } };
-
+        
+        eng.combineSplitTerm = (term, list, idx) => { 
+            if(idx>0 && idx<list.length-1) { 
+                list.splice(idx-1, 3, new eng.TermClass('term', list[idx-1].value + list[idx+1].value)); 
+                eng.incrementMove(); // นับ 1 สเตปเมื่อรวมร่างสำเร็จ
+                eng.commitState(); 
+                eng.playTone('success'); 
+            } 
+        };
+        
+        eng.distributeNegative = (term, list, idx) => { 
+            if(idx >= list.length-1) return; let t = list[idx+1]; 
+            if(t.type==='group') { 
+                list[idx].value='+'; list.splice(idx+1, 1, ...t.children); 
+                eng.incrementMove(); // นับ 1 สเตปเมื่อกระจายลบสำเร็จ
+                eng.commitState(); 
+                eng.playTone('pop'); 
+            } 
+        };
         eng.checkWinCondition = () => {
             const isSolved = (list) => list.length === 1 && list[0].type === 'term' && (list[0].value === 'x' || list[0].value === '1x');
             
