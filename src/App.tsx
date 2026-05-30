@@ -64,7 +64,7 @@ export default function MathGameApp() {
                 if (snapshot.exists()) {
                     setUserData(snapshot.val());
                 } else {
-                    const role = currentUser.email === '@math.com' ? '' : 'player';
+                    const role = currentUser.email === 'admin@math.com' ? 'admin' : 'player';
                     const newUserData = { email: currentUser.email, totalStars: 0, role: role, displayName: currentUser.email.split('@')[0] };
                     await set(userRef, newUserData);
                     setUserData(newUserData);
@@ -291,7 +291,7 @@ function ProfileSettings({ setView, user, userData }) {
     );
 }
 
-function MainMenu({ setView, is }) {
+function MainMenu({ setView, isAdmin }) {
     return (
         <div className="flex h-screen items-center justify-center p-2 md:p-6">
             <div className="w-full max-w-4xl text-center">
@@ -299,8 +299,8 @@ function MainMenu({ setView, is }) {
                 <div className="grid grid-cols-2 gap-4 md:gap-8 px-4">
                     <MenuButton icon="fa-map-marked-alt" text="ลุยด่าน (Play)" color="from-green-400 to-green-600" shadowColor="#166534" onClick={() => setView('mapSelect')} />
                     <MenuButton icon="fa-flask" text="ฝึกฝน (Sandbox)" color="from-orange-400 to-orange-600" shadowColor="#9a3412" onClick={() => setView('sandbox')} />
-                    <MenuButton icon="fa-trophy" text="ตารางอันดับ" color="from-yellow-300 to-yellow-500" shadowColor="#a16207" textColor="text-yellow-900" onClick={() => setView('leaderboard')} colSpan={is ? 1 : 2} />
-                    {is && <MenuButton icon="fa-cogs" text="จัดการด่าน" color="from-gray-500 to-gray-700" shadowColor="#374151" onClick={() => setView('')} />}
+                    <MenuButton icon="fa-trophy" text="ตารางอันดับ" color="from-yellow-300 to-yellow-500" shadowColor="#a16207" textColor="text-yellow-900" onClick={() => setView('leaderboard')} colSpan={isAdmin ? 1 : 2} />
+                    {isAdmin && <MenuButton icon="fa-cogs" text="จัดการด่าน" color="from-gray-500 to-gray-700" shadowColor="#374151" onClick={() => setView('admin')} />}
                 </div>
             </div>
         </div>
