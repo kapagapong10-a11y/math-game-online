@@ -35,6 +35,9 @@ const db = getDatabase(app);
 // ==========================================
 // 2. MAIN APP COMPONENT
 // ==========================================
+// ==========================================
+// 2. MAIN APP COMPONENT
+// ==========================================
 export default function MathGameApp() {
     const [user, setUser] = useState(null);
     const [userData, setUserData] = useState(null);
@@ -58,9 +61,11 @@ export default function MathGameApp() {
     const bgmMap = useRef(new Audio('https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939ef74e5.mp3?filename=mysterious-forest.mp3')).current;
     const sfxClick = useRef(new Audio('https://actions.google.com/sounds/v1/cartoon/pop.ogg')).current;
 
-    // 🚀 1. แยกโหลดการตั้งค่าหน้าตาเกมออกมาให้โหลดทันที (ทำให้หน้า Login โชว์รูปได้เลยแบบไม่หน่วง)
+    // 1. ดึงการตั้งค่า Global (อนุญาตให้อ่านได้แม้ยังไม่ล็อกอินเพื่อโชว์รูป Login)
     useEffect(() => {
-        const unsubSettings = onValue(ref(db, 'globalSettings'), s => setGlobalSettings(s.exists() ? s.val() : {}));
+        const unsubSettings = onValue(ref(db, 'globalSettings'), s => {
+            if(s.exists()) setGlobalSettings(s.val());
+        }, (error) => console.log("Waiting for auth to read settings..."));
         return () => unsubSettings();
     }, []);
 
@@ -91,25 +96,30 @@ export default function MathGameApp() {
         return () => window.removeEventListener('resize', checkOrientation);
     }, []);
 
+    // 2. จัดการ Login ให้โหลดข้อมูลโปรไฟล์ให้เสร็จก่อนค่อยเข้าเกม (แก้ชื่อ/ดาวหาย)
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
                 setUser(currentUser);
-                setView('menu'); // 🚀 เด้งเข้าเมนูทันทีเมื่อล็อกอิน
                 const userRef = ref(db, `users/${currentUser.uid}`);
                 const snapshot = await get(userRef);
-                if (snapshot.exists()) { setUserData(snapshot.val()); } 
-                else {
+                if (snapshot.exists()) { 
+                    setUserData(snapshot.val()); 
+                } else {
                     const role = (currentUser.email === 'admin@math.com' || currentUser.email.includes('admin')) ? 'admin' : 'player';
                     const newUserData = { email: currentUser.email, totalStars: 0, role: role, displayName: currentUser.email.split('@')[0] };
-                    await set(userRef, newUserData); setUserData(newUserData);
+                    await set(userRef, newUserData); 
+                    setUserData(newUserData);
                 }
-            } else { setUser(null); setUserData(null); setView('login'); }
+                setView('menu'); // โหลดข้อมูลเสร็จค่อยสลับหน้า
+            } else { 
+                setUser(null); setUserData(null); setView('login'); 
+            }
         });
         return () => unsubscribe();
     }, []);
 
-    // 🚀 2. โหลดข้อมูลด่านเฉพาะตอนที่ล็อกอินแล้วเท่านั้น (ป้องกันระบบหน่วง)
+    // 3. โหลดข้อมูลอื่นๆ หลังจากล็อกอินแล้ว
     useEffect(() => {
         if (!user) return;
         const unsubLevels = onValue(ref(db, 'levels'), s => setAllLevels(s.exists() ? s.val() : {}));
@@ -770,6 +780,7 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                     </div>
                 )}
 
+                {/* แท็บที่ 4: ตั้งค่าหน้าเมนูหลัก และ Login */}
                 {tab === 'mainmenu' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out] gap-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -778,6 +789,8 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                                 <input type="file" accept="image/*" onChange={handleImageUpload(setMenuBgUrl, false)} className="w-full bg-white border-2 border-orange-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
                                 {menuBgUrl && <img src={menuBgUrl} alt="Preview BG" className="h-24 rounded-xl object-cover border-2 border-orange-200 shadow-sm mx-auto" />}
                             </div>
+                            
+                            {/* แก้ไขให้ตัวแปรรับค่า loginBgUrl ได้ถูกต้อง 100% */}
                             <div className="bg-blue-50 p-6 rounded-[2rem] border-2 border-blue-100 shadow-inner">
                                 <label className="block text-blue-800 font-black text-sm mb-2"><i className="fas fa-sign-in-alt mr-2"></i>รูปพื้นหลังหน้า Login (แนวนอน/ตั้ง)</label>
                                 <input type="file" accept="image/*" onChange={handleImageUpload((url) => setGlobalSettings(prev => ({...prev, loginBgUrl: url})), false)} className="w-full bg-white border-2 border-blue-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
