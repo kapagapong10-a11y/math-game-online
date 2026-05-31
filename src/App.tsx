@@ -1569,7 +1569,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 </div>
             )}
 
-            <div className="flex-1 flex flex-col relative bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white min-h-[50vh] shadow-inner mb-4">
+            <div className="flex-1 flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white min-h-[50vh] shadow-inner mb-4">
                 <div id="engine-playground" className="bg-white rounded-2xl md:rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full h-full flex-1 overflow-x-auto min-h-[300px]">
                     <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
                     <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-3 md:pr-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
@@ -1577,10 +1577,13 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-3 md:pl-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
                 </div>
 
-                <div className="absolute bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-3 md:gap-5 bg-white/95 px-5 py-2 md:px-6 md:py-3 rounded-full shadow-lg border-2 border-gray-200 z-30 whitespace-nowrap">
-                    <button onClick={() => engineRef.current.undo()} className="text-gray-500 hover:text-blue-600 text-lg md:text-2xl active:scale-90 transition-transform bg-gray-100 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-inner border border-gray-200"><i className="fas fa-undo"></i></button>
-                    <div className="text-gray-600 font-bold border-l-2 pl-3 md:pl-4 text-xs md:text-sm border-gray-200 flex items-center">
-                        <i className="fas fa-hand-pointer text-blue-500 mr-2 text-lg drop-shadow-sm"></i> ลากวาง <span className="hidden md:inline font-medium text-gray-400 ml-2 tracking-wide">| แตะเบิ้ล 2 ครั้งเพื่อแยกส่วน</span>
+                {/* เปลี่ยนจากการลอยตัว (absolute) เป็นการจัดเรียงกล่องปกติ (flex + mt-3) เพื่อไม่ให้บังสมการเด็ดขาด */}
+                <div className="flex justify-center mt-3 md:mt-4">
+                    <div className="flex items-center gap-3 md:gap-5 bg-white/95 px-5 py-2 md:px-6 md:py-3 rounded-full shadow-lg border-2 border-gray-200 whitespace-nowrap">
+                        <button onClick={() => engineRef.current.undo()} className="text-gray-500 hover:text-blue-600 text-lg md:text-2xl active:scale-90 transition-transform bg-gray-100 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-inner border border-gray-200"><i className="fas fa-undo"></i></button>
+                        <div className="text-gray-600 font-bold border-l-2 pl-3 md:pl-4 text-xs md:text-sm border-gray-200 flex items-center">
+                            <i className="fas fa-hand-pointer text-blue-500 mr-2 text-lg drop-shadow-sm"></i> ลากวาง <span className="hidden md:inline font-medium text-gray-400 ml-2 tracking-wide">| แตะเบิ้ล 2 ครั้งเพื่อแยกส่วน</span>
+                        </div>
                     </div>
                 </div>
             </div>
