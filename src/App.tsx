@@ -32,6 +32,9 @@ const db = getDatabase(app);
 // ==========================================
 // 2. MAIN APP COMPONENT (เพิ่มระบบเสียง)
 // ==========================================
+// ==========================================
+// 2. MAIN APP COMPONENT
+// ==========================================
 export default function MathGameApp() {
     const [user, setUser] = useState(null);
     const [userData, setUserData] = useState(null);
@@ -48,98 +51,79 @@ export default function MathGameApp() {
     const [userProgress, setUserProgress] = useState({});
     const [leaderboard, setLeaderboard] = useState([]);
 
-    // ระบบเสียง (Audio State)
     const [isMuted, setIsMuted] = useState(false);
     const [audioInit, setAudioInit] = useState(false);
     
-    // ลิงก์เพลงประกอบ (สามารถเปลี่ยน URL ได้ถ้าต้องการ)
     const bgmMenu = useRef(new Audio('https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=cheerful-game-music.mp3')).current;
     const bgmMap = useRef(new Audio('https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939ef74e5.mp3?filename=mysterious-forest.mp3')).current;
     const sfxClick = useRef(new Audio('https://actions.google.com/sounds/v1/cartoon/pop.ogg')).current;
 
+    // 🚀 1. แยกโหลดการตั้งค่าหน้าตาเกมออกมาให้โหลดทันที (ทำให้หน้า Login โชว์รูปได้เลยแบบไม่หน่วง)
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            if (currentUser) {
-                setUser(currentUser);
-                // 🚀 แก้ตรงนี้: เปลี่ยนไปหน้าเมนู "ทันที" ไม่ต้องรอ DB โหลดเสร็จ ทำให้เข้าเกมไวมาก
-                setView('menu'); 
-
-                const userRef = ref(db, `users/${currentUser.uid}`);
-                const snapshot = await get(userRef);
-                if (!snapshot.exists()) {
-                    const role = (currentUser.email === 'admin@math.com' || currentUser.email.includes('admin')) ? 'admin' : 'player';
-                    const newUserData = { email: currentUser.email, totalStars: 0, role: role, displayName: currentUser.email.split('@')[0] };
-                    await set(userRef, newUserData);
-                }
-            } else { 
-                setUser(null);
-                setUserData(null);
-                setView('login'); 
-            }
-        });
-        return () => unsubscribe();
+        const unsubSettings = onValue(ref(db, 'globalSettings'), s => setGlobalSettings(s.exists() ? s.val() : {}));
+        return () => unsubSettings();
     }, []);
 
     useEffect(() => {
-        if (!user) return;
-        
-        const unsubLevels = onValue(ref(db, 'levels'), s => setAllLevels(s.exists() ? s.val() : {}));
-        const unsubMaps = onValue(ref(db, 'maps'), s => setAllMaps(s.exists() ? s.val() : {}));
-        const unsubSettings = onValue(ref(db, 'globalSettings'), s => setGlobalSettings(s.exists() ? s.val() : {}));
-        const unsubProgress = onValue(ref(db, `users/${user.uid}/progress`), s => setUserProgress(s.exists() ? s.val() : {}));
-        const unsubUsers = onValue(ref(db, 'users'), s => {
-            let list = [];
-            if (s.exists()) { 
-                const d = s.val(); 
-                for (let uid in d) { if (d[uid].totalStars > 0) list.push({ id: uid, ...d[uid] }); } 
-                list.sort((a, b) => b.totalStars - a.totalStars); 
-            }
-            setLeaderboard(list);
-        });
-        const unsubCurrentUser = onValue(ref(db, `users/${user.uid}`), s => { if (s.exists()) setUserData(s.val()); });
-
-        // 🚀 แก้ตรงนี้: คืนค่าหน่วยความจำทันทีเมื่อไม่ใช้งาน ป้องกันระบบหน่วง/ค้าง (Memory Leak)
-        return () => { 
-            unsubLevels(); unsubMaps(); unsubSettings(); unsubProgress(); unsubUsers(); unsubCurrentUser(); 
+        bgmMenu.loop = true; bgmMap.loop = true;
+        bgmMenu.volume = 0.5; bgmMap.volume = 0.5;
+        const handleGlobalClick = (e) => {
+            if (!audioInit) setAudioInit(true);
+            if (e.target.closest('button') && !isMuted) { sfxClick.currentTime = 0; sfxClick.play().catch(()=>{}); }
         };
-    }, [user]);
+        document.addEventListener('click', handleGlobalClick);
+        return () => document.removeEventListener('click', handleGlobalClick);
+    }, [audioInit, isMuted, sfxClick, bgmMenu, bgmMap]);
+
+    useEffect(() => {
+        bgmMenu.muted = isMuted; bgmMap.muted = isMuted;
+        if (!audioInit) return;
+        const playMenu = ['login', 'menu', 'leaderboard', 'profile', 'admin'].includes(view);
+        const playMap = ['mapSelect', 'levelSelect'].includes(view);
+        if (playMenu) { bgmMap.pause(); bgmMenu.play().catch(()=>{}); }
+        else if (playMap) { bgmMenu.pause(); bgmMap.play().catch(()=>{}); }
+        else { bgmMenu.pause(); bgmMap.pause(); }
+    }, [view, audioInit, isMuted, bgmMenu, bgmMap]);
+
     useEffect(() => {
         const checkOrientation = () => setIsLandscape(window.innerWidth > window.innerHeight);
-        checkOrientation();
-        window.addEventListener('resize', checkOrientation);
+        checkOrientation(); window.addEventListener('resize', checkOrientation);
         return () => window.removeEventListener('resize', checkOrientation);
     }, []);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            setUser(currentUser);
             if (currentUser) {
+                setUser(currentUser);
+                setView('menu'); // 🚀 เด้งเข้าเมนูทันทีเมื่อล็อกอิน
                 const userRef = ref(db, `users/${currentUser.uid}`);
                 const snapshot = await get(userRef);
                 if (snapshot.exists()) { setUserData(snapshot.val()); } 
                 else {
-                    const role = currentUser.email === 'admin@math.com' ? 'admin' : 'player';
+                    const role = (currentUser.email === 'admin@math.com' || currentUser.email.includes('admin')) ? 'admin' : 'player';
                     const newUserData = { email: currentUser.email, totalStars: 0, role: role, displayName: currentUser.email.split('@')[0] };
                     await set(userRef, newUserData); setUserData(newUserData);
                 }
-                setView('menu');
-            } else { setView('login'); setUserData(null); }
+            } else { setUser(null); setUserData(null); setView('login'); }
         });
         return () => unsubscribe();
     }, []);
 
+    // 🚀 2. โหลดข้อมูลด่านเฉพาะตอนที่ล็อกอินแล้วเท่านั้น (ป้องกันระบบหน่วง)
     useEffect(() => {
         if (!user) return;
-        const levelsRef = ref(db, 'levels'); onValue(levelsRef, s => setAllLevels(s.exists() ? s.val() : {}));
-        const mapsRef = ref(db, 'maps'); onValue(mapsRef, s => setAllMaps(s.exists() ? s.val() : {}));
-        const settingsRef = ref(db, 'globalSettings'); onValue(settingsRef, s => setGlobalSettings(s.exists() ? s.val() : {}));
-        const progressRef = ref(db, `users/${user.uid}/progress`); onValue(progressRef, s => setUserProgress(s.exists() ? s.val() : {}));
-        const usersRef = ref(db, 'users'); onValue(usersRef, s => {
+        const unsubLevels = onValue(ref(db, 'levels'), s => setAllLevels(s.exists() ? s.val() : {}));
+        const unsubMaps = onValue(ref(db, 'maps'), s => setAllMaps(s.exists() ? s.val() : {}));
+        const unsubProgress = onValue(ref(db, `users/${user.uid}/progress`), s => setUserProgress(s.exists() ? s.val() : {}));
+        const unsubUsers = onValue(ref(db, 'users'), s => {
             let list = [];
             if (s.exists()) { const d = s.val(); for (let uid in d) { if (d[uid].totalStars > 0) list.push({ id: uid, ...d[uid] }); } list.sort((a, b) => b.totalStars - a.totalStars); }
             setLeaderboard(list);
         });
-        const currentUserRef = ref(db, `users/${user.uid}`); onValue(currentUserRef, s => { if (s.exists()) setUserData(s.val()); });
+        const currentUserRef = ref(db, `users/${user.uid}`);
+        const unsubCurrentUser = onValue(currentUserRef, s => { if (s.exists()) setUserData(s.val()); });
+
+        return () => { unsubLevels(); unsubMaps(); unsubProgress(); unsubUsers(); unsubCurrentUser(); };
     }, [user]);
 
     const handleSignOut = () => signOut(auth);
@@ -169,7 +153,6 @@ export default function MathGameApp() {
 
     return (
         <div className="min-h-screen bg-[#a8edea] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] font-['Kanit'] overflow-hidden relative selection:bg-blue-300">
-            {/* ปุ่มเปิด-ปิดเสียง ลอยตัวมุมขวาล่าง */}
             <button onClick={() => setIsMuted(!isMuted)} className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[9999] bg-white/90 backdrop-blur-md w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center shadow-[0_4px_0_#d1d5db] border-2 border-gray-200 text-gray-700 hover:text-blue-500 hover:scale-110 active:translate-y-[4px] active:shadow-none transition-all">
                 <i className={`fas ${isMuted ? 'fa-volume-mute text-red-500' : 'fa-volume-up text-blue-500'} text-xl md:text-2xl`}></i>
             </button>
@@ -587,24 +570,24 @@ function VisualEditor({ id, label, value, onChange }) {
 // ==========================================
 // ADMIN PANEL (Game UI Design + Advanced Settings)
 // ==========================================
+// ==========================================
+// ADMIN PANEL (Game UI Design + Advanced Settings)
+// ==========================================
 function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
-    const [tab, setTab] = useState('equations'); // equations, levelmap, worldmap, mainmenu
+    const [tab, setTab] = useState('equations');
     const [mapId, setMapId] = useState(1);
     const [message, setMessage] = useState('');
     
-    // States: Equations
     const [levelId, setLevelId] = useState(1);
     const [lhsHtml, setLhsHtml] = useState('');
     const [rhsHtml, setRhsHtml] = useState('');
     const [parMoves, setParMoves] = useState(3);
     
-    // States: Level Map & World Map
     const [bgUrl, setBgUrl] = useState('');
     const [positions, setPositions] = useState({});
     const [draggingNode, setDraggingNode] = useState(null);
     const mapContainerRef = useRef(null);
 
-    // States: Main Menu Settings
     const [menuBgUrl, setMenuBgUrl] = useState('');
     const [btnPlay, setBtnPlay] = useState('');
     const [btnSandbox, setBtnSandbox] = useState('');
@@ -650,21 +633,31 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
         setMessage(`บันทึกแผนที่โลกสำเร็จ!`); setTimeout(() => setMessage(''), 3000);
     };
 
-    const handleSaveMainMenu = async () => {
-        await update(ref(db, `globalSettings`), { 
-            mainMenuBgUrl: menuBgUrl, btnPlay: btnPlay, btnSandbox: btnSandbox, btnRank: btnRank, btnAdmin: btnAdmin 
-        });
-        setMessage(`บันทึกการตั้งค่าหน้าเมนูหลักสำเร็จ!`); setTimeout(() => setMessage(''), 3000);
-    };
-
-    const handleImageUpload = (setter) => (e) => {
+    // 🚀 ระบบบีบอัดรูปภาพอัจฉริยะ (แก้ปัญหาแอปค้าง 100%)
+    const handleImageUpload = (setter, isTransparent = false) => (e) => {
         const file = e.target.files[0];
-        if (file) {
-            if (file.size > 2.5 * 1024 * 1024) { alert('ไฟล์รูปใหญ่เกิน 2.5MB ครับ ระบบอาจบันทึกไม่ได้ แนะนำให้ลดขนาดก่อนครับ'); return; }
-            const reader = new FileReader();
-            reader.onloadend = () => setter(reader.result);
-            reader.readAsDataURL(file);
-        }
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                // บีบขนาด: ภาพพื้นหลังเหลือความกว้างสุดแค่ 1280px / รูปปุ่มเหลือแค่ 400px (เบาหวิว)
+                const maxWidth = isTransparent ? 400 : 1280; 
+                const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+                canvas.width = img.width * scale;
+                canvas.height = img.height * scale;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                // แปลงเป็น JPEG คุณภาพ 70% ยกเว้นรูปปุ่มที่ต้องการความโปร่งใส (PNG)
+                const mimeType = isTransparent ? 'image/png' : 'image/jpeg';
+                const quality = isTransparent ? undefined : 0.7;
+                setter(canvas.toDataURL(mimeType, quality));
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
     };
 
     const handlePointerDown = (e, lvl) => { setDraggingNode(lvl); e.currentTarget.setPointerCapture(e.pointerId); };
@@ -685,19 +678,16 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
             <div className="bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-[2.5rem] shadow-xl border-4 border-white w-full max-w-6xl mx-auto mt-14 md:mt-4 flex flex-col min-h-[85vh]">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b-2 border-gray-100 pb-6">
                     <h1 className="text-3xl md:text-4xl font-black text-gray-800 tracking-wide"><i className="fas fa-cogs text-blue-500 mr-3"></i>ผู้ดูแลระบบ</h1>
-                    {/* เมนูแบบใหม่ มี 4 แท็บ ครอบคลุมการตั้งค่าทั้งเกม */}
                     <div className="flex flex-wrap justify-center gap-2 bg-gray-100 p-1.5 rounded-xl border-2 border-gray-200 shadow-inner">
                         <button onClick={() => setTab('equations')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'equations' ? 'bg-blue-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-calculator mr-1"></i> 1. โจทย์สมการ</button>
                         <button onClick={() => setTab('levelmap')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'levelmap' ? 'bg-green-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-map mr-1"></i> 2. แผนที่ย่อย</button>
-                        <button onClick={() => setTab('worldmap')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'worldmap' ? 'bg-purple-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-globe mr-1"></i> 3. แผนที่โลก (เลื่อน)</button>
+                        <button onClick={() => setTab('worldmap')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'worldmap' ? 'bg-purple-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-globe mr-1"></i> 3. แผนที่โลก</button>
                         <button onClick={() => setTab('mainmenu')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'mainmenu' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-home mr-1"></i> 4. หน้าแรก</button>
                     </div>
                 </div>
                 
-                {/* แท็บที่ 1: สร้างโจทย์ */}
                 {tab === 'equations' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out]">
-                        {/* โค้ดสร้างโจทย์เหมือนเดิม... */}
                         <div className="flex flex-col md:flex-row gap-4 mb-8 bg-blue-50/50 p-6 rounded-[2rem] border-2 border-blue-100 shadow-inner">
                             <div className="flex-1">
                                 <label className="block text-blue-800 font-black text-sm mb-2 uppercase px-2">Map</label>
@@ -722,7 +712,6 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                     </div>
                 )}
 
-                {/* แท็บที่ 2: แผนที่ย่อย (แนวนอน) */}
                 {tab === 'levelmap' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out]">
                         <div className="flex flex-col md:flex-row items-end gap-4 mb-6 bg-green-50 p-4 md:p-6 rounded-[2rem] border-2 border-green-100 shadow-inner">
@@ -732,7 +721,7 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                             </div>
                             <div className="w-full md:w-2/3">
                                 <label className="block text-green-800 font-black text-sm mb-2">อัปโหลดรูปพื้นหลัง (16:9 แนวนอน)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl)} className="w-full bg-white border-2 border-green-200 rounded-xl px-2 py-1 outline-none" />
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl, false)} className="w-full bg-white border-2 border-green-200 rounded-xl px-2 py-1 outline-none" />
                             </div>
                         </div>
                         <div className="flex-1 bg-gray-900 rounded-[2rem] border-4 border-gray-200 shadow-inner relative overflow-y-auto overflow-x-hidden flex items-center justify-center min-h-[400px]">
@@ -754,12 +743,11 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                     </div>
                 )}
 
-                {/* แท็บที่ 3: แผนที่โลก (แนวตั้ง เลื่อนขึ้นลง) */}
                 {tab === 'worldmap' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out]">
                         <div className="flex flex-col mb-6 bg-purple-50 p-4 md:p-6 rounded-[2rem] border-2 border-purple-100 shadow-inner">
                             <label className="block text-purple-800 font-black text-sm mb-2">อัปโหลดรูปแผนที่โลก (9:16 แนวตั้ง ยาวๆ เลื่อนขึ้นลง)</label>
-                            <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl)} className="w-full bg-white border-2 border-purple-200 rounded-xl px-2 py-1 outline-none" />
+                            <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl, false)} className="w-full bg-white border-2 border-purple-200 rounded-xl px-2 py-1 outline-none" />
                         </div>
                         <div className="flex-1 bg-gray-900 rounded-[2rem] border-4 border-gray-200 shadow-inner relative overflow-y-auto overflow-x-hidden flex justify-center h-[500px] custom-scrollbar">
                             {!bgUrl ? (<div className="text-gray-500 text-center font-bold mt-20">อัปโหลดรูปแผนที่แนวตั้งยาวๆ เพื่อจัดวาง 10 Maps หลัก</div>) : (
@@ -782,20 +770,17 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                     </div>
                 )}
 
-                {/* แท็บที่ 4: ตั้งค่าหน้าเมนูหลัก และ Login */}
                 {tab === 'mainmenu' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out] gap-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-orange-50 p-6 rounded-[2rem] border-2 border-orange-100 shadow-inner">
-                                <label className="block text-orange-800 font-black text-sm mb-2"><i className="fas fa-image mr-2"></i>รูปพื้นหลังหน้าเมนูหลัก (16:9)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload(setMenuBgUrl)} className="w-full bg-white border-2 border-orange-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
+                                <label className="block text-orange-800 font-black text-sm mb-2"><i className="fas fa-image mr-2"></i>รูปพื้นหลังหน้าเมนูหลัก (16:9 แนวนอน)</label>
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setMenuBgUrl, false)} className="w-full bg-white border-2 border-orange-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
                                 {menuBgUrl && <img src={menuBgUrl} alt="Preview BG" className="h-24 rounded-xl object-cover border-2 border-orange-200 shadow-sm mx-auto" />}
                             </div>
-                            
-                            {/* เพิ่มช่องอัปโหลดรูปพื้นหลัง Login */}
                             <div className="bg-blue-50 p-6 rounded-[2rem] border-2 border-blue-100 shadow-inner">
                                 <label className="block text-blue-800 font-black text-sm mb-2"><i className="fas fa-sign-in-alt mr-2"></i>รูปพื้นหลังหน้า Login (แนวนอน/ตั้ง)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload((url) => setGlobalSettings(prev => ({...prev, loginBgUrl: url})))} className="w-full bg-white border-2 border-blue-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
+                                <input type="file" accept="image/*" onChange={handleImageUpload((url) => setGlobalSettings(prev => ({...prev, loginBgUrl: url})), false)} className="w-full bg-white border-2 border-blue-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
                                 {globalSettings?.loginBgUrl && <img src={globalSettings.loginBgUrl} alt="Login BG" className="h-24 rounded-xl object-cover border-2 border-blue-200 shadow-sm mx-auto" />}
                             </div>
                         </div>
@@ -803,22 +788,22 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-gray-50 p-4 rounded-[1.5rem] border-2 border-gray-200">
                                 <label className="block font-black text-sm mb-2 text-green-600">รูปปุ่ม: ลุยด่าน (Play)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnPlay)} className="w-full text-xs" />
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnPlay, true)} className="w-full text-xs" />
                                 {btnPlay && <img src={btnPlay} className="h-16 mt-2 object-contain mx-auto" />}
                             </div>
                             <div className="bg-gray-50 p-4 rounded-[1.5rem] border-2 border-gray-200">
                                 <label className="block font-black text-sm mb-2 text-orange-600">รูปปุ่ม: ฝึกฝน (Sandbox)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnSandbox)} className="w-full text-xs" />
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnSandbox, true)} className="w-full text-xs" />
                                 {btnSandbox && <img src={btnSandbox} className="h-16 mt-2 object-contain mx-auto" />}
                             </div>
                             <div className="bg-gray-50 p-4 rounded-[1.5rem] border-2 border-gray-200">
                                 <label className="block font-black text-sm mb-2 text-yellow-600">รูปปุ่ม: ตารางอันดับ</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnRank)} className="w-full text-xs" />
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnRank, true)} className="w-full text-xs" />
                                 {btnRank && <img src={btnRank} className="h-16 mt-2 object-contain mx-auto" />}
                             </div>
                             <div className="bg-gray-50 p-4 rounded-[1.5rem] border-2 border-gray-200">
                                 <label className="block font-black text-sm mb-2 text-gray-700">รูปปุ่ม: ตั้งค่าเกม (Admin)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnAdmin)} className="w-full text-xs" />
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnAdmin, true)} className="w-full text-xs" />
                                 {btnAdmin && <img src={btnAdmin} className="h-16 mt-2 object-contain mx-auto" />}
                             </div>
                         </div>
@@ -828,7 +813,7 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                             await update(ref(db, `globalSettings`), { 
                                 mainMenuBgUrl: menuBgUrl, btnPlay, btnSandbox, btnRank, btnAdmin, loginBgUrl: globalSettings?.loginBgUrl || ''
                             });
-                            setMessage(`บันทึกการตั้งค่าหน้าเมนูหลักสำเร็จ!`); setTimeout(() => setMessage(''), 3000);
+                            setMessage(`บันทึกการตั้งค่าหน้าเมนูหลักและ Login สำเร็จ!`); setTimeout(() => setMessage(''), 3000);
                         }} className="w-full bg-orange-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all uppercase mt-2">
                             บันทึกหน้าเมนูหลัก และ Login
                         </button>
