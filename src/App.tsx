@@ -575,12 +575,6 @@ function VisualEditor({ id, label, value, onChange }) {
 }
 
 // ==========================================
-// ADMIN PANEL (Game UI Design + Map Editor)
-// ==========================================
-// ==========================================
-// ADMIN PANEL (Game UI Design + Advanced Settings)
-// ==========================================
-// ==========================================
 // ADMIN PANEL (Game UI Design + Advanced Settings)
 // ==========================================
 function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
@@ -599,6 +593,7 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
     const mapContainerRef = useRef(null);
 
     const [menuBgUrl, setMenuBgUrl] = useState('');
+    const [loginBgUrl, setLoginBgUrl] = useState(''); // 🚀 เพิ่มตัวแปรเก็บรูป Login แยกโดยเฉพาะ
     const [btnPlay, setBtnPlay] = useState('');
     const [btnSandbox, setBtnSandbox] = useState('');
     const [btnRank, setBtnRank] = useState('');
@@ -619,6 +614,7 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
             else { setBgUrl(''); let defPos = {}; for(let i=1; i<=10; i++) defPos[i] = { x: 50, y: 100 - (i * 9) }; setPositions(defPos); }
         } else if (tab === 'mainmenu') {
             setMenuBgUrl(globalSettings?.mainMenuBgUrl || '');
+            setLoginBgUrl(globalSettings?.loginBgUrl || ''); // 🚀 ดึงรูป Login เดิมมาแสดง
             setBtnPlay(globalSettings?.btnPlay || ''); setBtnSandbox(globalSettings?.btnSandbox || '');
             setBtnRank(globalSettings?.btnRank || ''); setBtnAdmin(globalSettings?.btnAdmin || '');
         }
@@ -643,7 +639,6 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
         setMessage(`บันทึกแผนที่โลกสำเร็จ!`); setTimeout(() => setMessage(''), 3000);
     };
 
-    // 🚀 ระบบบีบอัดรูปภาพอัจฉริยะ (แก้ปัญหาแอปค้าง 100%)
     const handleImageUpload = (setter, isTransparent = false) => (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -652,7 +647,6 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                // บีบขนาด: ภาพพื้นหลังเหลือความกว้างสุดแค่ 1280px / รูปปุ่มเหลือแค่ 400px (เบาหวิว)
                 const maxWidth = isTransparent ? 400 : 1280; 
                 const scale = img.width > maxWidth ? maxWidth / img.width : 1;
                 canvas.width = img.width * scale;
@@ -660,10 +654,9 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 
-                // แปลงเป็น JPEG คุณภาพ 70% ยกเว้นรูปปุ่มที่ต้องการความโปร่งใส (PNG)
                 const mimeType = isTransparent ? 'image/png' : 'image/jpeg';
                 const quality = isTransparent ? undefined : 0.7;
-                setter(canvas.toDataURL(mimeType, quality));
+                setter(canvas.toDataURL(mimeType, quality)); // 🚀 อัปเดตตัวแปรแบบเรียลไทม์
             };
             img.src = event.target.result;
         };
@@ -780,21 +773,20 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                     </div>
                 )}
 
-                {/* แท็บที่ 4: ตั้งค่าหน้าเมนูหลัก และ Login */}
                 {tab === 'mainmenu' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out] gap-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-orange-50 p-6 rounded-[2rem] border-2 border-orange-100 shadow-inner">
                                 <label className="block text-orange-800 font-black text-sm mb-2"><i className="fas fa-image mr-2"></i>รูปพื้นหลังหน้าเมนูหลัก (16:9 แนวนอน)</label>
                                 <input type="file" accept="image/*" onChange={handleImageUpload(setMenuBgUrl, false)} className="w-full bg-white border-2 border-orange-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
-                                {menuBgUrl && <img src={menuBgUrl} alt="Preview BG" className="h-24 rounded-xl object-cover border-2 border-orange-200 shadow-sm mx-auto" />}
+                                {menuBgUrl && <img src={menuBgUrl} alt="Preview Menu BG" className="h-24 rounded-xl object-cover border-2 border-orange-200 shadow-sm mx-auto" />}
                             </div>
                             
-                            {/* แก้ไขให้ตัวแปรรับค่า loginBgUrl ได้ถูกต้อง 100% */}
+                            {/* 🚀 ผูก onChange เข้ากับ setLoginBgUrl โดยตรง */}
                             <div className="bg-blue-50 p-6 rounded-[2rem] border-2 border-blue-100 shadow-inner">
                                 <label className="block text-blue-800 font-black text-sm mb-2"><i className="fas fa-sign-in-alt mr-2"></i>รูปพื้นหลังหน้า Login (แนวนอน/ตั้ง)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload((url) => setGlobalSettings(prev => ({...prev, loginBgUrl: url})), false)} className="w-full bg-white border-2 border-blue-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
-                                {globalSettings?.loginBgUrl && <img src={globalSettings.loginBgUrl} alt="Login BG" className="h-24 rounded-xl object-cover border-2 border-blue-200 shadow-sm mx-auto" />}
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setLoginBgUrl, false)} className="w-full bg-white border-2 border-blue-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
+                                {loginBgUrl && <img src={loginBgUrl} alt="Preview Login BG" className="h-24 rounded-xl object-cover border-2 border-blue-200 shadow-sm mx-auto" />}
                             </div>
                         </div>
                         
@@ -822,9 +814,13 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                         </div>
 
                         {message && <div className="p-3 rounded-2xl mt-4 font-bold text-center border-2 bg-green-100 text-green-700">{message}</div>}
+                        
+                        {/* 🚀 ส่งค่า loginBgUrl ไปบันทึกลง Database ด้วย */}
                         <button onClick={async () => {
                             await update(ref(db, `globalSettings`), { 
-                                mainMenuBgUrl: menuBgUrl, btnPlay, btnSandbox, btnRank, btnAdmin, loginBgUrl: globalSettings?.loginBgUrl || ''
+                                mainMenuBgUrl: menuBgUrl, 
+                                loginBgUrl: loginBgUrl, 
+                                btnPlay, btnSandbox, btnRank, btnAdmin 
                             });
                             setMessage(`บันทึกการตั้งค่าหน้าเมนูหลักและ Login สำเร็จ!`); setTimeout(() => setMessage(''), 3000);
                         }} className="w-full bg-orange-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all uppercase mt-2">
