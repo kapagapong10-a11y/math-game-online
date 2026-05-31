@@ -30,9 +30,6 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 // ==========================================
-// 2. MAIN APP COMPONENT (เพิ่มระบบเสียง)
-// ==========================================
-// ==========================================
 // 2. MAIN APP COMPONENT
 // ==========================================
 // ==========================================
@@ -48,92 +45,84 @@ export default function MathGameApp() {
     const [selectedLevel, setSelectedLevel] = useState(1);
     const [levelData, setLevelData] = useState(null);
     
+    // Data States
     const [allLevels, setAllLevels] = useState({});
     const [allMaps, setAllMaps] = useState({}); 
-    const [globalSettings, setGlobalSettings] = useState({});
+    const [globalSettings, setGlobalSettings] = useState({}); // สถานะใหม่สำหรับตั้งค่าหน้าหลักและแผนที่โลก
     const [userProgress, setUserProgress] = useState({});
     const [leaderboard, setLeaderboard] = useState([]);
 
-    const [isMuted, setIsMuted] = useState(false);
-    const [audioInit, setAudioInit] = useState(false);
-    
-    const bgmMenu = useRef(new Audio('https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=cheerful-game-music.mp3')).current;
-    const bgmMap = useRef(new Audio('https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939ef74e5.mp3?filename=mysterious-forest.mp3')).current;
-    const sfxClick = useRef(new Audio('https://actions.google.com/sounds/v1/cartoon/pop.ogg')).current;
-
-    // 1. ดึงการตั้งค่า Global (อนุญาตให้อ่านได้แม้ยังไม่ล็อกอินเพื่อโชว์รูป Login)
-    useEffect(() => {
-        const unsubSettings = onValue(ref(db, 'globalSettings'), s => {
-            if(s.exists()) setGlobalSettings(s.val());
-        }, (error) => console.log("Waiting for auth to read settings..."));
-        return () => unsubSettings();
-    }, []);
-
-    useEffect(() => {
-        bgmMenu.loop = true; bgmMap.loop = true;
-        bgmMenu.volume = 0.5; bgmMap.volume = 0.5;
-        const handleGlobalClick = (e) => {
-            if (!audioInit) setAudioInit(true);
-            if (e.target.closest('button') && !isMuted) { sfxClick.currentTime = 0; sfxClick.play().catch(()=>{}); }
-        };
-        document.addEventListener('click', handleGlobalClick);
-        return () => document.removeEventListener('click', handleGlobalClick);
-    }, [audioInit, isMuted, sfxClick, bgmMenu, bgmMap]);
-
-    useEffect(() => {
-        bgmMenu.muted = isMuted; bgmMap.muted = isMuted;
-        if (!audioInit) return;
-        const playMenu = ['login', 'menu', 'leaderboard', 'profile', 'admin'].includes(view);
-        const playMap = ['mapSelect', 'levelSelect'].includes(view);
-        if (playMenu) { bgmMap.pause(); bgmMenu.play().catch(()=>{}); }
-        else if (playMap) { bgmMenu.pause(); bgmMap.play().catch(()=>{}); }
-        else { bgmMenu.pause(); bgmMap.pause(); }
-    }, [view, audioInit, isMuted, bgmMenu, bgmMap]);
-
     useEffect(() => {
         const checkOrientation = () => setIsLandscape(window.innerWidth > window.innerHeight);
-        checkOrientation(); window.addEventListener('resize', checkOrientation);
-        return () => window.removeEventListener('resize', checkOrientation);
+        checkOrientation();
+        window.addEventListener('resize', checkOrientation);
+         () => window.removeEventListener('resize', checkOrientation);
     }, []);
 
-    // 2. จัดการ Login ให้โหลดข้อมูลโปรไฟล์ให้เสร็จก่อนค่อยเข้าเกม (แก้ชื่อ/ดาวหาย)
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            setUser(currentUser);
             if (currentUser) {
-                setUser(currentUser);
                 const userRef = ref(db, `users/${currentUser.uid}`);
                 const snapshot = await get(userRef);
-                if (snapshot.exists()) { 
-                    setUserData(snapshot.val()); 
+                if (snapshot.exists()) {
+                    setUserData(snapshot.val());
                 } else {
-                    const role = (currentUser.email === 'admin@math.com' || currentUser.email.includes('admin')) ? 'admin' : 'player';
+                    const role = currentUser.email === 'admin@math.com' ? 'admin' : 'player';
                     const newUserData = { email: currentUser.email, totalStars: 0, role: role, displayName: currentUser.email.split('@')[0] };
-                    await set(userRef, newUserData); 
+                    await set(userRef, newUserData);
                     setUserData(newUserData);
                 }
-                setView('menu'); // โหลดข้อมูลเสร็จค่อยสลับหน้า
-            } else { 
-                setUser(null); setUserData(null); setView('login'); 
+                setView('menu');
+            } else {
+                setView('login');
+                setUserData(null);
             }
         });
         return () => unsubscribe();
     }, []);
 
-    // 3. โหลดข้อมูลอื่นๆ หลังจากล็อกอินแล้ว
     useEffect(() => {
         if (!user) return;
-        const unsubLevels = onValue(ref(db, 'levels'), s => setAllLevels(s.exists() ? s.val() : {}));
-        const unsubMaps = onValue(ref(db, 'maps'), s => setAllMaps(s.exists() ? s.val() : {}));
-        const unsubProgress = onValue(ref(db, `users/${user.uid}/progress`), s => setUserProgress(s.exists() ? s.val() : {}));
-        const unsubUsers = onValue(ref(db, 'users'), s => {
-            let list = [];
-            if (s.exists()) { const d = s.val(); for (let uid in d) { if (d[uid].totalStars > 0) list.push({ id: uid, ...d[uid] }); } list.sort((a, b) => b.totalStars - a.totalStars); }
-            setLeaderboard(list);
+        
+        const levelsRef = ref(db, 'levels');
+        const unsubLevels = onValue(levelsRef, (snapshot) => {
+            if (snapshot.exists()) setAllLevels(snapshot.val()); else setAllLevels({});
         });
-        const currentUserRef = ref(db, `users/${user.uid}`);
-        const unsubCurrentUser = onValue(currentUserRef, s => { if (s.exists()) setUserData(s.val()); });
 
-        return () => { unsubLevels(); unsubMaps(); unsubProgress(); unsubUsers(); unsubCurrentUser(); };
+        const mapsRef = ref(db, 'maps');
+        const unsubMaps = onValue(mapsRef, (snapshot) => {
+            if (snapshot.exists()) setAllMaps(snapshot.val()); else setAllMaps({});
+        });
+
+        // โหลด Global Settings (หน้าแรก, แผนที่โลก)
+        const settingsRef = ref(db, 'globalSettings');
+        const unsubSettings = onValue(settingsRef, (snapshot) => {
+            if (snapshot.exists()) setGlobalSettings(snapshot.val()); else setGlobalSettings({});
+        });
+
+        const progressRef = ref(db, `users/${user.uid}/progress`);
+        const unsubProgress = onValue(progressRef, (snapshot) => {
+            if (snapshot.exists()) setUserProgress(snapshot.val()); else setUserProgress({});
+        });
+
+        const usersRef = ref(db, 'users');
+        const unsubLeaderboard = onValue(usersRef, (snapshot) => {
+            let usersList = [];
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                for (let uid in data) { if (data[uid].totalStars > 0) usersList.push({ id: uid, ...data[uid] }); }
+                usersList.sort((a, b) => b.totalStars - a.totalStars);
+            }
+            setLeaderboard(usersList);
+        });
+
+        const currentUserRef = ref(db, `users/${user.uid}`);
+        const unsubCurrentUser = onValue(currentUserRef, (snapshot) => {
+            if (snapshot.exists()) setUserData(snapshot.val());
+        });
+
+        return () => { unsubLevels(); unsubMaps(); unsubSettings(); unsubProgress(); unsubLeaderboard(); unsubCurrentUser(); };
     }, [user]);
 
     const handleSignOut = () => signOut(auth);
@@ -142,12 +131,20 @@ export default function MathGameApp() {
         if (!user) return;
         const levelKey = `map${mapId}_level${levelId}`;
         const previousStars = userProgress[levelKey]?.stars || 0;
+        
         if (starsEarned > previousStars) {
-            await set(ref(db, `users/${user.uid}/progress/${levelKey}`), { stars: starsEarned, mapId, levelId });
-            const snapshot = await get(ref(db, `users/${user.uid}/progress`));
+            const progressRef = ref(db, `users/${user.uid}/progress/${levelKey}`);
+            await set(progressRef, { stars: starsEarned, mapId, levelId });
+            
+            const userProgressRef = ref(db, `users/${user.uid}/progress`);
+            const snapshot = await get(userProgressRef);
             let sum = 0;
-            if(snapshot.exists()) { const prog = snapshot.val(); for(let k in prog) sum += prog[k].stars; }
-            await update(ref(db, `users/${user.uid}`), { totalStars: sum });
+            if(snapshot.exists()) {
+                const prog = snapshot.val();
+                for(let k in prog) sum += prog[k].stars;
+            }
+            const userRef = ref(db, `users/${user.uid}`);
+            await update(userRef, { totalStars: sum });
         }
     };
 
@@ -163,10 +160,7 @@ export default function MathGameApp() {
 
     return (
         <div className="min-h-screen bg-[#a8edea] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] font-['Kanit'] overflow-hidden relative selection:bg-blue-300">
-            <button onClick={() => setIsMuted(!isMuted)} className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[9999] bg-white/90 backdrop-blur-md w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center shadow-[0_4px_0_#d1d5db] border-2 border-gray-200 text-gray-700 hover:text-blue-500 hover:scale-110 active:translate-y-[4px] active:shadow-none transition-all">
-                <i className={`fas ${isMuted ? 'fa-volume-mute text-red-500' : 'fa-volume-up text-blue-500'} text-xl md:text-2xl`}></i>
-            </button>
-
+            {/* User Info Top Bar - กลับไปอยู่ชิดขวาบนสุดตามเดิม */}
             {user && view !== 'play' && view !== 'sandbox' && view !== 'profile' && (
                 <div className="absolute top-4 right-4 md:top-6 md:right-6 flex items-center gap-1.5 md:gap-3 bg-white/90 backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-full shadow-lg border-2 border-white/80 z-[100] transform transition hover:scale-105 origin-top-right scale-90 md:scale-100">
                     <div className="text-sm md:text-base font-black text-gray-800 flex items-center bg-yellow-100 px-3 py-1 rounded-full shadow-inner">
@@ -181,7 +175,7 @@ export default function MathGameApp() {
                 </div>
             )}
 
-            {view === 'login' && <LoginScreen globalSettings={globalSettings} />}
+            {view === 'login' && <LoginScreen />}
             {view === 'menu' && <MainMenu setView={setView} isAdmin={userData?.role === 'admin' || user?.email?.includes('admin')} globalSettings={globalSettings} />}
             {view === 'mapSelect' && <MapSelect setView={setView} setSelectedMap={setSelectedMap} userProgress={userProgress} globalSettings={globalSettings} />}
             {view === 'levelSelect' && <LevelSelect setView={setView} mapId={selectedMap} setSelectedLevel={setSelectedLevel} setLevelData={setLevelData} allLevels={allLevels} allMaps={allMaps} userProgress={userProgress} />}
@@ -190,18 +184,24 @@ export default function MathGameApp() {
             {view === 'profile' && <ProfileSettings setView={setView} user={user} userData={userData} />}
             
             {(view === 'play' || view === 'sandbox') && (
-                <GameEngine view={view} setView={setView} levelData={view === 'play' ? levelData : null} mapId={selectedMap} levelId={selectedLevel} setSelectedLevel={setSelectedLevel} setLevelData={setLevelData} allLevels={allLevels} saveProgress={saveProgress} />
+                <GameEngine 
+                    view={view} setView={setView} levelData={view === 'play' ? levelData : null} 
+                    mapId={selectedMap} levelId={selectedLevel} setSelectedLevel={setSelectedLevel} 
+                    setLevelData={setLevelData} allLevels={allLevels} saveProgress={saveProgress}
+                />
             )}
         </div>
     );
 }
-function LoginScreen({ globalSettings }) {
+
+// ==========================================
+// UI COMPONENTS
+// ==========================================
+function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLogin, setIsLogin] = useState(true);
     const [error, setError] = useState('');
-
-    const bgStyle = globalSettings?.loginBgUrl ? { backgroundImage: `url(${globalSettings.loginBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {};
 
     const handleSubmit = async (e) => {
         e.preventDefault(); setError('');
@@ -212,8 +212,8 @@ function LoginScreen({ globalSettings }) {
     };
 
     return (
-        <div className="flex h-screen items-center justify-center p-2 bg-gradient-to-br from-blue-400/50 to-purple-500/50 relative" style={bgStyle}>
-            <div className="bg-white/95 backdrop-blur-md p-4 md:p-8 rounded-[2rem] shadow-[0_8px_0_rgba(0,0,0,0.2)] border-4 border-white max-w-sm w-full text-center relative transform transition-all hover:scale-[1.02] flex flex-col justify-center max-h-[95vh] overflow-y-auto z-10">
+        <div className="flex h-screen items-center justify-center p-2 bg-gradient-to-br from-blue-400/50 to-purple-500/50">
+            <div className="bg-white p-4 md:p-8 rounded-[2rem] shadow-[0_8px_0_rgba(0,0,0,0.1)] border-4 border-white max-w-sm w-full text-center relative transform transition-all hover:scale-[1.02] flex flex-col justify-center max-h-[95vh] overflow-y-auto">
                 <div className="text-4xl md:text-5xl mb-2 text-blue-500 drop-shadow-md"><i className="fas fa-gamepad"></i></div>
                 <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-1">สมาร์ทแมท AI</h1>
                 <h2 className="text-[10px] md:text-xs text-gray-500 font-bold mb-4 bg-gray-100 inline-block px-3 py-1 rounded-full mx-auto">โดย ครูจักรวรรดิ ไชยโคตร</h2>
@@ -332,24 +332,14 @@ function MenuButton({ icon, text, color, shadowColor, textColor = "text-white", 
         </button>
     );
 }
-// ระบบแผนที่โลกแนวตั้ง (เลื่อนหาด่านล่าสุดอัตโนมัติ)
+// ระบบแผนที่โลกแนวตั้ง (เลื่อนจากล่างขึ้นบน + ลากวาง)
 function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
     const maps = Array.from({ length: 10 }, (_, i) => i + 1);
     const isMapUnlocked = (m) => m === 1 || (userProgress[`map${m - 1}_level10`]?.stars || 0) > 0;
     
-    // ตั้งค่าให้กล้องสไลด์ไปหาด่านสูงสุดที่ปลดล็อคแล้ว
+    // ตั้งค่าให้เลื่อนลงไปจุดล่างสุดเสมอเมื่อเปิดหน้านี้ (จุดเริ่มต้นผจญภัย)
     const scrollRef = useRef(null);
-    useEffect(() => { 
-        // หาด่านล่าสุด
-        const highestUnlocked = [...maps].reverse().find(m => isMapUnlocked(m)) || 1;
-        const targetBtn = document.getElementById(`world-map-btn-${highestUnlocked}`);
-        
-        if (targetBtn) {
-            setTimeout(() => targetBtn.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
-        } else if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [globalSettings, userProgress]);
+    useEffect(() => { if(scrollRef.current) { scrollRef.current.scrollTop = scrollRef.current.scrollHeight; } }, []);
 
     if (globalSettings?.worldMapBgUrl) {
         return (
@@ -358,6 +348,7 @@ function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
                     <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
                 </button>
                 
+                {/* เปลี่ยนเป็นใช้ <img> เพื่อล็อคพิกัด 100% */}
                 <div className="relative w-full max-w-2xl mx-auto shadow-2xl h-max">
                     <img src={globalSettings.worldMapBgUrl} alt="World Map" className="w-full h-auto block pointer-events-none" />
                     <div className="absolute inset-0">
@@ -367,7 +358,7 @@ function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
                             
                             if (pos) {
                                 return (
-                                    <button key={mapNum} id={`world-map-btn-${mapNum}`} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
+                                    <button key={mapNum} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
                                         className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-12 h-12 md:w-24 md:h-24 rounded-full border-2 md:border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-blue-400 to-blue-600 border-white shadow-[0_4px_0_#1e3a8a] md:shadow-[0_8px_0_#1e3a8a] active:translate-y-[4px] active:shadow-none cursor-pointer hover:scale-110 z-20' : 'bg-gray-400 border-gray-200 shadow-md opacity-90 cursor-not-allowed z-10'}`}
                                         style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
                                     >
@@ -386,7 +377,7 @@ function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
     }
 
     return (
-        <div className="p-4 md:p-8 h-screen overflow-y-auto relative" ref={scrollRef}>
+        <div className="p-4 md:p-8 h-screen overflow-y-auto relative">
             <button onClick={() => setView('menu')} className="absolute top-4 left-4 bg-white text-blue-600 px-4 py-2 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-blue-200 z-10"><i className="fas fa-chevron-left mr-2"></i> กลับ</button>
             <div className="mt-14 mb-8 text-center">
                 <h1 className="text-4xl font-black text-white drop-shadow-md inline-block px-10 py-3 bg-blue-500 rounded-full border-4 border-white">เลือกแผนที่</h1>
@@ -395,7 +386,7 @@ function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
                 {maps.map(mapNum => {
                     const unlocked = isMapUnlocked(mapNum);
                     return (
-                        <button key={mapNum} id={`world-map-btn-${mapNum}`} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
+                        <button key={mapNum} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
                             className={`relative flex flex-col items-center justify-center h-28 rounded-[2rem] border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-blue-100 to-white border-blue-400 shadow-[0_6px_0_#60a5fa] active:translate-y-[6px] active:shadow-none cursor-pointer' : 'bg-gray-200 border-gray-300 shadow-sm opacity-80 cursor-not-allowed'}`}>
                             <span className="text-sm font-bold text-blue-500 uppercase tracking-widest mb-1">Map</span>
                             <span className={`text-4xl font-black ${unlocked ? 'text-blue-700' : 'text-gray-400'}`}>{mapNum}</span>
@@ -580,24 +571,24 @@ function VisualEditor({ id, label, value, onChange }) {
 // ==========================================
 // ADMIN PANEL (Game UI Design + Advanced Settings)
 // ==========================================
-// ==========================================
-// ADMIN PANEL (Game UI Design + Advanced Settings)
-// ==========================================
 function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
-    const [tab, setTab] = useState('equations');
+    const [tab, setTab] = useState('equations'); // equations, levelmap, worldmap, mainmenu
     const [mapId, setMapId] = useState(1);
     const [message, setMessage] = useState('');
     
+    // States: Equations
     const [levelId, setLevelId] = useState(1);
     const [lhsHtml, setLhsHtml] = useState('');
     const [rhsHtml, setRhsHtml] = useState('');
     const [parMoves, setParMoves] = useState(3);
     
+    // States: Level Map & World Map
     const [bgUrl, setBgUrl] = useState('');
     const [positions, setPositions] = useState({});
     const [draggingNode, setDraggingNode] = useState(null);
     const mapContainerRef = useRef(null);
 
+    // States: Main Menu Settings
     const [menuBgUrl, setMenuBgUrl] = useState('');
     const [btnPlay, setBtnPlay] = useState('');
     const [btnSandbox, setBtnSandbox] = useState('');
@@ -643,31 +634,21 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
         setMessage(`บันทึกแผนที่โลกสำเร็จ!`); setTimeout(() => setMessage(''), 3000);
     };
 
-    // 🚀 ระบบบีบอัดรูปภาพอัจฉริยะ (แก้ปัญหาแอปค้าง 100%)
-    const handleImageUpload = (setter, isTransparent = false) => (e) => {
+    const handleSaveMainMenu = async () => {
+        await update(ref(db, `globalSettings`), { 
+            mainMenuBgUrl: menuBgUrl, btnPlay: btnPlay, btnSandbox: btnSandbox, btnRank: btnRank, btnAdmin: btnAdmin 
+        });
+        setMessage(`บันทึกการตั้งค่าหน้าเมนูหลักสำเร็จ!`); setTimeout(() => setMessage(''), 3000);
+    };
+
+    const handleImageUpload = (setter) => (e) => {
         const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                // บีบขนาด: ภาพพื้นหลังเหลือความกว้างสุดแค่ 1280px / รูปปุ่มเหลือแค่ 400px (เบาหวิว)
-                const maxWidth = isTransparent ? 400 : 1280; 
-                const scale = img.width > maxWidth ? maxWidth / img.width : 1;
-                canvas.width = img.width * scale;
-                canvas.height = img.height * scale;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                
-                // แปลงเป็น JPEG คุณภาพ 70% ยกเว้นรูปปุ่มที่ต้องการความโปร่งใส (PNG)
-                const mimeType = isTransparent ? 'image/png' : 'image/jpeg';
-                const quality = isTransparent ? undefined : 0.7;
-                setter(canvas.toDataURL(mimeType, quality));
-            };
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
+        if (file) {
+            if (file.size > 2.5 * 1024 * 1024) { alert('ไฟล์รูปใหญ่เกิน 2.5MB ครับ ระบบอาจบันทึกไม่ได้ แนะนำให้ลดขนาดก่อนครับ'); return; }
+            const reader = new FileReader();
+            reader.onloadend = () => setter(reader.result);
+            reader.readAsDataURL(file);
+        }
     };
 
     const handlePointerDown = (e, lvl) => { setDraggingNode(lvl); e.currentTarget.setPointerCapture(e.pointerId); };
@@ -688,16 +669,19 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
             <div className="bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-[2.5rem] shadow-xl border-4 border-white w-full max-w-6xl mx-auto mt-14 md:mt-4 flex flex-col min-h-[85vh]">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b-2 border-gray-100 pb-6">
                     <h1 className="text-3xl md:text-4xl font-black text-gray-800 tracking-wide"><i className="fas fa-cogs text-blue-500 mr-3"></i>ผู้ดูแลระบบ</h1>
+                    {/* เมนูแบบใหม่ มี 4 แท็บ ครอบคลุมการตั้งค่าทั้งเกม */}
                     <div className="flex flex-wrap justify-center gap-2 bg-gray-100 p-1.5 rounded-xl border-2 border-gray-200 shadow-inner">
                         <button onClick={() => setTab('equations')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'equations' ? 'bg-blue-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-calculator mr-1"></i> 1. โจทย์สมการ</button>
                         <button onClick={() => setTab('levelmap')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'levelmap' ? 'bg-green-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-map mr-1"></i> 2. แผนที่ย่อย</button>
-                        <button onClick={() => setTab('worldmap')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'worldmap' ? 'bg-purple-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-globe mr-1"></i> 3. แผนที่โลก</button>
+                        <button onClick={() => setTab('worldmap')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'worldmap' ? 'bg-purple-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-globe mr-1"></i> 3. แผนที่โลก (เลื่อน)</button>
                         <button onClick={() => setTab('mainmenu')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${tab === 'mainmenu' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 hover:bg-white'}`}><i className="fas fa-home mr-1"></i> 4. หน้าแรก</button>
                     </div>
                 </div>
                 
+                {/* แท็บที่ 1: สร้างโจทย์ */}
                 {tab === 'equations' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out]">
+                        {/* โค้ดสร้างโจทย์เหมือนเดิม... */}
                         <div className="flex flex-col md:flex-row gap-4 mb-8 bg-blue-50/50 p-6 rounded-[2rem] border-2 border-blue-100 shadow-inner">
                             <div className="flex-1">
                                 <label className="block text-blue-800 font-black text-sm mb-2 uppercase px-2">Map</label>
@@ -722,6 +706,7 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                     </div>
                 )}
 
+                {/* แท็บที่ 2: แผนที่ย่อย (แนวนอน) */}
                 {tab === 'levelmap' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out]">
                         <div className="flex flex-col md:flex-row items-end gap-4 mb-6 bg-green-50 p-4 md:p-6 rounded-[2rem] border-2 border-green-100 shadow-inner">
@@ -731,7 +716,7 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                             </div>
                             <div className="w-full md:w-2/3">
                                 <label className="block text-green-800 font-black text-sm mb-2">อัปโหลดรูปพื้นหลัง (16:9 แนวนอน)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl, false)} className="w-full bg-white border-2 border-green-200 rounded-xl px-2 py-1 outline-none" />
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl)} className="w-full bg-white border-2 border-green-200 rounded-xl px-2 py-1 outline-none" />
                             </div>
                         </div>
                         <div className="flex-1 bg-gray-900 rounded-[2rem] border-4 border-gray-200 shadow-inner relative overflow-y-auto overflow-x-hidden flex items-center justify-center min-h-[400px]">
@@ -753,11 +738,12 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                     </div>
                 )}
 
+                {/* แท็บที่ 3: แผนที่โลก (แนวตั้ง เลื่อนขึ้นลง) */}
                 {tab === 'worldmap' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out]">
                         <div className="flex flex-col mb-6 bg-purple-50 p-4 md:p-6 rounded-[2rem] border-2 border-purple-100 shadow-inner">
                             <label className="block text-purple-800 font-black text-sm mb-2">อัปโหลดรูปแผนที่โลก (9:16 แนวตั้ง ยาวๆ เลื่อนขึ้นลง)</label>
-                            <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl, false)} className="w-full bg-white border-2 border-purple-200 rounded-xl px-2 py-1 outline-none" />
+                            <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl)} className="w-full bg-white border-2 border-purple-200 rounded-xl px-2 py-1 outline-none" />
                         </div>
                         <div className="flex-1 bg-gray-900 rounded-[2rem] border-4 border-gray-200 shadow-inner relative overflow-y-auto overflow-x-hidden flex justify-center h-[500px] custom-scrollbar">
                             {!bgUrl ? (<div className="text-gray-500 text-center font-bold mt-20">อัปโหลดรูปแผนที่แนวตั้งยาวๆ เพื่อจัดวาง 10 Maps หลัก</div>) : (
@@ -780,56 +766,40 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                     </div>
                 )}
 
-                {/* แท็บที่ 4: ตั้งค่าหน้าเมนูหลัก และ Login */}
+                {/* แท็บที่ 4: ตั้งค่าหน้าเมนูหลัก */}
                 {tab === 'mainmenu' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out] gap-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-orange-50 p-6 rounded-[2rem] border-2 border-orange-100 shadow-inner">
-                                <label className="block text-orange-800 font-black text-sm mb-2"><i className="fas fa-image mr-2"></i>รูปพื้นหลังหน้าเมนูหลัก (16:9 แนวนอน)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload(setMenuBgUrl, false)} className="w-full bg-white border-2 border-orange-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
-                                {menuBgUrl && <img src={menuBgUrl} alt="Preview BG" className="h-24 rounded-xl object-cover border-2 border-orange-200 shadow-sm mx-auto" />}
-                            </div>
-                            
-                            {/* แก้ไขให้ตัวแปรรับค่า loginBgUrl ได้ถูกต้อง 100% */}
-                            <div className="bg-blue-50 p-6 rounded-[2rem] border-2 border-blue-100 shadow-inner">
-                                <label className="block text-blue-800 font-black text-sm mb-2"><i className="fas fa-sign-in-alt mr-2"></i>รูปพื้นหลังหน้า Login (แนวนอน/ตั้ง)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload((url) => setGlobalSettings(prev => ({...prev, loginBgUrl: url})), false)} className="w-full bg-white border-2 border-blue-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
-                                {globalSettings?.loginBgUrl && <img src={globalSettings.loginBgUrl} alt="Login BG" className="h-24 rounded-xl object-cover border-2 border-blue-200 shadow-sm mx-auto" />}
-                            </div>
+                        <div className="bg-orange-50 p-6 rounded-[2rem] border-2 border-orange-100 shadow-inner">
+                            <label className="block text-orange-800 font-black text-sm mb-2"><i className="fas fa-image mr-2"></i>อัปโหลดพื้นหลังหน้าแรก (16:9 แนวนอน)</label>
+                            <input type="file" accept="image/*" onChange={handleImageUpload(setMenuBgUrl)} className="w-full bg-white border-2 border-orange-200 rounded-xl px-2 py-1 outline-none mb-2" />
+                            {menuBgUrl && <img src={menuBgUrl} alt="Preview BG" className="h-32 rounded-xl object-cover border-2 border-orange-200 shadow-sm mx-auto" />}
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-gray-50 p-4 rounded-[1.5rem] border-2 border-gray-200">
                                 <label className="block font-black text-sm mb-2 text-green-600">รูปปุ่ม: ลุยด่าน (Play)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnPlay, true)} className="w-full text-xs" />
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnPlay)} className="w-full text-xs" />
                                 {btnPlay && <img src={btnPlay} className="h-16 mt-2 object-contain mx-auto" />}
                             </div>
                             <div className="bg-gray-50 p-4 rounded-[1.5rem] border-2 border-gray-200">
                                 <label className="block font-black text-sm mb-2 text-orange-600">รูปปุ่ม: ฝึกฝน (Sandbox)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnSandbox, true)} className="w-full text-xs" />
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnSandbox)} className="w-full text-xs" />
                                 {btnSandbox && <img src={btnSandbox} className="h-16 mt-2 object-contain mx-auto" />}
                             </div>
                             <div className="bg-gray-50 p-4 rounded-[1.5rem] border-2 border-gray-200">
                                 <label className="block font-black text-sm mb-2 text-yellow-600">รูปปุ่ม: ตารางอันดับ</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnRank, true)} className="w-full text-xs" />
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnRank)} className="w-full text-xs" />
                                 {btnRank && <img src={btnRank} className="h-16 mt-2 object-contain mx-auto" />}
                             </div>
                             <div className="bg-gray-50 p-4 rounded-[1.5rem] border-2 border-gray-200">
                                 <label className="block font-black text-sm mb-2 text-gray-700">รูปปุ่ม: ตั้งค่าเกม (Admin)</label>
-                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnAdmin, true)} className="w-full text-xs" />
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setBtnAdmin)} className="w-full text-xs" />
                                 {btnAdmin && <img src={btnAdmin} className="h-16 mt-2 object-contain mx-auto" />}
                             </div>
                         </div>
 
                         {message && <div className="p-3 rounded-2xl mt-4 font-bold text-center border-2 bg-green-100 text-green-700">{message}</div>}
-                        <button onClick={async () => {
-                            await update(ref(db, `globalSettings`), { 
-                                mainMenuBgUrl: menuBgUrl, btnPlay, btnSandbox, btnRank, btnAdmin, loginBgUrl: globalSettings?.loginBgUrl || ''
-                            });
-                            setMessage(`บันทึกการตั้งค่าหน้าเมนูหลักและ Login สำเร็จ!`); setTimeout(() => setMessage(''), 3000);
-                        }} className="w-full bg-orange-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all uppercase mt-2">
-                            บันทึกหน้าเมนูหลัก และ Login
-                        </button>
+                        <button onClick={handleSaveMainMenu} className="w-full bg-orange-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all uppercase mt-2">บันทึกหน้าเมนูหลัก</button>
                     </div>
                 )}
             </div>
@@ -1414,7 +1384,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             eng.commitState();
         };
 
-eng.tryCombine = (targetWrapper) => {
+        eng.tryCombine = (targetWrapper) => {
             let list = eng.dragSrc.list, targetIdx = parseInt(targetWrapper.dataset.idx);
             if (isNaN(targetIdx) || targetIdx === eng.dragSrc.idx) return;
             let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
@@ -1423,7 +1393,7 @@ eng.tryCombine = (targetWrapper) => {
                 let op = list[min+1];
                 if (op && (op.value === '+' || op.value === '-')) {
                     if ((min > 0 && list[min-1].value === '•') || (max < list.length-1 && list[max+1].value === '•')) return eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน");
-                    let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
+                    let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]+)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; if(!isNaN(v)) return {c: parseInt(v), v: null}; return null; };
                     let p1 = parseVar(list[min].value), p2 = parseVar(list[max].value);
                     if (p1 && p2 && p1.v === p2.v) {
                         let s1 = (min > 0 && list[min-1].value === '-') ? -1 : 1, s2 = op.value === '-' ? -1 : 1;
@@ -1433,8 +1403,12 @@ eng.tryCombine = (targetWrapper) => {
                         eng.commitState(); eng.playTone('success'); return;
                     } else { eng.shakeElement(targetWrapper); }
                 } else if (op && op.value === '•') {
-                     // โยนงานให้ฟังก์ชัน combineSplitTerm ทำแทน เพื่อให้รองรับทั้งตัวแปรและวงเล็บ
-                     eng.combineSplitTerm(op, list, min + 1);
+                     let p1 = parseInt(list[min].value), p2 = parseInt(list[max].value);
+                     if(!isNaN(p1) && !isNaN(p2)) { 
+                         list.splice(min, 3, new eng.TermClass('term', (p1*p2).toString())); 
+                         eng.incrementMove();
+                         eng.commitState(); eng.playTone('success'); return; 
+                     } else { eng.shakeElement(targetWrapper); }
                 }
             } else { eng.shakeElement(targetWrapper); }
         };
@@ -1453,67 +1427,7 @@ eng.tryCombine = (targetWrapper) => {
             }
         };
         
-        eng.combineSplitTerm = (term, list, idx) => { 
-            if(idx > 0 && idx < list.length - 1) { 
-                let prev = list[idx-1];
-                let next = list[idx+1];
-                
-                // ฟังก์ชันย่อยสำหรับแยกตัวเลขและตัวแปร (เช่น 3x จะแยกเป็น สัมประสิทธิ์ 3 และตัวแปร x)
-                let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
-                
-                // ฟังก์ชันย่อยสำหรับ "คูณกระจาย" เข้าไปในวงเล็บ
-                const distribute = (multiplierTerm, groupTerm) => {
-                    let mVar = parseVar(multiplierTerm.value);
-                    if (!mVar) return false;
-                    for (let i = 0; i < groupTerm.children.length; i++) {
-                        let child = groupTerm.children[i];
-                        if (child.type === 'term') {
-                            let cVar = parseVar(child.value);
-                            if (cVar) {
-                                if (mVar.v && cVar.v) { eng.showPopup("ระบบยังไม่รองรับการคูณตัวแปรครับ (เช่น x • x)"); return false; }
-                                let combinedVar = mVar.v || cVar.v || "";
-                                child.value = (mVar.c * cVar.c).toString() + combinedVar;
-                            }
-                        } else if (child.type === 'fraction') {
-                             if(child.children.length === 1 && child.children[0].type === 'term') {
-                                 let cVar = parseVar(child.children[0].value);
-                                 if (cVar) {
-                                    if (mVar.v && cVar.v) { eng.showPopup("ระบบยังไม่รองรับการคูณตัวแปรครับ"); return false; }
-                                    let combinedVar = mVar.v || cVar.v || "";
-                                    child.children[0].value = (mVar.c * cVar.c).toString() + combinedVar;
-                                 }
-                             }
-                        }
-                    }
-                    return true;
-                };
-
-                // กรณีที่ 1: ตัวเลขคูณตัวเลข หรือ ตัวเลขคูณตัวแปร (เช่น 2 • 3x)
-                if (prev.type === 'term' && next.type === 'term') {
-                    let p1 = parseVar(prev.value), p2 = parseVar(next.value);
-                    if(p1 && p2) { 
-                         if (p1.v && p2.v) { eng.showPopup("ระบบยังไม่รองรับการคูณตัวแปรครับ (เช่น x • x)"); return; }
-                         let combinedVar = p1.v || p2.v || "";
-                         list.splice(idx-1, 3, new eng.TermClass('term', (p1.c * p2.c).toString() + combinedVar)); 
-                         eng.incrementMove(); eng.commitState(); eng.playTone('success'); 
-                    }
-                }
-                // กรณีที่ 2: ตัวเลขคูณวงเล็บ (เช่น 2 • (x+3))
-                else if (prev.type === 'term' && next.type === 'group') {
-                    if(distribute(prev, next)) {
-                        list.splice(idx - 1, 2); // ลบตัวคูณและเครื่องหมายคูณทิ้ง ปล่อยให้วงเล็บแตกออกอัตโนมัติ
-                        eng.incrementMove(); eng.commitState(); eng.playTone('success');
-                    }
-                }
-                // กรณีที่ 3: วงเล็บคูณตัวเลข (เช่น (x+3) • 2)
-                else if (prev.type === 'group' && next.type === 'term') {
-                    if(distribute(next, prev)) {
-                        list.splice(idx, 2); // ลบเครื่องหมายคูณและตัวคูณทิ้ง
-                        eng.incrementMove(); eng.commitState(); eng.playTone('success');
-                    }
-                }
-            } 
-        };
+        eng.combineSplitTerm = (term, list, idx) => { if(idx>0 && idx<list.length-1) { list.splice(idx-1, 3, new eng.TermClass('term', list[idx-1].value + list[idx+1].value)); eng.incrementMove(); eng.commitState(); eng.playTone('success'); } };
         
         eng.distributeNegative = (term, list, idx) => { if(idx >= list.length-1) return; let t = list[idx+1]; if(t.type==='group') { list[idx].value='+'; list.splice(idx+1, 1, ...t.children); eng.incrementMove(); eng.commitState(); eng.playTone('pop'); } };
 
