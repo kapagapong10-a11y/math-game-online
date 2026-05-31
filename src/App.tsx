@@ -58,38 +58,51 @@ export default function MathGameApp() {
     const sfxClick = useRef(new Audio('https://actions.google.com/sounds/v1/cartoon/pop.ogg')).current;
 
     useEffect(() => {
-        bgmMenu.loop = true; bgmMap.loop = true;
-        bgmMenu.volume = 0.5; bgmMap.volume = 0.5;
-        
-        // ฟังก์ชันเล่นเสียงคลิกทุกครั้งที่กดปุ่ม
-        const handleGlobalClick = (e) => {
-            if (!audioInit) setAudioInit(true); // ปลดล็อคเสียงเมื่อแตะจอครั้งแรก
-            if (e.target.closest('button') && !isMuted) {
-                sfxClick.currentTime = 0;
-                sfxClick.play().catch(()=>{});
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            if (currentUser) {
+                setUser(currentUser);
+                // 🚀 แก้ตรงนี้: เปลี่ยนไปหน้าเมนู "ทันที" ไม่ต้องรอ DB โหลดเสร็จ ทำให้เข้าเกมไวมาก
+                setView('menu'); 
+
+                const userRef = ref(db, `users/${currentUser.uid}`);
+                const snapshot = await get(userRef);
+                if (!snapshot.exists()) {
+                    const role = (currentUser.email === 'admin@math.com' || currentUser.email.includes('admin')) ? 'admin' : 'player';
+                    const newUserData = { email: currentUser.email, totalStars: 0, role: role, displayName: currentUser.email.split('@')[0] };
+                    await set(userRef, newUserData);
+                }
+            } else { 
+                setUser(null);
+                setUserData(null);
+                setView('login'); 
             }
-        };
-        document.addEventListener('click', handleGlobalClick);
-        return () => document.removeEventListener('click', handleGlobalClick);
-    }, [audioInit, isMuted, sfxClick, bgmMenu, bgmMap]);
+        });
+        return () => unsubscribe();
+    }, []);
 
-    // จัดการเปิด/ปิดเพลงประกอบตามหน้าจอที่อยู่
     useEffect(() => {
-        bgmMenu.muted = isMuted; bgmMap.muted = isMuted;
-        if (!audioInit) return;
+        if (!user) return;
+        
+        const unsubLevels = onValue(ref(db, 'levels'), s => setAllLevels(s.exists() ? s.val() : {}));
+        const unsubMaps = onValue(ref(db, 'maps'), s => setAllMaps(s.exists() ? s.val() : {}));
+        const unsubSettings = onValue(ref(db, 'globalSettings'), s => setGlobalSettings(s.exists() ? s.val() : {}));
+        const unsubProgress = onValue(ref(db, `users/${user.uid}/progress`), s => setUserProgress(s.exists() ? s.val() : {}));
+        const unsubUsers = onValue(ref(db, 'users'), s => {
+            let list = [];
+            if (s.exists()) { 
+                const d = s.val(); 
+                for (let uid in d) { if (d[uid].totalStars > 0) list.push({ id: uid, ...d[uid] }); } 
+                list.sort((a, b) => b.totalStars - a.totalStars); 
+            }
+            setLeaderboard(list);
+        });
+        const unsubCurrentUser = onValue(ref(db, `users/${user.uid}`), s => { if (s.exists()) setUserData(s.val()); });
 
-        const playMenu = ['login', 'menu', 'leaderboard', 'profile', 'admin'].includes(view);
-        const playMap = ['mapSelect', 'levelSelect'].includes(view);
-
-        if (playMenu) {
-            bgmMap.pause(); bgmMenu.play().catch(()=>{});
-        } else if (playMap) {
-            bgmMenu.pause(); bgmMap.play().catch(()=>{});
-        } else {
-            bgmMenu.pause(); bgmMap.pause(); // โหมดเล่นเกมให้ดนตรีเงียบ
-        }
-    }, [view, audioInit, isMuted, bgmMenu, bgmMap]);
-
+        // 🚀 แก้ตรงนี้: คืนค่าหน่วยความจำทันทีเมื่อไม่ใช้งาน ป้องกันระบบหน่วง/ค้าง (Memory Leak)
+        return () => { 
+            unsubLevels(); unsubMaps(); unsubSettings(); unsubProgress(); unsubUsers(); unsubCurrentUser(); 
+        };
+    }, [user]);
     useEffect(() => {
         const checkOrientation = () => setIsLandscape(window.innerWidth > window.innerHeight);
         checkOrientation();
