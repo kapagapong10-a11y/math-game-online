@@ -30,10 +30,7 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 // ==========================================
-// 2. MAIN APP COMPONENT
-// ==========================================
-// ==========================================
-// 2. MAIN APP COMPONENT
+// 2. MAIN APP COMPONENT (เพิ่มระบบเสียง)
 // ==========================================
 export default function MathGameApp() {
     const [user, setUser] = useState(null);
@@ -45,18 +42,59 @@ export default function MathGameApp() {
     const [selectedLevel, setSelectedLevel] = useState(1);
     const [levelData, setLevelData] = useState(null);
     
-    // Data States
     const [allLevels, setAllLevels] = useState({});
     const [allMaps, setAllMaps] = useState({}); 
-    const [globalSettings, setGlobalSettings] = useState({}); // สถานะใหม่สำหรับตั้งค่าหน้าหลักและแผนที่โลก
+    const [globalSettings, setGlobalSettings] = useState({});
     const [userProgress, setUserProgress] = useState({});
     const [leaderboard, setLeaderboard] = useState([]);
+
+    // ระบบเสียง (Audio State)
+    const [isMuted, setIsMuted] = useState(false);
+    const [audioInit, setAudioInit] = useState(false);
+    
+    // ลิงก์เพลงประกอบ (สามารถเปลี่ยน URL ได้ถ้าต้องการ)
+    const bgmMenu = useRef(new Audio('https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=cheerful-game-music.mp3')).current;
+    const bgmMap = useRef(new Audio('https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939ef74e5.mp3?filename=mysterious-forest.mp3')).current;
+    const sfxClick = useRef(new Audio('https://actions.google.com/sounds/v1/cartoon/pop.ogg')).current;
+
+    useEffect(() => {
+        bgmMenu.loop = true; bgmMap.loop = true;
+        bgmMenu.volume = 0.5; bgmMap.volume = 0.5;
+        
+        // ฟังก์ชันเล่นเสียงคลิกทุกครั้งที่กดปุ่ม
+        const handleGlobalClick = (e) => {
+            if (!audioInit) setAudioInit(true); // ปลดล็อคเสียงเมื่อแตะจอครั้งแรก
+            if (e.target.closest('button') && !isMuted) {
+                sfxClick.currentTime = 0;
+                sfxClick.play().catch(()=>{});
+            }
+        };
+        document.addEventListener('click', handleGlobalClick);
+        return () => document.removeEventListener('click', handleGlobalClick);
+    }, [audioInit, isMuted, sfxClick, bgmMenu, bgmMap]);
+
+    // จัดการเปิด/ปิดเพลงประกอบตามหน้าจอที่อยู่
+    useEffect(() => {
+        bgmMenu.muted = isMuted; bgmMap.muted = isMuted;
+        if (!audioInit) return;
+
+        const playMenu = ['login', 'menu', 'leaderboard', 'profile', 'admin'].includes(view);
+        const playMap = ['mapSelect', 'levelSelect'].includes(view);
+
+        if (playMenu) {
+            bgmMap.pause(); bgmMenu.play().catch(()=>{});
+        } else if (playMap) {
+            bgmMenu.pause(); bgmMap.play().catch(()=>{});
+        } else {
+            bgmMenu.pause(); bgmMap.pause(); // โหมดเล่นเกมให้ดนตรีเงียบ
+        }
+    }, [view, audioInit, isMuted, bgmMenu, bgmMap]);
 
     useEffect(() => {
         const checkOrientation = () => setIsLandscape(window.innerWidth > window.innerHeight);
         checkOrientation();
         window.addEventListener('resize', checkOrientation);
-         () => window.removeEventListener('resize', checkOrientation);
+        return () => window.removeEventListener('resize', checkOrientation);
     }, []);
 
     useEffect(() => {
@@ -65,64 +103,30 @@ export default function MathGameApp() {
             if (currentUser) {
                 const userRef = ref(db, `users/${currentUser.uid}`);
                 const snapshot = await get(userRef);
-                if (snapshot.exists()) {
-                    setUserData(snapshot.val());
-                } else {
+                if (snapshot.exists()) { setUserData(snapshot.val()); } 
+                else {
                     const role = currentUser.email === 'admin@math.com' ? 'admin' : 'player';
                     const newUserData = { email: currentUser.email, totalStars: 0, role: role, displayName: currentUser.email.split('@')[0] };
-                    await set(userRef, newUserData);
-                    setUserData(newUserData);
+                    await set(userRef, newUserData); setUserData(newUserData);
                 }
                 setView('menu');
-            } else {
-                setView('login');
-                setUserData(null);
-            }
+            } else { setView('login'); setUserData(null); }
         });
         return () => unsubscribe();
     }, []);
 
     useEffect(() => {
         if (!user) return;
-        
-        const levelsRef = ref(db, 'levels');
-        const unsubLevels = onValue(levelsRef, (snapshot) => {
-            if (snapshot.exists()) setAllLevels(snapshot.val()); else setAllLevels({});
+        const levelsRef = ref(db, 'levels'); onValue(levelsRef, s => setAllLevels(s.exists() ? s.val() : {}));
+        const mapsRef = ref(db, 'maps'); onValue(mapsRef, s => setAllMaps(s.exists() ? s.val() : {}));
+        const settingsRef = ref(db, 'globalSettings'); onValue(settingsRef, s => setGlobalSettings(s.exists() ? s.val() : {}));
+        const progressRef = ref(db, `users/${user.uid}/progress`); onValue(progressRef, s => setUserProgress(s.exists() ? s.val() : {}));
+        const usersRef = ref(db, 'users'); onValue(usersRef, s => {
+            let list = [];
+            if (s.exists()) { const d = s.val(); for (let uid in d) { if (d[uid].totalStars > 0) list.push({ id: uid, ...d[uid] }); } list.sort((a, b) => b.totalStars - a.totalStars); }
+            setLeaderboard(list);
         });
-
-        const mapsRef = ref(db, 'maps');
-        const unsubMaps = onValue(mapsRef, (snapshot) => {
-            if (snapshot.exists()) setAllMaps(snapshot.val()); else setAllMaps({});
-        });
-
-        // โหลด Global Settings (หน้าแรก, แผนที่โลก)
-        const settingsRef = ref(db, 'globalSettings');
-        const unsubSettings = onValue(settingsRef, (snapshot) => {
-            if (snapshot.exists()) setGlobalSettings(snapshot.val()); else setGlobalSettings({});
-        });
-
-        const progressRef = ref(db, `users/${user.uid}/progress`);
-        const unsubProgress = onValue(progressRef, (snapshot) => {
-            if (snapshot.exists()) setUserProgress(snapshot.val()); else setUserProgress({});
-        });
-
-        const usersRef = ref(db, 'users');
-        const unsubLeaderboard = onValue(usersRef, (snapshot) => {
-            let usersList = [];
-            if (snapshot.exists()) {
-                const data = snapshot.val();
-                for (let uid in data) { if (data[uid].totalStars > 0) usersList.push({ id: uid, ...data[uid] }); }
-                usersList.sort((a, b) => b.totalStars - a.totalStars);
-            }
-            setLeaderboard(usersList);
-        });
-
-        const currentUserRef = ref(db, `users/${user.uid}`);
-        const unsubCurrentUser = onValue(currentUserRef, (snapshot) => {
-            if (snapshot.exists()) setUserData(snapshot.val());
-        });
-
-        return () => { unsubLevels(); unsubMaps(); unsubSettings(); unsubProgress(); unsubLeaderboard(); unsubCurrentUser(); };
+        const currentUserRef = ref(db, `users/${user.uid}`); onValue(currentUserRef, s => { if (s.exists()) setUserData(s.val()); });
     }, [user]);
 
     const handleSignOut = () => signOut(auth);
@@ -131,20 +135,12 @@ export default function MathGameApp() {
         if (!user) return;
         const levelKey = `map${mapId}_level${levelId}`;
         const previousStars = userProgress[levelKey]?.stars || 0;
-        
         if (starsEarned > previousStars) {
-            const progressRef = ref(db, `users/${user.uid}/progress/${levelKey}`);
-            await set(progressRef, { stars: starsEarned, mapId, levelId });
-            
-            const userProgressRef = ref(db, `users/${user.uid}/progress`);
-            const snapshot = await get(userProgressRef);
+            await set(ref(db, `users/${user.uid}/progress/${levelKey}`), { stars: starsEarned, mapId, levelId });
+            const snapshot = await get(ref(db, `users/${user.uid}/progress`));
             let sum = 0;
-            if(snapshot.exists()) {
-                const prog = snapshot.val();
-                for(let k in prog) sum += prog[k].stars;
-            }
-            const userRef = ref(db, `users/${user.uid}`);
-            await update(userRef, { totalStars: sum });
+            if(snapshot.exists()) { const prog = snapshot.val(); for(let k in prog) sum += prog[k].stars; }
+            await update(ref(db, `users/${user.uid}`), { totalStars: sum });
         }
     };
 
@@ -160,7 +156,11 @@ export default function MathGameApp() {
 
     return (
         <div className="min-h-screen bg-[#a8edea] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] font-['Kanit'] overflow-hidden relative selection:bg-blue-300">
-            {/* User Info Top Bar - กลับไปอยู่ชิดขวาบนสุดตามเดิม */}
+            {/* ปุ่มเปิด-ปิดเสียง ลอยตัวมุมขวาล่าง */}
+            <button onClick={() => setIsMuted(!isMuted)} className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[9999] bg-white/90 backdrop-blur-md w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center shadow-[0_4px_0_#d1d5db] border-2 border-gray-200 text-gray-700 hover:text-blue-500 hover:scale-110 active:translate-y-[4px] active:shadow-none transition-all">
+                <i className={`fas ${isMuted ? 'fa-volume-mute text-red-500' : 'fa-volume-up text-blue-500'} text-xl md:text-2xl`}></i>
+            </button>
+
             {user && view !== 'play' && view !== 'sandbox' && view !== 'profile' && (
                 <div className="absolute top-4 right-4 md:top-6 md:right-6 flex items-center gap-1.5 md:gap-3 bg-white/90 backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-full shadow-lg border-2 border-white/80 z-[100] transform transition hover:scale-105 origin-top-right scale-90 md:scale-100">
                     <div className="text-sm md:text-base font-black text-gray-800 flex items-center bg-yellow-100 px-3 py-1 rounded-full shadow-inner">
@@ -175,7 +175,7 @@ export default function MathGameApp() {
                 </div>
             )}
 
-            {view === 'login' && <LoginScreen />}
+            {view === 'login' && <LoginScreen globalSettings={globalSettings} />}
             {view === 'menu' && <MainMenu setView={setView} isAdmin={userData?.role === 'admin' || user?.email?.includes('admin')} globalSettings={globalSettings} />}
             {view === 'mapSelect' && <MapSelect setView={setView} setSelectedMap={setSelectedMap} userProgress={userProgress} globalSettings={globalSettings} />}
             {view === 'levelSelect' && <LevelSelect setView={setView} mapId={selectedMap} setSelectedLevel={setSelectedLevel} setLevelData={setLevelData} allLevels={allLevels} allMaps={allMaps} userProgress={userProgress} />}
@@ -184,24 +184,18 @@ export default function MathGameApp() {
             {view === 'profile' && <ProfileSettings setView={setView} user={user} userData={userData} />}
             
             {(view === 'play' || view === 'sandbox') && (
-                <GameEngine 
-                    view={view} setView={setView} levelData={view === 'play' ? levelData : null} 
-                    mapId={selectedMap} levelId={selectedLevel} setSelectedLevel={setSelectedLevel} 
-                    setLevelData={setLevelData} allLevels={allLevels} saveProgress={saveProgress}
-                />
+                <GameEngine view={view} setView={setView} levelData={view === 'play' ? levelData : null} mapId={selectedMap} levelId={selectedLevel} setSelectedLevel={setSelectedLevel} setLevelData={setLevelData} allLevels={allLevels} saveProgress={saveProgress} />
             )}
         </div>
     );
 }
-
-// ==========================================
-// UI COMPONENTS
-// ==========================================
-function LoginScreen() {
+function LoginScreen({ globalSettings }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLogin, setIsLogin] = useState(true);
     const [error, setError] = useState('');
+
+    const bgStyle = globalSettings?.loginBgUrl ? { backgroundImage: `url(${globalSettings.loginBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {};
 
     const handleSubmit = async (e) => {
         e.preventDefault(); setError('');
@@ -212,8 +206,8 @@ function LoginScreen() {
     };
 
     return (
-        <div className="flex h-screen items-center justify-center p-2 bg-gradient-to-br from-blue-400/50 to-purple-500/50">
-            <div className="bg-white p-4 md:p-8 rounded-[2rem] shadow-[0_8px_0_rgba(0,0,0,0.1)] border-4 border-white max-w-sm w-full text-center relative transform transition-all hover:scale-[1.02] flex flex-col justify-center max-h-[95vh] overflow-y-auto">
+        <div className="flex h-screen items-center justify-center p-2 bg-gradient-to-br from-blue-400/50 to-purple-500/50 relative" style={bgStyle}>
+            <div className="bg-white/95 backdrop-blur-md p-4 md:p-8 rounded-[2rem] shadow-[0_8px_0_rgba(0,0,0,0.2)] border-4 border-white max-w-sm w-full text-center relative transform transition-all hover:scale-[1.02] flex flex-col justify-center max-h-[95vh] overflow-y-auto z-10">
                 <div className="text-4xl md:text-5xl mb-2 text-blue-500 drop-shadow-md"><i className="fas fa-gamepad"></i></div>
                 <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-1">สมาร์ทแมท AI</h1>
                 <h2 className="text-[10px] md:text-xs text-gray-500 font-bold mb-4 bg-gray-100 inline-block px-3 py-1 rounded-full mx-auto">โดย ครูจักรวรรดิ ไชยโคตร</h2>
@@ -332,14 +326,24 @@ function MenuButton({ icon, text, color, shadowColor, textColor = "text-white", 
         </button>
     );
 }
-// ระบบแผนที่โลกแนวตั้ง (เลื่อนจากล่างขึ้นบน + ลากวาง)
+// ระบบแผนที่โลกแนวตั้ง (เลื่อนหาด่านล่าสุดอัตโนมัติ)
 function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
     const maps = Array.from({ length: 10 }, (_, i) => i + 1);
     const isMapUnlocked = (m) => m === 1 || (userProgress[`map${m - 1}_level10`]?.stars || 0) > 0;
     
-    // ตั้งค่าให้เลื่อนลงไปจุดล่างสุดเสมอเมื่อเปิดหน้านี้ (จุดเริ่มต้นผจญภัย)
+    // ตั้งค่าให้กล้องสไลด์ไปหาด่านสูงสุดที่ปลดล็อคแล้ว
     const scrollRef = useRef(null);
-    useEffect(() => { if(scrollRef.current) { scrollRef.current.scrollTop = scrollRef.current.scrollHeight; } }, []);
+    useEffect(() => { 
+        // หาด่านล่าสุด
+        const highestUnlocked = [...maps].reverse().find(m => isMapUnlocked(m)) || 1;
+        const targetBtn = document.getElementById(`world-map-btn-${highestUnlocked}`);
+        
+        if (targetBtn) {
+            setTimeout(() => targetBtn.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+        } else if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [globalSettings, userProgress]);
 
     if (globalSettings?.worldMapBgUrl) {
         return (
@@ -348,7 +352,6 @@ function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
                     <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
                 </button>
                 
-                {/* เปลี่ยนเป็นใช้ <img> เพื่อล็อคพิกัด 100% */}
                 <div className="relative w-full max-w-2xl mx-auto shadow-2xl h-max">
                     <img src={globalSettings.worldMapBgUrl} alt="World Map" className="w-full h-auto block pointer-events-none" />
                     <div className="absolute inset-0">
@@ -358,7 +361,7 @@ function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
                             
                             if (pos) {
                                 return (
-                                    <button key={mapNum} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
+                                    <button key={mapNum} id={`world-map-btn-${mapNum}`} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
                                         className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-12 h-12 md:w-24 md:h-24 rounded-full border-2 md:border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-blue-400 to-blue-600 border-white shadow-[0_4px_0_#1e3a8a] md:shadow-[0_8px_0_#1e3a8a] active:translate-y-[4px] active:shadow-none cursor-pointer hover:scale-110 z-20' : 'bg-gray-400 border-gray-200 shadow-md opacity-90 cursor-not-allowed z-10'}`}
                                         style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
                                     >
@@ -377,7 +380,7 @@ function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
     }
 
     return (
-        <div className="p-4 md:p-8 h-screen overflow-y-auto relative">
+        <div className="p-4 md:p-8 h-screen overflow-y-auto relative" ref={scrollRef}>
             <button onClick={() => setView('menu')} className="absolute top-4 left-4 bg-white text-blue-600 px-4 py-2 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-blue-200 z-10"><i className="fas fa-chevron-left mr-2"></i> กลับ</button>
             <div className="mt-14 mb-8 text-center">
                 <h1 className="text-4xl font-black text-white drop-shadow-md inline-block px-10 py-3 bg-blue-500 rounded-full border-4 border-white">เลือกแผนที่</h1>
@@ -386,7 +389,7 @@ function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
                 {maps.map(mapNum => {
                     const unlocked = isMapUnlocked(mapNum);
                     return (
-                        <button key={mapNum} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
+                        <button key={mapNum} id={`world-map-btn-${mapNum}`} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
                             className={`relative flex flex-col items-center justify-center h-28 rounded-[2rem] border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-blue-100 to-white border-blue-400 shadow-[0_6px_0_#60a5fa] active:translate-y-[6px] active:shadow-none cursor-pointer' : 'bg-gray-200 border-gray-300 shadow-sm opacity-80 cursor-not-allowed'}`}>
                             <span className="text-sm font-bold text-blue-500 uppercase tracking-widest mb-1">Map</span>
                             <span className={`text-4xl font-black ${unlocked ? 'text-blue-700' : 'text-gray-400'}`}>{mapNum}</span>
@@ -766,13 +769,22 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                     </div>
                 )}
 
-                {/* แท็บที่ 4: ตั้งค่าหน้าเมนูหลัก */}
+                {/* แท็บที่ 4: ตั้งค่าหน้าเมนูหลัก และ Login */}
                 {tab === 'mainmenu' && (
                     <div className="flex flex-col flex-1 animate-[slideUpFade_0.3s_ease-out] gap-4">
-                        <div className="bg-orange-50 p-6 rounded-[2rem] border-2 border-orange-100 shadow-inner">
-                            <label className="block text-orange-800 font-black text-sm mb-2"><i className="fas fa-image mr-2"></i>อัปโหลดพื้นหลังหน้าแรก (16:9 แนวนอน)</label>
-                            <input type="file" accept="image/*" onChange={handleImageUpload(setMenuBgUrl)} className="w-full bg-white border-2 border-orange-200 rounded-xl px-2 py-1 outline-none mb-2" />
-                            {menuBgUrl && <img src={menuBgUrl} alt="Preview BG" className="h-32 rounded-xl object-cover border-2 border-orange-200 shadow-sm mx-auto" />}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-orange-50 p-6 rounded-[2rem] border-2 border-orange-100 shadow-inner">
+                                <label className="block text-orange-800 font-black text-sm mb-2"><i className="fas fa-image mr-2"></i>รูปพื้นหลังหน้าเมนูหลัก (16:9)</label>
+                                <input type="file" accept="image/*" onChange={handleImageUpload(setMenuBgUrl)} className="w-full bg-white border-2 border-orange-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
+                                {menuBgUrl && <img src={menuBgUrl} alt="Preview BG" className="h-24 rounded-xl object-cover border-2 border-orange-200 shadow-sm mx-auto" />}
+                            </div>
+                            
+                            {/* เพิ่มช่องอัปโหลดรูปพื้นหลัง Login */}
+                            <div className="bg-blue-50 p-6 rounded-[2rem] border-2 border-blue-100 shadow-inner">
+                                <label className="block text-blue-800 font-black text-sm mb-2"><i className="fas fa-sign-in-alt mr-2"></i>รูปพื้นหลังหน้า Login (แนวนอน/ตั้ง)</label>
+                                <input type="file" accept="image/*" onChange={handleImageUpload((url) => setGlobalSettings(prev => ({...prev, loginBgUrl: url})))} className="w-full bg-white border-2 border-blue-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
+                                {globalSettings?.loginBgUrl && <img src={globalSettings.loginBgUrl} alt="Login BG" className="h-24 rounded-xl object-cover border-2 border-blue-200 shadow-sm mx-auto" />}
+                            </div>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -799,7 +811,14 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                         </div>
 
                         {message && <div className="p-3 rounded-2xl mt-4 font-bold text-center border-2 bg-green-100 text-green-700">{message}</div>}
-                        <button onClick={handleSaveMainMenu} className="w-full bg-orange-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all uppercase mt-2">บันทึกหน้าเมนูหลัก</button>
+                        <button onClick={async () => {
+                            await update(ref(db, `globalSettings`), { 
+                                mainMenuBgUrl: menuBgUrl, btnPlay, btnSandbox, btnRank, btnAdmin, loginBgUrl: globalSettings?.loginBgUrl || ''
+                            });
+                            setMessage(`บันทึกการตั้งค่าหน้าเมนูหลักสำเร็จ!`); setTimeout(() => setMessage(''), 3000);
+                        }} className="w-full bg-orange-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all uppercase mt-2">
+                            บันทึกหน้าเมนูหลัก และ Login
+                        </button>
                     </div>
                 )}
             </div>
