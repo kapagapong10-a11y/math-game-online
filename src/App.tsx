@@ -1383,8 +1383,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                             let numTarget = elemBelow ? elemBelow.closest('.numerator-container, .numerator-term') : null;
                             if (numTarget && (role === 'denominator' || (role === 'inner-term' && sourceContext === 'numerator'))) {
                                 if (role === 'inner-term') { 
-                                    let targetEl = elemBelow.closest('.term-container'); 
-                                    if(targetEl && targetEl !== eng.dragSrc.el.closest('.term-container')) eng.tryCombine(targetEl);
+                                    // 🚀 FIX: เพิ่ม .term-card ให้เป้าหมายบนเศษส่วนถูกจับได้แม่นยำ 100%
+                                    let targetEl = elemBelow.closest('.term-container, .term-card'); 
+                                    if(targetEl && targetEl !== eng.dragSrc.el.closest('.term-container, .term-card')) eng.tryCombine(targetEl);
                                 } else eng.handleFractionDivision(elemBelow);
                             } else {
                                 let denTarget = elemBelow ? elemBelow.closest('.denominator-container, .denominator-term') : null;
@@ -1395,8 +1396,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                                         let cItem = eng.dragSrc.el.closest('.term-container'); let nItem = cItem ? cItem.nextElementSibling : null;
                                         if (nItem && (nItem === elemBelow || nItem.contains(elemBelow))) { eng.distributeNegative(eng.dragSrc.term, eng.dragSrc.list, eng.dragSrc.idx); }
                                     } else {
-                                        let targetEl = elemBelow ? elemBelow.closest('.term-container') : null;
-                                        if(targetEl && targetEl !== eng.dragSrc.el.closest('.term-container')) {
+                                        // 🚀 FIX: เพิ่ม .term-card ตรงนี้ด้วย
+                                        let targetEl = elemBelow ? elemBelow.closest('.term-container, .term-card') : null;
+                                        if(targetEl && targetEl !== eng.dragSrc.el.closest('.term-container, .term-card')) {
                                             eng.tryCombine(targetEl); 
                                         }
                                     }
@@ -1406,7 +1408,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     }
                     setTimeout(() => { if (eng.dragSrc && eng.dragSrc.ghost) eng.dragSrc.ghost.remove(); eng.dragSrc = null; }, 0);
                 };
-
+                
                 document.addEventListener('mousemove', onMove, {passive: false}); document.addEventListener('touchmove', onMove, {passive: false});
                 document.addEventListener('mouseup', onEnd); document.addEventListener('touchend', onEnd);
                 document.addEventListener('touchcancel', onEnd);
@@ -1567,7 +1569,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 }
             }
 
-           // 4. Term + Fraction (Cross Multiplication / Multiply into fraction)
+          // 4. Term + Fraction (Cross Multiplication / Multiply into fraction)
             if ((srcTerm.type === 'term' && targetTerm.type === 'fraction') || (srcTerm.type === 'fraction' && targetTerm.type === 'term')) {
                 let termPart = srcTerm.type === 'term' ? srcTerm : targetTerm;
                 let fracPart = srcTerm.type === 'fraction' ? srcTerm : targetTerm;
@@ -1585,22 +1587,10 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                         let operator = list[min+1];
                         let denomCopy = (fracPart.denominator.type === 'group') ? new eng.TermClass('group', null, JSON.parse(JSON.stringify(fracPart.denominator.children))) : new eng.TermClass('term', fracPart.denominator.value);
                         
-                        // 🚀 NEW: ถ้าเอา 3x ไขว้กับ /2 ให้มันคูณรวมเป็น 6x ทันที ไม่ต้องคาไว้
-                        let multipliedTermGroup = [];
-                        let autoMultiplied = false;
-                        if (termPart.type === 'term' && denomCopy.type === 'term') {
-                            let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
-                            let p1 = parseVar(termPart.value), p2 = parseVar(denomCopy.value);
-                            if (p1 && p2 && !(p1.v && p2.v)) {
-                                let c = p1.c * p2.c; let v = p1.v || p2.v || '';
-                                multipliedTermGroup = [new eng.TermClass('term', (c + v).toString())];
-                                autoMultiplied = true;
-                            }
-                        }
-                        if (!autoMultiplied) { multipliedTermGroup = [ new eng.TermClass('term', termPart.value), new eng.TermClass('op', '•'), denomCopy ]; }
-                        let multipliedTermNode = (multipliedTermGroup.length === 1) ? multipliedTermGroup[0] : new eng.TermClass('group', null, multipliedTermGroup);
-
-                        // 🚀 NEW: จัดการเครื่องหมายลบด้านหน้า ไม่ให้เศษส่วนติดลบมั่ว
+                        // คืนค่าให้แยกกลุ่มกัน (เช่น 3x • 2) เพื่อให้เด็กได้กดรวมพจน์เอง
+                        let multipliedTermGroup = [ new eng.TermClass('term', termPart.value), new eng.TermClass('op', '•'), denomCopy ];
+                        let multipliedTermNode = new eng.TermClass('group', null, multipliedTermGroup);
+                        
                         let precedingSign = '+'; let replaceIdx = min; let replaceCount = 3;
                         if (min > 0 && list[min-1].type === 'op' && (list[min-1].value === '+' || list[min-1].value === '-')) { precedingSign = list[min-1].value; replaceIdx = min - 1; replaceCount = 4; }
 
@@ -1609,14 +1599,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
 
                         if (list[min] === termPart) {
                             if (precedingSign === '-') {
-                                if (autoMultiplied) {
-                                    let mVar = multipliedTermGroup[0].value.match(/^(-?\d*)([a-zA-Z]*)$/);
-                                    let coef = mVar[1] === '' ? 1 : (mVar[1] === '-' ? -1 : parseInt(mVar[1]));
-                                    let negatedVal = (-1 * coef) + (mVar[2] || '');
-                                    newNumeratorChildren.push(new eng.TermClass('term', negatedVal.toString()));
-                                } else {
-                                    newNumeratorChildren.push(new eng.TermClass('term', '-1'), new eng.TermClass('op', '•'), multipliedTermNode);
-                                }
+                                newNumeratorChildren.push(new eng.TermClass('term', '-1'), new eng.TermClass('op', '•'), multipliedTermNode);
                             } else {
                                 newNumeratorChildren.push(multipliedTermNode);
                             }
