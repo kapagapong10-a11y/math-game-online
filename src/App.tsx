@@ -1487,30 +1487,48 @@ eng.handleFractionDivision = (targetCard) => {
             eng.commitState();
         };
 
+        // RESTORED TRY COMBINE (Full Engine)
         eng.tryCombine = (targetWrapper) => {
             if (!eng.dragSrc || !eng.dragSrc.el || !targetWrapper) return;
             let list = eng.dragSrc.list;
-            let targetIdx = parseInt(targetWrapper.dataset.idx);
-            if (isNaN(targetIdx)) targetIdx = parseInt(targetWrapper.dataset.childIdx);
+            
+            // 🚀 FIX: ค้นหาขอบเขต (Boundary) เพื่อซูมออกหาเป้าหมายกลุ่มใหญ่ที่แท้จริง
+            let srcEl = eng.dragSrc.el;
+            let boundary = srcEl.parentElement;
+            if (srcEl.classList.contains('term-card') && srcEl.parentElement && srcEl.parentElement.classList.contains('term-container')) {
+                boundary = srcEl.parentElement.parentElement;
+            }
+            
+            let trueTarget = targetWrapper;
+            if (boundary) {
+                let curr = targetWrapper;
+                while (curr && curr.parentElement !== boundary && curr.parentElement !== document.body) {
+                    curr = curr.parentElement;
+                }
+                if (curr && curr.parentElement === boundary) {
+                    trueTarget = curr;
+                }
+            }
+
+            let targetIdx = parseInt(trueTarget.dataset.idx);
+            if (isNaN(targetIdx)) targetIdx = parseInt(trueTarget.dataset.childIdx);
             if (isNaN(targetIdx)) {
-                let parentWrapper = targetWrapper.closest('.term-container');
+                let parentWrapper = trueTarget.closest('.term-container');
                 if (parentWrapper) targetIdx = parseInt(parentWrapper.dataset.idx);
             }
+            
             if (isNaN(targetIdx) || targetIdx === eng.dragSrc.idx) return;
 
             let srcTerm = eng.dragSrc.term, targetTerm = list[targetIdx];
             if (!targetTerm) return;
             let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
 
-            // 🚀 FIX: จัดการ 3*5 ให้คูณได้ทันที โดยไม่ถูกบล็อกด้วยเครื่องหมายรอบๆ
-            if (srcTerm.type === 'term' && targetTerm.type === 'term' && max - min === 2 && list[min+1].value === '•') {
-                eng.combineSplitTerm(list[min+1], list, min+1); return;
-            }
-
+            // 🚀 ยืดหยุ่น 1: ถ้าเผลอปล่อยทับเครื่องหมายคูณ (•) ตรงกลาง ให้จับคูณกันเลย
             if (targetTerm.type === 'op' && targetTerm.value === '•') {
                 if (max - min === 1) { eng.combineSplitTerm(targetTerm, list, targetIdx); return; }
             }
 
+            // 🚀 ยืดหยุ่น 2: ถ้าเผลอปล่อยทับเครื่องหมาย (+) หรือ (-) ให้ระบบรู้ใจ ชี้เป้าไปหาตัวเลขข้างๆ อัตโนมัติ!
             if (targetTerm.type === 'op' && (targetTerm.value === '+' || targetTerm.value === '-')) {
                 if (Math.abs(eng.dragSrc.idx - targetIdx) === 1) {
                     let otherIdx = targetIdx === eng.dragSrc.idx - 1 ? targetIdx - 1 : targetIdx + 1;
@@ -1521,6 +1539,7 @@ eng.handleFractionDivision = (targetCard) => {
                 }
             }
 
+            // 1. Term + Term (Addition, Subtraction, Multiplication with variable parsing)
             if (srcTerm.type === 'term' && targetTerm.type === 'term') {
                 if (max - min === 2) {
                     let op = list[min+1];
@@ -1539,10 +1558,13 @@ eng.handleFractionDivision = (targetCard) => {
                             else { if (resCoef < 0) list.splice(min, 3, new eng.TermClass('op', '-'), new eng.TermClass('term', finalTermVal.toString())); else list.splice(min, 3, new eng.TermClass('term', finalTermVal.toString())); }
                             eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
                         } else { eng.shakeElement(targetWrapper); return; }
+                    } else if (op.value === '•') {
+                        eng.combineSplitTerm(op, list, min + 1); return;
                     }
                 }
             }
 
+            // 2. Term + Group OR Group + Term (Distribution)
             if ((srcTerm.type === 'term' && targetTerm.type === 'group') || (srcTerm.type === 'group' && targetTerm.type === 'term')) {
                 let numberTerm = srcTerm.type === 'term' ? srcTerm : targetTerm;
                 let groupTerm = srcTerm.type === 'group' ? srcTerm : targetTerm;
@@ -1554,6 +1576,7 @@ eng.handleFractionDivision = (targetCard) => {
                 }
             }
 
+            // 3. Fraction + Fraction (Find LCM & Add)
             if (srcTerm.type === 'fraction' && targetTerm.type === 'fraction') {
                 if (max - min === 2) {
                     let op = list[min+1];
@@ -1576,7 +1599,7 @@ eng.handleFractionDivision = (targetCard) => {
                 }
             }
 
-// 4. Term + Fraction (Cross Multiplication / Multiply into fraction)
+            // 4. Term + Fraction (Cross Multiplication / Multiply into fraction)
             if ((srcTerm.type === 'term' && targetTerm.type === 'fraction') || (srcTerm.type === 'fraction' && targetTerm.type === 'term')) {
                 let termPart = srcTerm.type === 'term' ? srcTerm : targetTerm;
                 let fracPart = srcTerm.type === 'fraction' ? srcTerm : targetTerm;
@@ -1601,7 +1624,6 @@ eng.handleFractionDivision = (targetCard) => {
                         let newNumeratorChildren = [];
 
                         if (list[min] === termPart) {
-                            // 🚀 FIX: กรณี Term อยู่ข้างหน้า (เช่น - 7 + 1/2) เอาเครื่องหมายลบไปติดกับตัวเลขเลย
                             let valToMultiply = termPart.value;
                             if (precedingSign === '-') { valToMultiply = '-' + valToMultiply; }
                             
@@ -1612,7 +1634,6 @@ eng.handleFractionDivision = (targetCard) => {
                             newNumeratorChildren.push(new eng.TermClass('op', operator.value));
                             newNumeratorChildren.push(new eng.TermClass('group', null, oldNumChildren));
                         } else {
-                            // กรณี Fraction อยู่หน้า (เช่น 1/2 - 7)
                             let multipliedTermGroup = [ new eng.TermClass('term', termPart.value), new eng.TermClass('op', '•'), denomCopy ];
                             let multipliedTermNode = new eng.TermClass('group', null, multipliedTermGroup);
 
