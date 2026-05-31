@@ -160,9 +160,9 @@ export default function MathGameApp() {
 
     return (
         <div className="min-h-screen bg-[#a8edea] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] font-['Kanit'] overflow-hidden relative selection:bg-blue-300">
-            {/* ย่อขนาด UI ด้านบน และจัดชิดมุมมากขึ้น */}
+            {/* ย่อขนาด UI ด้านบน เลื่อนลงมาหลบ และตั้งค่า Layer ให้สูงที่สุด (z-[100]) */}
             {user && view !== 'play' && view !== 'sandbox' && view !== 'profile' && (
-                <div className="absolute top-2 right-2 md:top-3 md:right-3 flex items-center gap-1.5 md:gap-3 bg-white/90 backdrop-blur-md px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-[0_4px_0_rgba(0,0,0,0.1)] border border-white/50 z-50 transform transition hover:scale-105 origin-top-right scale-90 md:scale-100">
+                <div className="absolute top-14 right-2 md:top-16 md:right-4 flex items-center gap-1.5 md:gap-3 bg-white/90 backdrop-blur-md px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-[0_4px_0_rgba(0,0,0,0.1)] border border-white/50 z-[100] transform transition hover:scale-105 origin-top-right scale-75 md:scale-90">
                     <div className="text-xs md:text-base font-black text-gray-800 flex items-center bg-yellow-100 px-2.5 py-0.5 rounded-full shadow-inner">
                         <i className="fas fa-star text-yellow-500 mr-1 drop-shadow-sm"></i> {userData?.totalStars || 0}
                     </div>
@@ -336,6 +336,7 @@ function MenuButton({ icon, text, color, shadowColor, textColor = "text-white", 
 }
 
 // ระบบแผนที่โลกแนวตั้ง (เลื่อนจากล่างขึ้นบน + ลากวาง)
+// ระบบแผนที่โลกแนวตั้ง (เลื่อนจากล่างขึ้นบน + ลากวาง)
 function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
     const maps = Array.from({ length: 10 }, (_, i) => i + 1);
     const isMapUnlocked = (m) => m === 1 || (userProgress[`map${m - 1}_level10`]?.stars || 0) > 0;
@@ -347,37 +348,38 @@ function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
     if (globalSettings?.worldMapBgUrl) {
         return (
             <div className="relative w-full h-screen bg-black overflow-y-auto overflow-x-hidden flex flex-col items-center custom-scrollbar" ref={scrollRef}>
-                {/* ปุ่มกลับยังลอยอยู่ซ้ายบนเสมอ */}
                 <button onClick={() => setView('menu')} className="fixed top-4 left-4 md:top-6 md:left-6 bg-white/90 backdrop-blur-md text-blue-600 px-4 py-2 md:px-5 md:py-2.5 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-blue-200 z-50">
                     <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
                 </button>
                 
-                {/* แมพแนวตั้ง (ตั้งความสูงยาวๆ เพื่อให้เลื่อนได้) */}
-                <div className="relative w-full max-w-2xl min-h-[200vh] bg-cover bg-bottom bg-no-repeat" style={{ backgroundImage: `url(${globalSettings.worldMapBgUrl})` }}>
-                    {maps.map(mapNum => {
-                        const unlocked = isMapUnlocked(mapNum);
-                        const pos = globalSettings?.worldPositions ? globalSettings.worldPositions[mapNum] : null;
-                        
-                        if (pos) {
-                            return (
-                                <button key={mapNum} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
-                                    className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-16 h-16 md:w-24 md:h-24 rounded-full border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-blue-400 to-blue-600 border-white shadow-[0_8px_0_#1e3a8a] active:translate-y-[6px] active:shadow-none cursor-pointer hover:scale-110 z-20' : 'bg-gray-400 border-gray-200 shadow-md opacity-90 cursor-not-allowed z-10'}`}
-                                    style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                                >
-                                    <span className="text-[10px] md:text-xs font-bold text-blue-100 uppercase tracking-widest mb-[-4px]">Map</span>
-                                    <span className={`text-2xl md:text-4xl font-black text-white drop-shadow-md ${!unlocked && 'opacity-50'}`}>{mapNum}</span>
-                                    {!unlocked && <div className="absolute inset-0 flex items-center justify-center bg-gray-900/40 rounded-full"><i className="fas fa-lock text-white/80 text-xl md:text-3xl drop-shadow-md"></i></div>}
-                                </button>
-                            );
-                        }
-                        return null;
-                    })}
+                {/* เปลี่ยนเป็นใช้ <img> เพื่อล็อคพิกัด 100% */}
+                <div className="relative w-full max-w-2xl mx-auto shadow-2xl h-max">
+                    <img src={globalSettings.worldMapBgUrl} alt="World Map" className="w-full h-auto block pointer-events-none" />
+                    <div className="absolute inset-0">
+                        {maps.map(mapNum => {
+                            const unlocked = isMapUnlocked(mapNum);
+                            const pos = globalSettings?.worldPositions ? globalSettings.worldPositions[mapNum] : null;
+                            
+                            if (pos) {
+                                return (
+                                    <button key={mapNum} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
+                                        className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-12 h-12 md:w-24 md:h-24 rounded-full border-2 md:border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-blue-400 to-blue-600 border-white shadow-[0_4px_0_#1e3a8a] md:shadow-[0_8px_0_#1e3a8a] active:translate-y-[4px] active:shadow-none cursor-pointer hover:scale-110 z-20' : 'bg-gray-400 border-gray-200 shadow-md opacity-90 cursor-not-allowed z-10'}`}
+                                        style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                                    >
+                                        <span className="text-[8px] md:text-xs font-bold text-blue-100 uppercase tracking-widest mb-[-2px] md:mb-[-4px]">Map</span>
+                                        <span className={`text-xl md:text-4xl font-black text-white drop-shadow-md ${!unlocked && 'opacity-50'}`}>{mapNum}</span>
+                                        {!unlocked && <div className="absolute inset-0 flex items-center justify-center bg-gray-900/40 rounded-full"><i className="fas fa-lock text-white/80 text-base md:text-3xl drop-shadow-md"></i></div>}
+                                    </button>
+                                );
+                            }
+                            return null;
+                        })}
+                    </div>
                 </div>
             </div>
         );
     }
 
-    // รูปแบบสำรองกรณีแอดมินยังไม่อัปโหลดรูป
     return (
         <div className="p-4 md:p-8 h-screen overflow-y-auto relative">
             <button onClick={() => setView('menu')} className="absolute top-4 left-4 bg-white text-blue-600 px-4 py-2 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-blue-200 z-10"><i className="fas fa-chevron-left mr-2"></i> กลับ</button>
@@ -411,7 +413,6 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
     if (currentMapConfig && currentMapConfig.bgUrl) {
         return (
             <div className="relative w-full h-screen bg-black overflow-hidden flex items-center justify-center">
-                {/* ปรับ UI ส่วนหัว เอาชื่อ MAP ไปไว้ติดกับปุ่มกลับ ตามที่ขอมาในข้อ 1 */}
                 <div className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center gap-2 md:gap-4 z-50">
                     <button onClick={() => setView('mapSelect')} className="bg-white/90 backdrop-blur-md text-green-600 px-3 py-1.5 md:px-5 md:py-2 rounded-full font-black shadow-[0_4px_0_#86efac] active:translate-y-[4px] active:shadow-none transition-all text-sm md:text-base border-2 border-green-200">
                         <i className="fas fa-chevron-left mr-1 md:mr-2"></i> แผนที่
@@ -421,33 +422,36 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
                     </div>
                 </div>
 
-                <div className="relative w-full max-w-6xl aspect-video bg-contain bg-center bg-no-repeat shadow-2xl rounded-2xl md:rounded-[3rem] border-4 border-white/20" style={{ backgroundImage: `url(${currentMapConfig.bgUrl})` }}>
-                    {levels.map(lvlNum => {
-                        const levelKey = `map${mapId}_level${lvlNum}`;
-                        const levelExists = allLevels[levelKey];
-                        const unlocked = isLevelUnlocked(lvlNum) && levelExists;
-                        const stars = userProgress[levelKey]?.stars || 0;
-                        const position = currentMapConfig.levels ? currentMapConfig.levels[lvlNum] : null;
+                {/* ใช้ <img> ให้พิกัดเป๊ะกับฝั่งแอดมิน */}
+                <div className="relative w-full max-w-6xl shadow-2xl rounded-xl md:rounded-[3rem] border-4 border-white/20 overflow-hidden h-max">
+                    <img src={currentMapConfig.bgUrl} alt="Level Map" className="w-full h-auto block pointer-events-none" />
+                    <div className="absolute inset-0">
+                        {levels.map(lvlNum => {
+                            const levelKey = `map${mapId}_level${lvlNum}`;
+                            const levelExists = allLevels[levelKey];
+                            const unlocked = isLevelUnlocked(lvlNum) && levelExists;
+                            const stars = userProgress[levelKey]?.stars || 0;
+                            const position = currentMapConfig.levels ? currentMapConfig.levels[lvlNum] : null;
 
-                        if (position) {
-                            return (
-                                <button key={lvlNum} disabled={!unlocked && levelExists} onClick={() => { if(levelExists) { setSelectedLevel(lvlNum); setLevelData(allLevels[levelKey]); setView('play'); } else alert("คุณครูกำลังสร้างด่านนี้อยู่ครับ!"); }}
-                                    className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-12 h-12 md:w-20 md:h-20 rounded-full border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-green-400 to-green-600 border-white shadow-[0_6px_0_#14532d] active:translate-y-[4px] active:shadow-none cursor-pointer hover:scale-110 z-20' : (!levelExists ? 'bg-red-400 border-red-200 shadow-md z-10' : 'bg-gray-400 border-gray-200 shadow-md opacity-90 cursor-not-allowed z-10')}`}
-                                    style={{ left: `${position.x}%`, top: `${position.y}%` }}
-                                >
-                                    <span className={`text-xl md:text-3xl font-black text-white drop-shadow-md ${!unlocked && 'opacity-50'}`}>{lvlNum}</span>
-                                    {unlocked && (
-                                        // ปรับโชว์ดาวให้เต็ม 5 ดาว ตามข้อ 2
-                                        <div className="absolute -bottom-3 md:-bottom-4 flex gap-[1px] bg-gray-900/80 px-2 py-0.5 rounded-full shadow-lg border border-gray-600">
-                                            {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-[7px] md:text-[10px] ${star <= stars ? 'text-yellow-400 drop-shadow' : 'text-gray-500/50'}`}></i>)}
-                                        </div>
-                                    )}
-                                    {!unlocked && levelExists && <div className="absolute inset-0 flex items-center justify-center bg-gray-900/40 rounded-full"><i className="fas fa-lock text-white/80 text-lg md:text-2xl drop-shadow-md"></i></div>}
-                                </button>
-                            );
-                        }
-                        return null;
-                    })}
+                            if (position) {
+                                return (
+                                    <button key={lvlNum} disabled={!unlocked && levelExists} onClick={() => { if(levelExists) { setSelectedLevel(lvlNum); setLevelData(allLevels[levelKey]); setView('play'); } else alert("คุณครูกำลังสร้างด่านนี้อยู่ครับ!"); }}
+                                        className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-10 h-10 md:w-20 md:h-20 rounded-full border-2 md:border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-green-400 to-green-600 border-white shadow-[0_4px_0_#14532d] md:shadow-[0_6px_0_#14532d] active:translate-y-[4px] active:shadow-none cursor-pointer hover:scale-110 z-20' : (!levelExists ? 'bg-red-400 border-red-200 shadow-md z-10' : 'bg-gray-400 border-gray-200 shadow-md opacity-90 cursor-not-allowed z-10')}`}
+                                        style={{ left: `${position.x}%`, top: `${position.y}%` }}
+                                    >
+                                        <span className={`text-xl md:text-3xl font-black text-white drop-shadow-md ${!unlocked && 'opacity-50'}`}>{lvlNum}</span>
+                                        {unlocked && (
+                                            <div className="absolute -bottom-3 md:-bottom-4 flex gap-[1px] bg-gray-900/80 px-2 py-0.5 rounded-full shadow-lg border border-gray-600">
+                                                {[1,2,3,4,5].map(star => <i key={star} className={`fas fa-star text-[7px] md:text-[10px] ${star <= stars ? 'text-yellow-400 drop-shadow' : 'text-gray-500/50'}`}></i>)}
+                                            </div>
+                                        )}
+                                        {!unlocked && levelExists && <div className="absolute inset-0 flex items-center justify-center bg-gray-900/40 rounded-full"><i className="fas fa-lock text-white/80 text-lg md:text-2xl drop-shadow-md"></i></div>}
+                                    </button>
+                                );
+                            }
+                            return null;
+                        })}
+                    </div>
                 </div>
             </div>
         );
@@ -719,14 +723,17 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                                 <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl)} className="w-full bg-white border-2 border-green-200 rounded-xl px-2 py-1 outline-none" />
                             </div>
                         </div>
-                        <div className="flex-1 bg-gray-900 rounded-[2rem] border-4 border-gray-200 shadow-inner relative overflow-hidden flex items-center justify-center min-h-[400px]">
+                        <div className="flex-1 bg-gray-900 rounded-[2rem] border-4 border-gray-200 shadow-inner relative overflow-y-auto overflow-x-hidden flex items-center justify-center min-h-[400px]">
                             {!bgUrl ? (<div className="text-gray-500 text-center font-bold">อัปโหลดรูปแผนที่แนวนอนเพื่อเริ่มจัดวาง 10 ด่านย่อย</div>) : (
-                                <div ref={mapContainerRef} className="relative w-full max-w-5xl aspect-video bg-contain bg-center bg-no-repeat shadow-md" style={{ backgroundImage: `url(${bgUrl})` }}>
-                                    {Array.from({ length: 10 }, (_, i) => i + 1).map(lvl => (
-                                        <div key={lvl} onPointerDown={(e) => handlePointerDown(e, lvl)} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
-                                            className="absolute transform -translate-x-1/2 -translate-y-1/2 w-10 h-10 md:w-14 md:h-14 bg-green-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-white font-black text-lg md:text-2xl cursor-grab active:cursor-grabbing hover:scale-110 z-10 touch-none select-none"
-                                            style={{ left: `${positions[lvl]?.x || 50}%`, top: `${positions[lvl]?.y || 50}%` }}>{lvl}</div>
-                                    ))}
+                                <div ref={mapContainerRef} className="relative w-full max-w-5xl shadow-md inline-block h-max">
+                                    <img src={bgUrl} alt="Level Map Editor" className="w-full h-auto block pointer-events-none rounded-2xl" />
+                                    <div className="absolute inset-0">
+                                        {Array.from({ length: 10 }, (_, i) => i + 1).map(lvl => (
+                                            <div key={lvl} onPointerDown={(e) => handlePointerDown(e, lvl)} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
+                                                className="absolute transform -translate-x-1/2 -translate-y-1/2 w-10 h-10 md:w-14 md:h-14 bg-green-500 rounded-full border-2 md:border-4 border-white shadow-lg flex items-center justify-center text-white font-black text-base md:text-2xl cursor-grab active:cursor-grabbing hover:scale-110 z-10 touch-none select-none"
+                                                style={{ left: `${positions[lvl]?.x || 50}%`, top: `${positions[lvl]?.y || 50}%` }}>{lvl}</div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -742,17 +749,19 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                             <label className="block text-purple-800 font-black text-sm mb-2">อัปโหลดรูปแผนที่โลก (9:16 แนวตั้ง ยาวๆ เลื่อนขึ้นลง)</label>
                             <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl)} className="w-full bg-white border-2 border-purple-200 rounded-xl px-2 py-1 outline-none" />
                         </div>
-                        {/* Editor แผนที่แนวตั้ง จำลองหน้าจอมือถือ */}
                         <div className="flex-1 bg-gray-900 rounded-[2rem] border-4 border-gray-200 shadow-inner relative overflow-y-auto overflow-x-hidden flex justify-center h-[500px] custom-scrollbar">
                             {!bgUrl ? (<div className="text-gray-500 text-center font-bold mt-20">อัปโหลดรูปแผนที่แนวตั้งยาวๆ เพื่อจัดวาง 10 Maps หลัก</div>) : (
-                                <div ref={mapContainerRef} className="relative w-full max-w-lg min-h-[200vh] bg-cover bg-bottom bg-no-repeat shadow-md" style={{ backgroundImage: `url(${bgUrl})` }}>
-                                    {Array.from({ length: 10 }, (_, i) => i + 1).map(lvl => (
-                                        <div key={lvl} onPointerDown={(e) => handlePointerDown(e, lvl)} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
-                                            className="absolute transform -translate-x-1/2 -translate-y-1/2 w-14 h-14 md:w-20 md:h-20 bg-blue-500 rounded-full border-4 border-white shadow-lg flex flex-col items-center justify-center text-white font-black cursor-grab active:cursor-grabbing hover:scale-110 z-10 touch-none select-none"
-                                            style={{ left: `${positions[lvl]?.x || 50}%`, top: `${positions[lvl]?.y || 50}%` }}>
-                                            <span className="text-[10px] uppercase">Map</span><span className="text-2xl leading-none">{lvl}</span>
-                                        </div>
-                                    ))}
+                                <div ref={mapContainerRef} className="relative w-full max-w-lg shadow-md inline-block h-max">
+                                    <img src={bgUrl} alt="World Map Editor" className="w-full h-auto block pointer-events-none" />
+                                    <div className="absolute inset-0">
+                                        {Array.from({ length: 10 }, (_, i) => i + 1).map(lvl => (
+                                            <div key={lvl} onPointerDown={(e) => handlePointerDown(e, lvl)} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp}
+                                                className="absolute transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 md:w-20 md:h-20 bg-blue-500 rounded-full border-2 md:border-4 border-white shadow-lg flex flex-col items-center justify-center text-white font-black cursor-grab active:cursor-grabbing hover:scale-110 z-10 touch-none select-none"
+                                                style={{ left: `${positions[lvl]?.x || 50}%`, top: `${positions[lvl]?.y || 50}%` }}>
+                                                <span className="text-[8px] uppercase">Map</span><span className="text-xl md:text-2xl leading-none">{lvl}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
