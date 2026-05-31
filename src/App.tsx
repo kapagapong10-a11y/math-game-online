@@ -1403,7 +1403,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             eng.commitState();
         };
 
-        eng.tryCombine = (targetWrapper) => {
+eng.tryCombine = (targetWrapper) => {
             let list = eng.dragSrc.list, targetIdx = parseInt(targetWrapper.dataset.idx);
             if (isNaN(targetIdx) || targetIdx === eng.dragSrc.idx) return;
             let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
@@ -1412,7 +1412,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 let op = list[min+1];
                 if (op && (op.value === '+' || op.value === '-')) {
                     if ((min > 0 && list[min-1].value === '•') || (max < list.length-1 && list[max+1].value === '•')) return eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน");
-                    let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]+)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; if(!isNaN(v)) return {c: parseInt(v), v: null}; return null; };
+                    let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
                     let p1 = parseVar(list[min].value), p2 = parseVar(list[max].value);
                     if (p1 && p2 && p1.v === p2.v) {
                         let s1 = (min > 0 && list[min-1].value === '-') ? -1 : 1, s2 = op.value === '-' ? -1 : 1;
@@ -1422,12 +1422,8 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                         eng.commitState(); eng.playTone('success'); return;
                     } else { eng.shakeElement(targetWrapper); }
                 } else if (op && op.value === '•') {
-                     let p1 = parseInt(list[min].value), p2 = parseInt(list[max].value);
-                     if(!isNaN(p1) && !isNaN(p2)) { 
-                         list.splice(min, 3, new eng.TermClass('term', (p1*p2).toString())); 
-                         eng.incrementMove();
-                         eng.commitState(); eng.playTone('success'); return; 
-                     } else { eng.shakeElement(targetWrapper); }
+                     // โยนงานให้ฟังก์ชัน combineSplitTerm ทำแทน เพื่อให้รองรับทั้งตัวแปรและวงเล็บ
+                     eng.combineSplitTerm(op, list, min + 1);
                 }
             } else { eng.shakeElement(targetWrapper); }
         };
@@ -1446,7 +1442,67 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             }
         };
         
-        eng.combineSplitTerm = (term, list, idx) => { if(idx>0 && idx<list.length-1) { list.splice(idx-1, 3, new eng.TermClass('term', list[idx-1].value + list[idx+1].value)); eng.incrementMove(); eng.commitState(); eng.playTone('success'); } };
+        eng.combineSplitTerm = (term, list, idx) => { 
+            if(idx > 0 && idx < list.length - 1) { 
+                let prev = list[idx-1];
+                let next = list[idx+1];
+                
+                // ฟังก์ชันย่อยสำหรับแยกตัวเลขและตัวแปร (เช่น 3x จะแยกเป็น สัมประสิทธิ์ 3 และตัวแปร x)
+                let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
+                
+                // ฟังก์ชันย่อยสำหรับ "คูณกระจาย" เข้าไปในวงเล็บ
+                const distribute = (multiplierTerm, groupTerm) => {
+                    let mVar = parseVar(multiplierTerm.value);
+                    if (!mVar) return false;
+                    for (let i = 0; i < groupTerm.children.length; i++) {
+                        let child = groupTerm.children[i];
+                        if (child.type === 'term') {
+                            let cVar = parseVar(child.value);
+                            if (cVar) {
+                                if (mVar.v && cVar.v) { eng.showPopup("ระบบยังไม่รองรับการคูณตัวแปรครับ (เช่น x • x)"); return false; }
+                                let combinedVar = mVar.v || cVar.v || "";
+                                child.value = (mVar.c * cVar.c).toString() + combinedVar;
+                            }
+                        } else if (child.type === 'fraction') {
+                             if(child.children.length === 1 && child.children[0].type === 'term') {
+                                 let cVar = parseVar(child.children[0].value);
+                                 if (cVar) {
+                                    if (mVar.v && cVar.v) { eng.showPopup("ระบบยังไม่รองรับการคูณตัวแปรครับ"); return false; }
+                                    let combinedVar = mVar.v || cVar.v || "";
+                                    child.children[0].value = (mVar.c * cVar.c).toString() + combinedVar;
+                                 }
+                             }
+                        }
+                    }
+                    return true;
+                };
+
+                // กรณีที่ 1: ตัวเลขคูณตัวเลข หรือ ตัวเลขคูณตัวแปร (เช่น 2 • 3x)
+                if (prev.type === 'term' && next.type === 'term') {
+                    let p1 = parseVar(prev.value), p2 = parseVar(next.value);
+                    if(p1 && p2) { 
+                         if (p1.v && p2.v) { eng.showPopup("ระบบยังไม่รองรับการคูณตัวแปรครับ (เช่น x • x)"); return; }
+                         let combinedVar = p1.v || p2.v || "";
+                         list.splice(idx-1, 3, new eng.TermClass('term', (p1.c * p2.c).toString() + combinedVar)); 
+                         eng.incrementMove(); eng.commitState(); eng.playTone('success'); 
+                    }
+                }
+                // กรณีที่ 2: ตัวเลขคูณวงเล็บ (เช่น 2 • (x+3))
+                else if (prev.type === 'term' && next.type === 'group') {
+                    if(distribute(prev, next)) {
+                        list.splice(idx - 1, 2); // ลบตัวคูณและเครื่องหมายคูณทิ้ง ปล่อยให้วงเล็บแตกออกอัตโนมัติ
+                        eng.incrementMove(); eng.commitState(); eng.playTone('success');
+                    }
+                }
+                // กรณีที่ 3: วงเล็บคูณตัวเลข (เช่น (x+3) • 2)
+                else if (prev.type === 'group' && next.type === 'term') {
+                    if(distribute(next, prev)) {
+                        list.splice(idx, 2); // ลบเครื่องหมายคูณและตัวคูณทิ้ง
+                        eng.incrementMove(); eng.commitState(); eng.playTone('success');
+                    }
+                }
+            } 
+        };
         
         eng.distributeNegative = (term, list, idx) => { if(idx >= list.length-1) return; let t = list[idx+1]; if(t.type==='group') { list[idx].value='+'; list.splice(idx+1, 1, ...t.children); eng.incrementMove(); eng.commitState(); eng.playTone('pop'); } };
 
