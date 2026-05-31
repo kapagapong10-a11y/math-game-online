@@ -1244,49 +1244,40 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             eng.incrementMove(); eng.commitState(); eng.playTone('success');
         };
 
-        eng.handleFractionDivision = (targetElement) => {
-            let targetCard = targetElement.closest('.term-card'); if (!targetCard) return;
+eng.handleFractionDivision = (targetCard) => {
+            if (!targetCard) return;
             let parentFracId = targetCard.dataset.parentFracId;
             let srcTerm = eng.dragSrc.term;
 
             let numValStr = targetCard.innerText;
             let denValStr;
-            if (eng.dragSrc.role === 'denominator') {
-                if (srcTerm.denominator.type === 'term') { denValStr = srcTerm.denominator.value; } 
-                else if (srcTerm.denominator.type === 'group') {
-                    let gc = srcTerm.denominator.children;
-                    if (gc.length === 1 && gc[0].type === 'term') denValStr = gc[0].value;
-                    else if (gc.length === 2 && gc[0].value === '-' && gc[1].type === 'term') denValStr = "-" + gc[1].value;
-                    else return;
-                } else return;
-            } else { denValStr = srcTerm.value; }
+            let isSourceDenominator = (eng.dragSrc.role === 'denominator');
+            
+            if (isSourceDenominator) {
+                if (srcTerm.denominator.type === 'term') denValStr = srcTerm.denominator.value;
+                else if (srcTerm.denominator.type === 'group' && srcTerm.denominator.children.length === 1) denValStr = srcTerm.denominator.children[0].value;
+                else return;
+            } else {
+                denValStr = srcTerm.value;
+            }
 
             let nVal = parseInt(numValStr), dVal = parseInt(denValStr);
-            if (isNaN(nVal) || isNaN(dVal)) return; if (dVal === 0) return;
+            if (isNaN(nVal) || isNaN(dVal) || dVal === 0) return;
             let common = eng.gcd(Math.abs(nVal), Math.abs(dVal));
+            if (common === 1 && Math.abs(dVal) !== 1) { eng.showPopup("ตัดทอนไม่ได้ครับ ไม่มีตัวหารร่วม"); eng.shakeElement(targetCard); return; }
 
             let mainList = (targetCard.dataset.side === 'lhs') ? eng.localGameState.lhs : eng.localGameState.rhs;
             let fractionTerm = findFractionTerm(mainList, parentFracId);
             if (!fractionTerm) return;
-            let numeratorList = fractionTerm.children;
-            let isTargetDenominator = targetCard.closest('.denominator-container') !== null;
+
             let isTargetNumerator = targetCard.closest('.numerator-container') !== null;
-            
-            if (isTargetDenominator) {
-                if (common === 1 && Math.abs(dVal) !== 1 && dVal > 0) { eng.showPopup("ตัดทอนไม่ได้ (ไม่มีตัวหารร่วมกันครับ)"); eng.shakeElement(targetElement); return; }
-                let newDenomVal = Math.abs(nVal) / common;
-                if (fractionTerm.denominator.type === 'term') fractionTerm.denominator.value = newDenomVal.toString();
-                else if (fractionTerm.denominator.children) fractionTerm.denominator.children[0].value = newDenomVal.toString();
-                
-                let newSourceVal = Math.abs(dVal) / common;
-                if (dVal < 0) newSourceVal = -newSourceVal;
-                if (eng.dragSrc.role === 'inner-term' || eng.dragSrc.role === 'term') eng.dragSrc.term.value = newSourceVal.toString();
-            }
-            else if (isTargetNumerator) {
-                let isPolynomial = numeratorList.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'));
+            let isTargetDenominator = targetCard.closest('.denominator-container') !== null;
+
+            if (isTargetNumerator) {
+                let isPolynomial = fractionTerm.children.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'));
                 if (isPolynomial) {
                     let termsToDivide = [];
-                    for(let t of numeratorList) {
+                    for(let t of fractionTerm.children) {
                         if (t.type === 'term') {
                             let val = parseInt(t.value);
                             if (t.value.match(/[a-zA-Z]/)) {
@@ -1297,44 +1288,47 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                         }
                     }
                     let allDivisible = termsToDivide.every(coef => coef % dVal === 0);
-                    if (!allDivisible) { eng.showPopup("ต้องหารลงตัวทุกพจน์พร้อมกันครับ"); eng.shakeElement(targetElement); return; }
+                    if (!allDivisible) { eng.showPopup("ต้องหารลงตัวทุกพจน์พร้อมกันครับ"); eng.shakeElement(targetCard); return; }
 
-                    for(let t of numeratorList) {
+                    for(let t of fractionTerm.children) {
                         if (t.type === 'term') {
                             let m = t.value.match(/^(-?\d*)([a-zA-Z]*)$/);
                             if (m) {
                                 let coef = m[1] === '' ? 1 : (m[1] === '-' ? -1 : parseInt(m[1]));
-                                let variable = m[2];
                                 let newCoef = coef / dVal;
-                                t.value = newCoef + variable;
+                                t.value = newCoef + (m[2] || '');
                             }
                         }
                     }
                     if (eng.dragSrc.role === 'inner-term' || eng.dragSrc.role === 'term') eng.dragSrc.term.value = "1";
+                    if (isSourceDenominator) eng.dragSrc.term.denominator = new eng.TermClass('term', "1");
                 } else {
-                    if (common === 1 && Math.abs(dVal) !== 1 && dVal > 0) { eng.showPopup("ตัดทอนไม่ได้ (ไม่มีตัวหารร่วมกันครับ)"); eng.shakeElement(targetElement); return; }
                     let resultSign = (nVal * dVal >= 0) ? 1 : -1;
                     let newNumValCalc = (Math.abs(nVal) / common) * resultSign;
                     let newSourceVal = Math.abs(dVal) / common;
+
+                    let childIdx = parseInt(targetCard.dataset.childIdx);
+                    let targetNumTerm = fractionTerm.children[childIdx];
+                    if (!targetNumTerm) return;
                     
-                    let targetNumTerm = numeratorList[parseInt(targetCard.dataset.childIdx)];
                     let numVarMatch = targetNumTerm.value.match(/[a-zA-Z]+/);
-                    let numVar = numVarMatch ? numVarMatch[0] : "";
-                    targetNumTerm.value = newNumValCalc + numVar;
+                    targetNumTerm.value = newNumValCalc + (numVarMatch ? numVarMatch[0] : "");
                     
                     if (eng.dragSrc.role === 'inner-term' || eng.dragSrc.role === 'term') eng.dragSrc.term.value = newSourceVal.toString();
+                    if (isSourceDenominator) eng.dragSrc.term.denominator = new eng.TermClass('term', newSourceVal.toString());
                 }
+            } else if (isTargetDenominator) {
+                let newDenomVal = Math.abs(nVal) / common;
+                if (fractionTerm.denominator.type === 'term') fractionTerm.denominator.value = newDenomVal.toString();
+                else if (fractionTerm.denominator.children) fractionTerm.denominator.children[0].value = newDenomVal.toString();
+                
+                let newSourceVal = Math.abs(dVal) / common;
+                if (dVal < 0) newSourceVal = -newSourceVal;
+                
+                if (eng.dragSrc.role === 'inner-term' || eng.dragSrc.role === 'term') eng.dragSrc.term.value = newSourceVal.toString();
+                if (isSourceDenominator) eng.dragSrc.term.denominator = new eng.TermClass('term', newSourceVal.toString());
             }
-            
-            if (eng.dragSrc.role === 'denominator') {
-                if (isTargetNumerator) {
-                    let newSrcDenomVal = Math.abs(dVal) / common;
-                    eng.dragSrc.term.denominator = new eng.TermClass('term', newSrcDenomVal.toString());
-                }
-            }
-            eng.incrementMove();
-            eng.commitState();
-            eng.playTone('success');
+            eng.incrementMove(); eng.commitState(); eng.playTone('success');
         };
 
         eng.setupDrag = (el, term, side, list, idx, role, parentFracTerm = null, mainList = null, mainIdx = null, sourceContext = null) => {
@@ -1380,27 +1374,30 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                             eng.dragSrc.side = currentSide; eng.executeMoveSide();
                         } else {
                             let elemBelow = document.elementFromPoint(endX, endY); 
-                            let numTarget = elemBelow ? elemBelow.closest('.numerator-container, .numerator-term') : null;
-                            if (numTarget && (role === 'denominator' || (role === 'inner-term' && sourceContext === 'numerator'))) {
-                                if (role === 'inner-term') { 
-                                    // 🚀 FIX: เพิ่ม .term-card ให้เป้าหมายบนเศษส่วนถูกจับได้แม่นยำ 100%
-                                    let targetEl = elemBelow.closest('.term-container, .term-card'); 
-                                    if(targetEl && targetEl !== eng.dragSrc.el.closest('.term-container, .term-card')) eng.tryCombine(targetEl);
-                                } else eng.handleFractionDivision(elemBelow);
-                            } else {
-                                let denTarget = elemBelow ? elemBelow.closest('.denominator-container, .denominator-term') : null;
-                                if (denTarget) {
-                                    if (role === 'term' || role === 'inner-term') eng.handleFractionDivision(elemBelow);
+                            
+                            // 🚀 FIX: ชี้เป้าให้ทะลุทะลวงเข้าถึงตัวการ์ดบนเศษส่วน
+                            let numTarget = elemBelow ? elemBelow.closest('.numerator-container') : null;
+                            let denTarget = elemBelow ? elemBelow.closest('.denominator-container') : null;
+                            
+                            let isDivisionAction = false;
+                            if (role === 'denominator' || role === 'inner-term' || role === 'term') {
+                                if (numTarget || denTarget) {
+                                    let targetCard = elemBelow.closest('.term-card');
+                                    if (targetCard && targetCard !== eng.dragSrc.el.closest('.term-card')) {
+                                        eng.handleFractionDivision(targetCard);
+                                        isDivisionAction = true;
+                                    }
+                                }
+                            }
+                            
+                            if (!isDivisionAction) {
+                                if (role === 'distribute-negative') {
+                                    let cItem = eng.dragSrc.el.closest('.term-container'); let nItem = cItem ? cItem.nextElementSibling : null;
+                                    if (nItem && (nItem === elemBelow || nItem.contains(elemBelow))) { eng.distributeNegative(eng.dragSrc.term, eng.dragSrc.list, eng.dragSrc.idx); }
                                 } else {
-                                    if (role === 'distribute-negative') {
-                                        let cItem = eng.dragSrc.el.closest('.term-container'); let nItem = cItem ? cItem.nextElementSibling : null;
-                                        if (nItem && (nItem === elemBelow || nItem.contains(elemBelow))) { eng.distributeNegative(eng.dragSrc.term, eng.dragSrc.list, eng.dragSrc.idx); }
-                                    } else {
-                                        // 🚀 FIX: เพิ่ม .term-card ตรงนี้ด้วย
-                                        let targetEl = elemBelow ? elemBelow.closest('.term-container, .term-card') : null;
-                                        if(targetEl && targetEl !== eng.dragSrc.el.closest('.term-container, .term-card')) {
-                                            eng.tryCombine(targetEl); 
-                                        }
+                                    let targetEl = elemBelow ? elemBelow.closest('.term-container, .term-card') : null;
+                                    if(targetEl && targetEl !== eng.dragSrc.el.closest('.term-container, .term-card')) {
+                                        eng.tryCombine(targetEl); 
                                     }
                                 }
                             }
@@ -1408,7 +1405,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     }
                     setTimeout(() => { if (eng.dragSrc && eng.dragSrc.ghost) eng.dragSrc.ghost.remove(); eng.dragSrc = null; }, 0);
                 };
-                
+
                 document.addEventListener('mousemove', onMove, {passive: false}); document.addEventListener('touchmove', onMove, {passive: false});
                 document.addEventListener('mouseup', onEnd); document.addEventListener('touchend', onEnd);
                 document.addEventListener('touchcancel', onEnd);
@@ -1440,8 +1437,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 if(term.denominator.type === 'group' && term.denominator.children.length === 1) targetList.push(new eng.TermClass('op', '•'), term.denominator.children[0]);
                 else if (term.denominator.type === 'group') targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('group', null, term.denominator.children));
                 else targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', val));
-                eng.incrementMove();
-                eng.playTone('success');
+                eng.incrementMove(); eng.playTone('success');
             } else {
                 let isFactor = false, removeIdx = idx, removeCount = 1, nextTerm = (idx < list.length - 1) ? list[idx+1] : null, prevTerm = (idx > 0) ? list[idx-1] : null;
                 if (nextTerm && nextTerm.value === '•') { isFactor = true; removeCount = 2; } else if (prevTerm && prevTerm.value === '•') { isFactor = true; removeIdx = idx - 1; removeCount = 2; }
@@ -1470,8 +1466,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                             let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue)));
                         }
                     }
-                    eng.incrementMove();
-                    eng.playTone('success');
+                    eng.incrementMove(); eng.playTone('success');
                 } else {
                     let movingSign = '+'; if (idx > 0 && list[idx-1].type === 'op') { movingSign = list[idx-1].value; removeIdx = idx - 1; removeCount = 2; }
                     list.splice(removeIdx, removeCount); if(list.length > 0 && list[0].type === 'op' && (list[0].value === '+' || list[0].value === '•')) list.shift();
@@ -1483,38 +1478,36 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
 
                     if (targetList.length > 0) targetList.push(new eng.TermClass('op', newSign)); else if (newSign === '-') targetList.push(new eng.TermClass('op', '-'));
                     targetList.push(term);
-                    eng.incrementMove();
-                    eng.playTone('success');
+                    eng.incrementMove(); eng.playTone('success');
                 }
             }
             eng.commitState();
         };
 
-// RESTORED TRY COMBINE (Full Engine)
         eng.tryCombine = (targetWrapper) => {
             if (!eng.dragSrc || !eng.dragSrc.el || !targetWrapper) return;
             let list = eng.dragSrc.list;
-            
-            // 🚀 FIX: อ่านค่าตำแหน่งให้แม่นยำทะลุทะลวง ไม่ว่าจะปล่อยใส่การ์ดตัวเลขตรงๆ หรือกล่องคอนเทนเนอร์
             let targetIdx = parseInt(targetWrapper.dataset.idx);
             if (isNaN(targetIdx)) targetIdx = parseInt(targetWrapper.dataset.childIdx);
             if (isNaN(targetIdx)) {
                 let parentWrapper = targetWrapper.closest('.term-container');
                 if (parentWrapper) targetIdx = parseInt(parentWrapper.dataset.idx);
             }
-            
             if (isNaN(targetIdx) || targetIdx === eng.dragSrc.idx) return;
 
             let srcTerm = eng.dragSrc.term, targetTerm = list[targetIdx];
             if (!targetTerm) return;
             let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
 
-            // 🚀 ยืดหยุ่น 1: ถ้าเผลอปล่อยทับเครื่องหมายคูณ (•) ตรงกลาง ให้จับคูณกันเลย
+            // 🚀 FIX: จัดการ 3*5 ให้คูณได้ทันที โดยไม่ถูกบล็อกด้วยเครื่องหมายรอบๆ
+            if (srcTerm.type === 'term' && targetTerm.type === 'term' && max - min === 2 && list[min+1].value === '•') {
+                eng.combineSplitTerm(list[min+1], list, min+1); return;
+            }
+
             if (targetTerm.type === 'op' && targetTerm.value === '•') {
                 if (max - min === 1) { eng.combineSplitTerm(targetTerm, list, targetIdx); return; }
             }
 
-            // 🚀 ยืดหยุ่น 2: ถ้าเผลอปล่อยทับเครื่องหมาย (+) หรือ (-) ให้ระบบรู้ใจ ชี้เป้าไปหาตัวเลขข้างๆ อัตโนมัติ!
             if (targetTerm.type === 'op' && (targetTerm.value === '+' || targetTerm.value === '-')) {
                 if (Math.abs(eng.dragSrc.idx - targetIdx) === 1) {
                     let otherIdx = targetIdx === eng.dragSrc.idx - 1 ? targetIdx - 1 : targetIdx + 1;
@@ -1525,7 +1518,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 }
             }
 
-            // 1. Term + Term (Addition, Subtraction, Multiplication with variable parsing)
             if (srcTerm.type === 'term' && targetTerm.type === 'term') {
                 if (max - min === 2) {
                     let op = list[min+1];
@@ -1544,13 +1536,10 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                             else { if (resCoef < 0) list.splice(min, 3, new eng.TermClass('op', '-'), new eng.TermClass('term', finalTermVal.toString())); else list.splice(min, 3, new eng.TermClass('term', finalTermVal.toString())); }
                             eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
                         } else { eng.shakeElement(targetWrapper); return; }
-                    } else if (op.value === '•') {
-                        eng.combineSplitTerm(op, list, min + 1); return;
                     }
                 }
             }
 
-            // 2. Term + Group OR Group + Term (Distribution)
             if ((srcTerm.type === 'term' && targetTerm.type === 'group') || (srcTerm.type === 'group' && targetTerm.type === 'term')) {
                 let numberTerm = srcTerm.type === 'term' ? srcTerm : targetTerm;
                 let groupTerm = srcTerm.type === 'group' ? srcTerm : targetTerm;
@@ -1562,7 +1551,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 }
             }
 
-            // 3. Fraction + Fraction (Find LCM & Add)
             if (srcTerm.type === 'fraction' && targetTerm.type === 'fraction') {
                 if (max - min === 2) {
                     let op = list[min+1];
@@ -1585,7 +1573,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 }
             }
 
-            // 4. Term + Fraction (Cross Multiplication / Multiply into fraction)
             if ((srcTerm.type === 'term' && targetTerm.type === 'fraction') || (srcTerm.type === 'fraction' && targetTerm.type === 'term')) {
                 let termPart = srcTerm.type === 'term' ? srcTerm : targetTerm;
                 let fracPart = srcTerm.type === 'fraction' ? srcTerm : targetTerm;
@@ -1603,7 +1590,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                         let operator = list[min+1];
                         let denomCopy = (fracPart.denominator.type === 'group') ? new eng.TermClass('group', null, JSON.parse(JSON.stringify(fracPart.denominator.children))) : new eng.TermClass('term', fracPart.denominator.value);
                         
-                        // คืนค่าให้แยกกลุ่มกัน (เช่น 3x • 2) เพื่อให้เด็กได้กดรวมพจน์เอง
                         let multipliedTermGroup = [ new eng.TermClass('term', termPart.value), new eng.TermClass('op', '•'), denomCopy ];
                         let multipliedTermNode = new eng.TermClass('group', null, multipliedTermGroup);
                         
