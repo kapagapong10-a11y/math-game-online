@@ -1732,7 +1732,13 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         };
 
         eng.checkWinCondition = () => {
-            const isSolved = (list) => list.length === 1 && list[0].type === 'term' && (list[0].value === 'x' || list[0].value === '1x');
+            // 🚀 FIX: ใช้ Regex ตรวจจับตัวแปร ครอบคลุมทั้ง x, +x, 1x, +1x (และตัดช่องว่างทิ้ง)
+            const isSolved = (list) => {
+                if (list.length !== 1 || list[0].type !== 'term') return false;
+                let val = list[0].value.replace(/\s+/g, ''); // ตัดช่องว่างที่อาจมองไม่เห็นทิ้ง
+                return /^(?:\+?1?)?[a-zA-Z]$/.test(val); // ตรวจสอบว่าเป็นตัวแปรเดี่ยวๆ (สัมประสิทธิ์เป็น 1 หรือ +1) หรือไม่
+            };
+
             const extractNum = (node) => {
                 if (node.type === 'term' && !isNaN(parseFloat(node.value))) return parseInt(node.value);
                 if (node.type === 'group') {
@@ -1764,6 +1770,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 return false;
             };
 
+            // ถ้าย้ายจนฝั่งนึงเป็น x เดี่ยวๆ และอีกฝั่งเป็นตัวเลขล้วน -> ชนะทันที!
             if ((isSolved(eng.localGameState.lhs) && isNumericValue(eng.localGameState.rhs)) || 
                 (isSolved(eng.localGameState.rhs) && isNumericValue(eng.localGameState.lhs))) {
                 
