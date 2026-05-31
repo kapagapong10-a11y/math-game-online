@@ -593,7 +593,7 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
     const mapContainerRef = useRef(null);
 
     const [menuBgUrl, setMenuBgUrl] = useState('');
-    const [loginBgUrl, setLoginBgUrl] = useState(''); // 🚀 เพิ่มตัวแปรเก็บรูป Login แยกโดยเฉพาะ
+    const [loginBgUrl, setLoginBgUrl] = useState(''); // 🚀 ตัวแปรเก็บรูป Login ที่ถูกต้อง
     const [btnPlay, setBtnPlay] = useState('');
     const [btnSandbox, setBtnSandbox] = useState('');
     const [btnRank, setBtnRank] = useState('');
@@ -614,7 +614,7 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
             else { setBgUrl(''); let defPos = {}; for(let i=1; i<=10; i++) defPos[i] = { x: 50, y: 100 - (i * 9) }; setPositions(defPos); }
         } else if (tab === 'mainmenu') {
             setMenuBgUrl(globalSettings?.mainMenuBgUrl || '');
-            setLoginBgUrl(globalSettings?.loginBgUrl || ''); // 🚀 ดึงรูป Login เดิมมาแสดง
+            setLoginBgUrl(globalSettings?.loginBgUrl || ''); // 🚀 ดึงรูป Login มาแสดงให้ถูกต้อง
             setBtnPlay(globalSettings?.btnPlay || ''); setBtnSandbox(globalSettings?.btnSandbox || '');
             setBtnRank(globalSettings?.btnRank || ''); setBtnAdmin(globalSettings?.btnAdmin || '');
         }
@@ -656,7 +656,7 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                 
                 const mimeType = isTransparent ? 'image/png' : 'image/jpeg';
                 const quality = isTransparent ? undefined : 0.7;
-                setter(canvas.toDataURL(mimeType, quality)); // 🚀 อัปเดตตัวแปรแบบเรียลไทม์
+                setter(canvas.toDataURL(mimeType, quality)); // อัปเดตแบบเรียลไทม์
             };
             img.src = event.target.result;
         };
@@ -782,7 +782,7 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                                 {menuBgUrl && <img src={menuBgUrl} alt="Preview Menu BG" className="h-24 rounded-xl object-cover border-2 border-orange-200 shadow-sm mx-auto" />}
                             </div>
                             
-                            {/* 🚀 ผูก onChange เข้ากับ setLoginBgUrl โดยตรง */}
+                            {/* 🚀 แก้ไข: สั่งให้เก็บลงตัวแปร setLoginBgUrl ตรงๆ ป้องกัน Error */}
                             <div className="bg-blue-50 p-6 rounded-[2rem] border-2 border-blue-100 shadow-inner">
                                 <label className="block text-blue-800 font-black text-sm mb-2"><i className="fas fa-sign-in-alt mr-2"></i>รูปพื้นหลังหน้า Login (แนวนอน/ตั้ง)</label>
                                 <input type="file" accept="image/*" onChange={handleImageUpload(setLoginBgUrl, false)} className="w-full bg-white border-2 border-blue-200 rounded-xl px-2 py-1 outline-none mb-2 text-sm" />
@@ -813,16 +813,23 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                             </div>
                         </div>
 
-                        {message && <div className="p-3 rounded-2xl mt-4 font-bold text-center border-2 bg-green-100 text-green-700">{message}</div>}
+                        {message && <div className={`p-3 rounded-2xl mt-4 font-bold text-center border-2 ${message.includes('สำเร็จ') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{message}</div>}
                         
-                        {/* 🚀 ส่งค่า loginBgUrl ไปบันทึกลง Database ด้วย */}
                         <button onClick={async () => {
-                            await update(ref(db, `globalSettings`), { 
-                                mainMenuBgUrl: menuBgUrl, 
-                                loginBgUrl: loginBgUrl, 
-                                btnPlay, btnSandbox, btnRank, btnAdmin 
-                            });
-                            setMessage(`บันทึกการตั้งค่าหน้าเมนูหลักและ Login สำเร็จ!`); setTimeout(() => setMessage(''), 3000);
+                            try {
+                                await update(ref(db, `globalSettings`), { 
+                                    mainMenuBgUrl: menuBgUrl || '', 
+                                    loginBgUrl: loginBgUrl || '', 
+                                    btnPlay: btnPlay || '', 
+                                    btnSandbox: btnSandbox || '', 
+                                    btnRank: btnRank || '', 
+                                    btnAdmin: btnAdmin || '' 
+                                });
+                                setMessage(`บันทึกการตั้งค่าหน้าเมนูหลักและ Login สำเร็จ!`); 
+                                setTimeout(() => setMessage(''), 3000);
+                            } catch(error) {
+                                setMessage(`เกิดข้อผิดพลาด: ${error.message}`);
+                            }
                         }} className="w-full bg-orange-500 text-white font-black py-4 rounded-[1.5rem] text-xl shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all uppercase mt-2">
                             บันทึกหน้าเมนูหลัก และ Login
                         </button>
