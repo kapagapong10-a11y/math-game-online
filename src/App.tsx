@@ -1647,14 +1647,46 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         
         eng.splitFraction = (term, list, idx) => { let nt = []; term.children.forEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.incrementMove(); eng.commitState(); eng.playTone('pop'); };
         
-        eng.splitTerm = (term, list, idx) => { 
+       eng.splitTerm = (term, list, idx) => { 
+            // ค้นหาตัวเลขและตัวแปร เช่น 3x, -x, x
             let m = term.value.match(/^(-?\d*)([a-zA-Z]+)$/); 
             if(m) { 
-                let coef = m[1];
-                if (coef === '-') coef = '-1';
-                else if (coef === '' || coef === '+') coef = '1';
-                list.splice(idx, 1, new eng.TermClass('term', coef), new eng.TermClass('op', '•'), new eng.TermClass('term', m[2])); 
-                eng.incrementMove(); eng.commitState(); eng.playTone('pop'); 
+                let coefStr = m[1];
+                if (coefStr === '-') coefStr = '-1';
+                else if (coefStr === '' || coefStr === '+') coefStr = '1';
+                let coef = parseInt(coefStr);
+
+                // เช็คว่ามีเครื่องหมาย "ลบ" ยืนแยกอยู่ข้างหน้าหรือไม่ (แบบที่ 1)
+                let isFirstNeg = (idx === 1 && list[0].type === 'op' && list[0].value === '-');
+                let hasMinusOp = (idx > 0 && list[idx-1].type === 'op' && list[idx-1].value === '-');
+
+                if (isFirstNeg) {
+                    coef = -coef; // ดูดลบเข้ามาเป็นตัวเลข
+                    list.splice(0, 2, 
+                        new eng.TermClass('term', coef.toString()), 
+                        new eng.TermClass('op', '•'), 
+                        new eng.TermClass('term', m[2])
+                    );
+                } else if (hasMinusOp) {
+                    coef = -coef; // ดูดลบเข้ามาเป็นตัวเลข
+                    list.splice(idx-1, 2, 
+                        new eng.TermClass('op', '+'), 
+                        new eng.TermClass('term', coef.toString()), 
+                        new eng.TermClass('op', '•'), 
+                        new eng.TermClass('term', m[2])
+                    );
+                } else {
+                    // กรณีเครื่องหมายลบฝังอยู่ในตัวมันเองอยู่แล้ว (แบบที่ 2)
+                    list.splice(idx, 1, 
+                        new eng.TermClass('term', coef.toString()), 
+                        new eng.TermClass('op', '•'), 
+                        new eng.TermClass('term', m[2])
+                    ); 
+                }
+
+                eng.incrementMove(); 
+                eng.commitState(); 
+                eng.playTone('pop'); 
             }
         };
         
