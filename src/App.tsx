@@ -1494,8 +1494,15 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         eng.tryCombine = (targetWrapper) => {
             if (!eng.dragSrc || !eng.dragSrc.el || !targetWrapper) return;
             let list = eng.dragSrc.list;
+            
+            // 🚀 FIX: อ่านค่าตำแหน่งให้แม่นยำทะลุทะลวง ไม่ว่าจะปล่อยใส่การ์ดตัวเลขตรงๆ หรือกล่องคอนเทนเนอร์
             let targetIdx = parseInt(targetWrapper.dataset.idx);
             if (isNaN(targetIdx)) targetIdx = parseInt(targetWrapper.dataset.childIdx);
+            if (isNaN(targetIdx)) {
+                let parentWrapper = targetWrapper.closest('.term-container');
+                if (parentWrapper) targetIdx = parseInt(parentWrapper.dataset.idx);
+            }
+            
             if (isNaN(targetIdx) || targetIdx === eng.dragSrc.idx) return;
 
             let srcTerm = eng.dragSrc.term, targetTerm = list[targetIdx];
@@ -1524,7 +1531,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     let op = list[min+1];
                     if (op.value === '+' || op.value === '-') {
                         if (eng.isBoundByMultiply(list, min) || eng.isBoundByMultiply(list, max)) { eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน"); eng.shakeElement(targetWrapper); return; }
-                        // เพิ่ม .trim() ตัดช่องว่างทิ้ง ป้องกันบั๊กการบวกตัวแปร
                         let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.trim().match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
                         let p1 = parseVar(list[min].value), p2 = parseVar(list[max].value);
                         if (p1 && p2 && p1.v === p2.v) {
@@ -1597,6 +1603,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                         let operator = list[min+1];
                         let denomCopy = (fracPart.denominator.type === 'group') ? new eng.TermClass('group', null, JSON.parse(JSON.stringify(fracPart.denominator.children))) : new eng.TermClass('term', fracPart.denominator.value);
                         
+                        // คืนค่าให้แยกกลุ่มกัน (เช่น 3x • 2) เพื่อให้เด็กได้กดรวมพจน์เอง
                         let multipliedTermGroup = [ new eng.TermClass('term', termPart.value), new eng.TermClass('op', '•'), denomCopy ];
                         let multipliedTermNode = new eng.TermClass('group', null, multipliedTermGroup);
                         
@@ -1637,7 +1644,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             }
             eng.shakeElement(targetWrapper);
         };
-
+        
         eng.splitFraction = (term, list, idx) => { let nt = []; term.children.forEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.incrementMove(); eng.commitState(); eng.playTone('pop'); };
         
         eng.splitTerm = (term, list, idx) => { 
