@@ -1481,7 +1481,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             eng.commitState();
         };
 
-        // RESTORED TRY COMBINE (Full Engine)
+// RESTORED TRY COMBINE (Full Engine)
         eng.tryCombine = (targetWrapper) => {
             if (!eng.dragSrc || !eng.dragSrc.el || !targetWrapper) return;
             let list = eng.dragSrc.list;
@@ -1492,6 +1492,13 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             let srcTerm = eng.dragSrc.term, targetTerm = list[targetIdx];
             if (!targetTerm) return;
             let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
+
+            // 🚀 NEW: เพิ่มความยืดหยุ่น ถ้าเด็กลากไปปล่อยทับเครื่องหมายคูณ (•) โดยตรง ก็ให้จับคูณกันเลย!
+            if (targetTerm.type === 'op' && targetTerm.value === '•') {
+                if (max - min === 1) {
+                    eng.combineSplitTerm(targetTerm, list, targetIdx); return;
+                }
+            }
 
             // 1. Term + Term (Addition, Subtraction, Multiplication with variable parsing)
             if (srcTerm.type === 'term' && targetTerm.type === 'term') {
@@ -1612,6 +1619,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             }
         };
         
+        // 🚀 NEW: อัปเกรดระบบรวมร่าง ให้คูณตัวแปรได้แม่นยำขึ้น
         eng.combineSplitTerm = (term, list, idx) => { 
             if(idx > 0 && idx < list.length - 1) { 
                 let prev = list[idx-1], next = list[idx+1];
