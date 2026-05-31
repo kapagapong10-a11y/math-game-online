@@ -1075,6 +1075,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         eng.undo = () => { if (eng.historyIndex > 0) { eng.historyIndex--; eng.localGameState = JSON.parse(JSON.stringify(eng.historyStack[eng.historyIndex])); eng.render(); eng.playTone('pop'); } };
         
         // RESTORED UNWRAP GROUPS
+        // RESTORED UNWRAP GROUPS (เพิ่มการป้องกันวงเล็บที่ติดลบ ไม่ให้คลายเองจนกว่าเด็กจะลากลบเข้าไปกระจาย)
         eng.unwrapGroups = (list) => {
             for (let i = 0; i < list.length; i++) {
                 let term = list[i];
@@ -1090,8 +1091,14 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                         let op = term.children[0], val = term.children[1];
                         if (op.value === '+') list.splice(i, 1, val); else if (op.value === '-') { list.splice(i, 1, op, val); i++; }
                     }
+                    
                     let isSafe = !isMultiplying;
-                    if (!isSafe && term.children.length === 1) isSafe = true;
+                    // 🚀 NEW: ล็อกวงเล็บไว้ถ้าข้างหน้ามีลบ (ป้องกันสมการพังตอนรวมพจน์)
+                    if (i > 0 && list[i-1].value === '-' && term.children.length > 1) {
+                        isSafe = false; 
+                    }
+                    if (!isMultiplying && term.children.length === 1) isSafe = true;
+
                     if (isSafe) { list.splice(i, 1, ...term.children); i--; }
                 } else if (term.type === 'fraction') {
                     if (term.children) eng.unwrapGroups(term.children);
@@ -1560,7 +1567,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 }
             }
 
-            // 4. Term + Fraction (Cross Multiplication / Multiply into fraction)
+           // 4. Term + Fraction (Cross Multiplication / Multiply into fraction)
             if ((srcTerm.type === 'term' && targetTerm.type === 'fraction') || (srcTerm.type === 'fraction' && targetTerm.type === 'term')) {
                 let termPart = srcTerm.type === 'term' ? srcTerm : targetTerm;
                 let fracPart = srcTerm.type === 'fraction' ? srcTerm : targetTerm;
@@ -1577,28 +1584,61 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                         if (eng.isBoundByMultiply(list, min) || eng.isBoundByMultiply(list, max)) { eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน"); eng.shakeElement(targetWrapper); return; }
                         let operator = list[min+1];
                         let denomCopy = (fracPart.denominator.type === 'group') ? new eng.TermClass('group', null, JSON.parse(JSON.stringify(fracPart.denominator.children))) : new eng.TermClass('term', fracPart.denominator.value);
-                        let multipliedTermGroup = [ new eng.TermClass('term', termPart.value), new eng.TermClass('op', '•'), denomCopy ];
-                        let multipliedTermNode = new eng.TermClass('group', null, multipliedTermGroup);
+                        
+                        // 🚀 NEW: ถ้าเอา 3x ไขว้กับ /2 ให้มันคูณรวมเป็น 6x ทันที ไม่ต้องคาไว้
+                        let multipliedTermGroup = [];
+                        let autoMultiplied = false;
+                        if (termPart.type === 'term' && denomCopy.type === 'term') {
+                            let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
+                            let p1 = parseVar(termPart.value), p2 = parseVar(denomCopy.value);
+                            if (p1 && p2 && !(p1.v && p2.v)) {
+                                let c = p1.c * p2.c; let v = p1.v || p2.v || '';
+                                multipliedTermGroup = [new eng.TermClass('term', (c + v).toString())];
+                                autoMultiplied = true;
+                            }
+                        }
+                        if (!autoMultiplied) { multipliedTermGroup = [ new eng.TermClass('term', termPart.value), new eng.TermClass('op', '•'), denomCopy ]; }
+                        let multipliedTermNode = (multipliedTermGroup.length === 1) ? multipliedTermGroup[0] : new eng.TermClass('group', null, multipliedTermGroup);
+
+                        // 🚀 NEW: จัดการเครื่องหมายลบด้านหน้า ไม่ให้เศษส่วนติดลบมั่ว
+                        let precedingSign = '+'; let replaceIdx = min; let replaceCount = 3;
+                        if (min > 0 && list[min-1].type === 'op' && (list[min-1].value === '+' || list[min-1].value === '-')) { precedingSign = list[min-1].value; replaceIdx = min - 1; replaceCount = 4; }
+
                         let oldNumChildren = JSON.parse(JSON.stringify(fracPart.children));
                         let newNumeratorChildren = [];
 
                         if (list[min] === termPart) {
-                            newNumeratorChildren.push(multipliedTermNode);
-                            if (operator.value === '-') {
+                            if (precedingSign === '-') {
+                                if (autoMultiplied) {
+                                    let mVar = multipliedTermGroup[0].value.match(/^(-?\d*)([a-zA-Z]*)$/);
+                                    let coef = mVar[1] === '' ? 1 : (mVar[1] === '-' ? -1 : parseInt(mVar[1]));
+                                    let negatedVal = (-1 * coef) + (mVar[2] || '');
+                                    newNumeratorChildren.push(new eng.TermClass('term', negatedVal.toString()));
+                                } else {
+                                    newNumeratorChildren.push(new eng.TermClass('term', '-1'), new eng.TermClass('op', '•'), multipliedTermNode);
+                                }
+                            } else {
+                                newNumeratorChildren.push(multipliedTermNode);
+                            }
+                            newNumeratorChildren.push(new eng.TermClass('op', operator.value));
+                            newNumeratorChildren.push(new eng.TermClass('group', null, oldNumChildren));
+                        } else {
+                            if (precedingSign === '-') {
                                 let distributedNum = eng.multiplyTerms(oldNumChildren, -1);
-                                newNumeratorChildren.push(new eng.TermClass('op', '+'));
                                 newNumeratorChildren.push(new eng.TermClass('group', null, distributedNum));
                             } else {
-                                newNumeratorChildren.push(new eng.TermClass('op', '+'));
                                 newNumeratorChildren.push(new eng.TermClass('group', null, oldNumChildren));
                             }
-                        } else {
-                            newNumeratorChildren.push(new eng.TermClass('group', null, oldNumChildren));
                             newNumeratorChildren.push(new eng.TermClass('op', operator.value));
                             newNumeratorChildren.push(multipliedTermNode);
                         }
+
                         let newFraction = new eng.TermClass('fraction', null, newNumeratorChildren, JSON.parse(JSON.stringify(fracPart.denominator)));
-                        list.splice(min, 3, newFraction);
+                        let insertion = [];
+                        if (replaceIdx > 0) insertion.push(new eng.TermClass('op', '+')); 
+                        insertion.push(newFraction);
+
+                        list.splice(replaceIdx, replaceCount, ...insertion);
                         eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
                     }
                 }
