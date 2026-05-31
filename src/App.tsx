@@ -1375,15 +1375,24 @@ eng.handleFractionDivision = (targetCard) => {
                         } else {
                             let elemBelow = document.elementFromPoint(endX, endY); 
                             
-                            // 🚀 FIX: ชี้เป้าให้ทะลุทะลวงเข้าถึงตัวการ์ดบนเศษส่วน
+                            // 🚀 FIX: สแกนโซนเป้าหมายว่าอยู่เศษ(บน) หรือ ส่วน(ล่าง)
                             let numTarget = elemBelow ? elemBelow.closest('.numerator-container') : null;
                             let denTarget = elemBelow ? elemBelow.closest('.denominator-container') : null;
+                            let targetContext = numTarget ? 'numerator' : (denTarget ? 'denominator' : null);
                             
                             let isDivisionAction = false;
-                            if (role === 'denominator' || role === 'inner-term' || role === 'term') {
-                                if (numTarget || denTarget) {
-                                    let targetCard = elemBelow.closest('.term-card');
-                                    if (targetCard && targetCard !== eng.dragSrc.el.closest('.term-card')) {
+                            
+                            if (targetContext !== null) {
+                                let srcContext = eng.dragSrc.sourceContext; // โซนต้นทาง
+                                if (role === 'denominator') srcContext = 'denominator';
+                                
+                                let targetCard = elemBelow.closest('.term-card');
+                                if (targetCard && targetCard !== eng.dragSrc.el.closest('.term-card')) {
+                                    if (srcContext === targetContext) {
+                                        // 🎯 กรณีที่ 1: โซนเดียวกัน (ล่างไปล่าง หรือ บนไปบน) -> ให้รวมพจน์ (บวกลบคูณ)
+                                        isDivisionAction = false;
+                                    } else {
+                                        // 🎯 กรณีที่ 2: ข้ามโซน (บนไปล่าง, ล่างไปบน, หรือลากจากพื้นราบมาใส่) -> ให้ตัดทอน
                                         eng.handleFractionDivision(targetCard);
                                         isDivisionAction = true;
                                     }
@@ -1405,7 +1414,6 @@ eng.handleFractionDivision = (targetCard) => {
                     }
                     setTimeout(() => { if (eng.dragSrc && eng.dragSrc.ghost) eng.dragSrc.ghost.remove(); eng.dragSrc = null; }, 0);
                 };
-
                 document.addEventListener('mousemove', onMove, {passive: false}); document.addEventListener('touchmove', onMove, {passive: false});
                 document.addEventListener('mouseup', onEnd); document.addEventListener('touchend', onEnd);
                 document.addEventListener('touchcancel', onEnd);
