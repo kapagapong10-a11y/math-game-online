@@ -29,12 +29,7 @@ const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-// ==========================================
-// 2. MAIN APP COMPONENT (เพิ่มระบบเสียง)
-// ==========================================
-// ==========================================
-// 2. MAIN APP COMPONENT
-// ==========================================
+
 // ==========================================
 // 2. MAIN APP COMPONENT
 // ==========================================
@@ -1581,6 +1576,7 @@ eng.handleFractionDivision = (targetCard) => {
                 }
             }
 
+// 4. Term + Fraction (Cross Multiplication / Multiply into fraction)
             if ((srcTerm.type === 'term' && targetTerm.type === 'fraction') || (srcTerm.type === 'fraction' && targetTerm.type === 'term')) {
                 let termPart = srcTerm.type === 'term' ? srcTerm : targetTerm;
                 let fracPart = srcTerm.type === 'fraction' ? srcTerm : targetTerm;
@@ -1598,9 +1594,6 @@ eng.handleFractionDivision = (targetCard) => {
                         let operator = list[min+1];
                         let denomCopy = (fracPart.denominator.type === 'group') ? new eng.TermClass('group', null, JSON.parse(JSON.stringify(fracPart.denominator.children))) : new eng.TermClass('term', fracPart.denominator.value);
                         
-                        let multipliedTermGroup = [ new eng.TermClass('term', termPart.value), new eng.TermClass('op', '•'), denomCopy ];
-                        let multipliedTermNode = new eng.TermClass('group', null, multipliedTermGroup);
-                        
                         let precedingSign = '+'; let replaceIdx = min; let replaceCount = 3;
                         if (min > 0 && list[min-1].type === 'op' && (list[min-1].value === '+' || list[min-1].value === '-')) { precedingSign = list[min-1].value; replaceIdx = min - 1; replaceCount = 4; }
 
@@ -1608,14 +1601,21 @@ eng.handleFractionDivision = (targetCard) => {
                         let newNumeratorChildren = [];
 
                         if (list[min] === termPart) {
-                            if (precedingSign === '-') {
-                                newNumeratorChildren.push(new eng.TermClass('term', '-1'), new eng.TermClass('op', '•'), multipliedTermNode);
-                            } else {
-                                newNumeratorChildren.push(multipliedTermNode);
-                            }
+                            // 🚀 FIX: กรณี Term อยู่ข้างหน้า (เช่น - 7 + 1/2) เอาเครื่องหมายลบไปติดกับตัวเลขเลย
+                            let valToMultiply = termPart.value;
+                            if (precedingSign === '-') { valToMultiply = '-' + valToMultiply; }
+                            
+                            let multipliedTermGroup = [ new eng.TermClass('term', valToMultiply), new eng.TermClass('op', '•'), denomCopy ];
+                            let multipliedTermNode = new eng.TermClass('group', null, multipliedTermGroup);
+
+                            newNumeratorChildren.push(multipliedTermNode);
                             newNumeratorChildren.push(new eng.TermClass('op', operator.value));
                             newNumeratorChildren.push(new eng.TermClass('group', null, oldNumChildren));
                         } else {
+                            // กรณี Fraction อยู่หน้า (เช่น 1/2 - 7)
+                            let multipliedTermGroup = [ new eng.TermClass('term', termPart.value), new eng.TermClass('op', '•'), denomCopy ];
+                            let multipliedTermNode = new eng.TermClass('group', null, multipliedTermGroup);
+
                             if (precedingSign === '-') {
                                 let distributedNum = eng.multiplyTerms(oldNumChildren, -1);
                                 newNumeratorChildren.push(new eng.TermClass('group', null, distributedNum));
@@ -1726,45 +1726,54 @@ eng.handleFractionDivision = (targetCard) => {
         };
 
         eng.checkWinCondition = () => {
-            // 🚀 FIX: ใช้ Regex ตรวจจับตัวแปร ครอบคลุมทั้ง x, +x, 1x, +1x (และตัดช่องว่างทิ้ง)
+            // 🚀 FIX: ตรวจจับสมการที่มีเครื่องหมายนำหน้า (เช่น - [13/2] หรือ + x) ให้ถูกต้อง 100%
             const isSolved = (list) => {
-                if (list.length !== 1 || list[0].type !== 'term') return false;
-                let val = list[0].value.replace(/\s+/g, ''); // ตัดช่องว่างที่อาจมองไม่เห็นทิ้ง
-                return /^(?:\+?1?)?[a-zA-Z]$/.test(val); // ตรวจสอบว่าเป็นตัวแปรเดี่ยวๆ (สัมประสิทธิ์เป็น 1 หรือ +1) หรือไม่
+                let checkList = list;
+                if (list.length === 2 && list[0].type === 'op' && list[0].value === '+') checkList = [list[1]];
+                if (checkList.length !== 1 || checkList[0].type !== 'term') return false;
+                let val = checkList[0].value.replace(/\s+/g, '');
+                return /^(?:\+?1?)?[a-zA-Z]$/.test(val);
             };
 
-            const extractNum = (node) => {
-                if (node.type === 'term' && !isNaN(parseFloat(node.value))) return parseInt(node.value);
-                if (node.type === 'group') {
-                    if (node.children.length === 1 && node.children[0].type === 'term') return parseInt(node.children[0].value);
-                    if (node.children.length === 2 && node.children[0].value === '-' && node.children[1].type === 'term') return -parseInt(node.children[1].value);
-                }
+            const extractNumFromList = (list) => {
+                if (list.length === 1 && list[0].type === 'term') return parseFloat(list[0].value);
+                if (list.length === 2 && list[0].type === 'op' && list[0].value === '-' && list[1].type === 'term') return -parseFloat(list[1].value);
+                if (list.length === 1 && list[0].type === 'group') return extractNumFromList(list[0].children);
                 return null;
             };
 
             const isNumericValue = (list) => {
-                if (list.length !== 1) return false;
-                let t = list[0];
+                let checkList = list;
+                // ถ้ามีลบหรือบวกอยู่หน้าสุด ให้มองข้ามไปก่อนเพื่อเช็คตัวเลขข้างใน
+                if (list.length === 2 && list[0].type === 'op' && (list[0].value === '+' || list[0].value === '-')) {
+                    checkList = [list[1]];
+                }
+                if (checkList.length !== 1) return false;
+                
+                let t = checkList[0];
                 if (t.type === 'term') return !isNaN(parseFloat(t.value)) && !t.value.match(/[a-zA-Z]/);
+                
                 if (t.type === 'fraction') {
                     if (!t.denominator) return false;
-                    let denVal = extractNum(t.denominator);
-                    if (denVal === null || denVal === 0) return false;
+                    
+                    let denList = t.denominator.type === 'group' ? t.denominator.children : [t.denominator];
+                    let denVal = extractNumFromList(denList);
+                    if (denVal === null || denVal === 0 || isNaN(denVal)) return false;
 
-                    let numVal = null;
-                    if (t.children.length === 1) numVal = extractNum(t.children[0]);
-                    if (numVal === null) return false;
+                    let numVal = extractNumFromList(t.children);
+                    if (numVal === null || isNaN(numVal)) return false;
+                    
                     if (numVal % denVal === 0) return false;
                     if (denVal < 0) return false;
                     
                     let common = eng.gcd(Math.abs(numVal), Math.abs(denVal));
                     if (common > 1) return false;
+                    
                     return true;
                 }
                 return false;
             };
 
-            // ถ้าย้ายจนฝั่งนึงเป็น x เดี่ยวๆ และอีกฝั่งเป็นตัวเลขล้วน -> ชนะทันที!
             if ((isSolved(eng.localGameState.lhs) && isNumericValue(eng.localGameState.rhs)) || 
                 (isSolved(eng.localGameState.rhs) && isNumericValue(eng.localGameState.lhs))) {
                 
