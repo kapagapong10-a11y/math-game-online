@@ -873,6 +873,9 @@ function Leaderboard({ setView, leaderboard }) {
 // ==========================================
 // THE CORE GAME ENGINE WRAPPER (Perfected & Restored Division)
 // ==========================================
+// ==========================================
+// THE CORE GAME ENGINE WRAPPER (Full Algebra Restored)
+// ==========================================
 function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel, setLevelData, allLevels, saveProgress }) {
     const gameContainerRef = useRef(null);
     const [moves, setMoves] = useState(0);
@@ -880,7 +883,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
     const [starsEarned, setStarsEarned] = useState(0);
     const [showTutorial, setShowTutorial] = useState(false);
     
-    // Popup & Final Answer State
     const [popupMessage, setPopupMessage] = useState(null);
     const [finalAnswer, setFinalAnswer] = useState({ lhs: "", rhs: "" });
     
@@ -926,15 +928,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             .fraction-line { height: 3px; }
             .numerator-container, .denominator-container { min-height: 45px; min-width: 60px; }
         }
-        
-        @keyframes slideUpFade {
-            0% { transform: translateY(20px); opacity: 0; }
-            100% { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes zoomInCenter {
-            0% { transform: scale(0.8); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
     `;
 
     const initEngine = (lhsHtmlSource, rhsHtmlSource) => {
@@ -969,16 +962,8 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             }
         };
 
-        eng.showPopup = (msg) => {
-            eng.playTone('error');
-            setPopupMessage(msg);
-        };
-
-        // ฟังก์ชันบวกคะแนน (นับตามการกระทำจริง)
-        eng.incrementMove = () => {
-            eng.internalMoveCount++;
-            setMoves(eng.internalMoveCount);
-        };
+        eng.showPopup = (msg) => { eng.playTone('error'); setPopupMessage(msg); };
+        eng.incrementMove = () => { eng.internalMoveCount++; setMoves(eng.internalMoveCount); };
 
         const parseHTMLtoMath = (htmlString) => {
             if (!htmlString) return { terms: [], TermObj: null };
@@ -1030,9 +1015,57 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         const { terms: parsedRhs } = parseHTMLtoMath(rhsHtmlSource);
         eng.localGameState.lhs = parsedLhs; eng.localGameState.rhs = parsedRhs; eng.TermClass = TermObj;
 
+        // MATH HELPERS
         eng.gcd = (a, b) => b === 0 ? a : eng.gcd(b, a % b);
-        eng.lcm = (a, b) => { if (a === 0 || b === 0) return 0; return Math.abs((a * b) / eng.gcd(a, b)); }
-        eng.shakeElement = (el) => { el.style.transform = 'translateX(5px)'; setTimeout(()=>el.style.transform='none', 200); }
+        eng.lcm = (a, b) => { if (a === 0 || b === 0) return 0; return Math.abs((a * b) / eng.gcd(a, b)); };
+        eng.shakeElement = (el) => { el.style.transform = 'translateX(5px)'; setTimeout(()=>el.style.transform='none', 200); };
+        eng.isBoundByMultiply = (list, idx) => {
+            let leftBound = (idx > 0 && list[idx-1].type === 'op' && list[idx-1].value === '•');
+            let rightBound = (idx < list.length - 1 && list[idx+1].type === 'op' && list[idx+1].value === '•');
+            return leftBound || rightBound;
+        };
+
+        // MULTIPLY TERMS (Restored from Vanilla)
+        eng.multiplyTerms = (terms, factor) => {
+            return terms.map(t => {
+                let copy = new eng.TermClass(t.type, t.value, null, null);
+                if (t.children) copy.children = JSON.parse(JSON.stringify(t.children));
+                if (t.denominator) copy.denominator = JSON.parse(JSON.stringify(t.denominator));
+
+                if (t.type === 'term') {
+                    if (t.value.match(/[a-zA-Z]/)) {
+                        let match = t.value.match(/^(-?\d*)([a-zA-Z]+)$/);
+                        if (match) {
+                            let cStr = match[1];
+                            let c = (cStr === '' || cStr === '+') ? 1 : (cStr === '-' ? -1 : parseInt(cStr));
+                            let variable = match[2];
+                            copy.value = (c * factor) + variable;
+                        } else copy.value = t.value;
+                    } else if (!isNaN(t.value) && t.value !== '') {
+                        copy.value = (parseInt(t.value) * factor).toString();
+                    }
+                } else if (t.type === 'group' || t.type === 'fraction') {
+                    copy.children = eng.multiplyTerms(copy.children, factor);
+                } else if (t.type === 'fraction') {
+                    let oldNumChildren = JSON.parse(JSON.stringify(t.children));
+                    if (oldNumChildren.length === 1 && oldNumChildren[0].type === 'term') {
+                        let innerTerm = oldNumChildren[0];
+                        let val = parseInt(innerTerm.value);
+                        if (!isNaN(val)) {
+                            innerTerm.value = (val * factor).toString();
+                            copy.children = [innerTerm];
+                        } else {
+                            let newNumContent = new eng.TermClass('group', null, oldNumChildren);
+                            copy.children = [new eng.TermClass('term', factor.toString()), new eng.TermClass('op', '•'), newNumContent];
+                        }
+                    } else {
+                        let newNumContent = (oldNumChildren.length === 1 && oldNumChildren[0].type === 'group') ? oldNumChildren[0] : new eng.TermClass('group', null, oldNumChildren);
+                        copy.children = [new eng.TermClass('term', factor.toString()), new eng.TermClass('op', '•'), newNumContent];
+                    }
+                }
+                return copy;
+            });
+        };
 
         eng.commitState = () => {
             for(let k=0; k<2; k++) { eng.simplifyList(eng.localGameState.lhs); eng.simplifyList(eng.localGameState.rhs); eng.unwrapGroups(eng.localGameState.lhs); eng.unwrapGroups(eng.localGameState.rhs); }
@@ -1041,11 +1074,15 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         };
         eng.undo = () => { if (eng.historyIndex > 0) { eng.historyIndex--; eng.localGameState = JSON.parse(JSON.stringify(eng.historyStack[eng.historyIndex])); eng.render(); eng.playTone('pop'); } };
         
+        // RESTORED UNWRAP GROUPS
         eng.unwrapGroups = (list) => {
             for (let i = 0; i < list.length; i++) {
                 let term = list[i];
                 if (term.type === 'group') {
-                    let isMultiplying = (i > 0 && list[i-1].value === '•') || (i < list.length - 1 && list[i+1].value === '•');
+                    let isMultiplying = false;
+                    if (i > 0 && list[i-1].value === '•') isMultiplying = true;
+                    if (i < list.length - 1 && list[i+1].value === '•') isMultiplying = true;
+                    
                     eng.unwrapGroups(term.children);
                     if (term.children.length === 1 && term.children[0].type === 'group') { term.children = term.children[0].children; i--; continue; }
                     if (term.children.length === 1 && term.children[0].type === 'term') { list.splice(i, 1, term.children[0]); i--; continue; }
@@ -1053,7 +1090,9 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                         let op = term.children[0], val = term.children[1];
                         if (op.value === '+') list.splice(i, 1, val); else if (op.value === '-') { list.splice(i, 1, op, val); i++; }
                     }
-                    if (!isMultiplying || (!isMultiplying && term.children.length === 1)) { list.splice(i, 1, ...term.children); i--; }
+                    let isSafe = !isMultiplying;
+                    if (!isSafe && term.children.length === 1) isSafe = true;
+                    if (isSafe) { list.splice(i, 1, ...term.children); i--; }
                 } else if (term.type === 'fraction') {
                     if (term.children) eng.unwrapGroups(term.children);
                     if (term.denominator && term.denominator.type === 'group') { eng.unwrapGroups(term.denominator.children); if (term.denominator.children.length === 1 && term.denominator.children[0].type === 'term') term.denominator = term.denominator.children[0]; }
@@ -1061,30 +1100,39 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             }
         };
 
+        // RESTORED SIMPLIFY LIST
         eng.simplifyList = (list) => {
             while (list.length > 0 && list[0].type === 'op' && list[0].value === '+') list.shift();
-
-            // จัดการ 14 = -x 
-            if (list.length >= 2 && list[0].type === 'op' && list[0].value === '-' && list[1].type === 'term') {
-                if (!list[1].value.startsWith('-')) list[1].value = '-' + list[1].value;
-                else list[1].value = list[1].value.substring(1);
-                list.shift(); 
-            }
-
             for (let i = 0; i < list.length; i++) {
                 let term = list[i];
                 if (term.type === 'group') eng.simplifyList(term.children);
                 if (term.type === 'fraction') { if (term.children) eng.simplifyList(term.children); if (term.denominator && term.denominator.type === 'group') eng.simplifyList(term.denominator.children); }
                 if (i === 0 && term.type === 'op' && term.value === '+') { list.splice(i, 1); i--; continue; }
-                if (term.type === 'op' && term.value === '-' && i < list.length - 1 && list[i+1].type === 'term' && list[i+1].value.startsWith('-')) { term.value = '+'; list[i+1].value = list[i+1].value.substring(1); }
-                if (term.type === 'op' && i < list.length - 1 && list[i+1].type === 'op') { let n = list[i+1]; if (term.value === '-' && n.value === '-') { term.value = '+'; list.splice(i+1, 1); i--; } else if (term.value === '+' && n.value === '-') { term.value = '-'; list.splice(i+1, 1); i--; } else if (term.value === '-' && n.value === '+') { term.value = '-'; list.splice(i+1, 1); i--; } else if (term.value === '+' && n.value === '+') { term.value = '+'; list.splice(i+1, 1); i--; } }
+                
+                if (term.type === 'op' && term.value === '-' && i < list.length - 1) {
+                    let nextTerm = list[i+1];
+                    if (nextTerm.type === 'term' && nextTerm.value.startsWith('-')) { term.value = '+'; nextTerm.value = nextTerm.value.substring(1); }
+                }
+                if (term.type === 'op' && i < list.length - 1 && list[i+1].type === 'op') { 
+                    let n = list[i+1]; 
+                    if (term.value === '-' && n.value === '-') { term.value = '+'; list.splice(i+1, 1); i--; } 
+                    else if (term.value === '+' && n.value === '-') { term.value = '-'; list.splice(i+1, 1); i--; } 
+                    else if (term.value === '-' && n.value === '+') { term.value = '-'; list.splice(i+1, 1); i--; } 
+                    else if (term.value === '+' && n.value === '+') { term.value = '+'; list.splice(i+1, 1); i--; } 
+                }
                 if (term.type === 'term') {
                     if (term.value && term.value.startsWith('+') && term.value.length > 1) term.value = term.value.substring(1);
-                    if (term.value && term.value.startsWith('-') && term.value.length > 1) { if (i > 0 && list[i-1].type === 'op') { let op = list[i-1]; if (op.value === '+') { op.value = '-'; term.value = term.value.substring(1); } else if (op.value === '-') { op.value = '+'; term.value = term.value.substring(1); } } else if (i === 1 && list[0].type === 'op' && list[0].value === '-') { list.shift(); term.value = term.value.substring(1); i--; } }
+                    if (term.value && term.value.startsWith('-') && term.value.length > 1) { 
+                        if (i > 0 && list[i-1].type === 'op') { let op = list[i-1]; if (op.value === '+') { op.value = '-'; term.value = term.value.substring(1); } else if (op.value === '-') { op.value = '+'; term.value = term.value.substring(1); } } 
+                        else if (i === 1 && list[0].type === 'op' && list[0].value === '-') { list.shift(); term.value = term.value.substring(1); i--; } 
+                    }
                     if (term.value) { let m = term.value.match(/^(-?)1([a-zA-Z]+)$/); if (m) term.value = m[1] + m[2]; }
                 }
                 if (term.type === 'term' && term.value === '1') { if (i+1 < list.length && list[i+1].value === '•') { list.splice(i, 2); i--; continue; } if (i > 0 && list[i-1].value === '•') { list.splice(i-1, 2); i-=2; continue; } }
-                if (term.type === 'fraction') { let denVal = term.denominator.type === 'term' ? term.denominator.value : (term.denominator.type === 'group' && term.denominator.children.length === 1 && term.denominator.children[0].type === 'term' ? term.denominator.children[0].value : null); if (denVal === '1') { let content = term.children; let newTerm = (content.length === 1 && content[0].type !== 'op') ? content[0] : new eng.TermClass('group', null, content); list.splice(i, 1, newTerm); i--; continue; } }
+                if (term.type === 'fraction') { 
+                    let denVal = term.denominator.type === 'term' ? term.denominator.value : (term.denominator.type === 'group' && term.denominator.children.length === 1 && term.denominator.children[0].type === 'term' ? term.denominator.children[0].value : null); 
+                    if (denVal === '1') { let content = term.children; let newTerm = (content.length === 1 && content[0].type !== 'op') ? content[0] : new eng.TermClass('group', null, content); list.splice(i, 1, newTerm); i--; continue; } 
+                }
             }
         };
 
@@ -1101,11 +1149,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 if (eng.dragSrc && eng.dragSrc.hasMoved) { tapCount = 0; return; }
                 tapCount++;
                 if (tapCount === 1) { tapTimer = setTimeout(() => { tapCount = 0; }, 300); } 
-                else if (tapCount === 2) { 
-                    clearTimeout(tapTimer); tapCount = 0; 
-                    if(e.cancelable) e.preventDefault(); 
-                    action(); 
-                }
+                else if (tapCount === 2) { clearTimeout(tapTimer); tapCount = 0; if(e.cancelable) e.preventDefault(); action(); }
             };
         };
 
@@ -1174,6 +1218,25 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             return null;
         };
 
+        // RESTORED FRACTION MULTIPLY
+        eng.performFractionMultiply = (list, min, max) => {
+            let f1 = list[min], f2 = list[max];
+            let n1 = (f1.children.length === 1 && f1.children[0].type === 'group') ? f1.children[0] : new eng.TermClass('group', null, JSON.parse(JSON.stringify(f1.children)));
+            let n2 = (f2.children.length === 1 && f2.children[0].type === 'group') ? f2.children[0] : new eng.TermClass('group', null, JSON.parse(JSON.stringify(f2.children)));
+            let isSimple = (g) => g.children && g.children.length === 1 && g.children[0].type === 'term' && !isNaN(g.children[0].value);
+            let first = n1, second = n2;
+            if (isSimple(n2) && !isSimple(n1)) { first = n2; second = n1; }
+            let newNumChildren = [first, new eng.TermClass('op', '•'), second];
+            
+            let d1Children = (f1.denominator.type === 'group') ? f1.denominator.children : [f1.denominator];
+            let d2Children = (f2.denominator.type === 'group') ? f2.denominator.children : [f2.denominator];
+            let newDenChildren = [...JSON.parse(JSON.stringify(d1Children)), new eng.TermClass('op', '•'), ...JSON.parse(JSON.stringify(d2Children))];
+            let newDenominator = new eng.TermClass('group', null, newDenChildren);
+
+            list.splice(min, 3, new eng.TermClass('fraction', null, newNumChildren, newDenominator));
+            eng.incrementMove(); eng.commitState(); eng.playTone('success');
+        };
+
         eng.handleFractionDivision = (targetElement) => {
             let targetCard = targetElement.closest('.term-card'); if (!targetCard) return;
             let parentFracId = targetCard.dataset.parentFracId;
@@ -1182,9 +1245,8 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             let numValStr = targetCard.innerText;
             let denValStr;
             if (eng.dragSrc.role === 'denominator') {
-                if (srcTerm.denominator.type === 'term') {
-                    denValStr = srcTerm.denominator.value;
-                } else if (srcTerm.denominator.type === 'group') {
+                if (srcTerm.denominator.type === 'term') { denValStr = srcTerm.denominator.value; } 
+                else if (srcTerm.denominator.type === 'group') {
                     let gc = srcTerm.denominator.children;
                     if (gc.length === 1 && gc[0].type === 'term') denValStr = gc[0].value;
                     else if (gc.length === 2 && gc[0].value === '-' && gc[1].type === 'term') denValStr = "-" + gc[1].value;
@@ -1272,7 +1334,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             const handleStart = (clientX, clientY, eOriginal) => {
                 eOriginal.stopPropagation(); 
                 if (eOriginal.type !== 'touchstart' && eOriginal.cancelable) eOriginal.preventDefault();
-
                 if (eng.dragSrc && eng.dragSrc.ghost) eng.dragSrc.ghost.remove();
 
                 eng.dragSrc = { el, term, side, list, idx, role, parentFracTerm, mainList, mainIdx, sourceContext, hasMoved: false };
@@ -1312,7 +1373,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                             eng.dragSrc.side = currentSide; eng.executeMoveSide();
                         } else {
                             let elemBelow = document.elementFromPoint(endX, endY); 
-                            
                             let numTarget = elemBelow ? elemBelow.closest('.numerator-container, .numerator-term') : null;
                             if (numTarget && (role === 'denominator' || (role === 'inner-term' && sourceContext === 'numerator'))) {
                                 if (role === 'inner-term') { 
@@ -1366,9 +1426,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     else if (gc.length === 2 && gc[0].value === '-' && gc[1].type === 'term') val = "-" + gc[1].value;
                 }
                 
-                if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') {
-                    targetList.length = 0;
-                }
+                if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
 
                 if(term.denominator.type === 'group' && term.denominator.children.length === 1) targetList.push(new eng.TermClass('op', '•'), term.denominator.children[0]);
                 else if (term.denominator.type === 'group') targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('group', null, term.denominator.children));
@@ -1385,15 +1443,23 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     list.splice(removeIdx, removeCount);
                     if (list.length === 0) list.push(new eng.TermClass('term', '1'));
                     
-                    if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') {
-                        targetList.length = 0;
-                    }
+                    if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
 
                     if (sourceContext === 'denominator') {
                         if (targetList.length > 1) { let inner = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('group', null, inner)); }
                         targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', moveValue));
                     } else {
-                        let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue)));
+                        if (targetList.length === 1 && targetList[0].type === 'fraction') {
+                            let targetFrac = targetList[0];
+                            if (!targetFrac.denominator) { let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue))); }
+                            else {
+                                let newFactor = new eng.TermClass('term', moveValue);
+                                if (targetFrac.denominator.type !== 'group') targetFrac.denominator = new eng.TermClass('group', null, [targetFrac.denominator]);
+                                targetFrac.denominator.children.push(new eng.TermClass('op', '•')); targetFrac.denominator.children.push(newFactor);
+                            }
+                        } else {
+                            let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue)));
+                        }
                     }
                     eng.incrementMove();
                     eng.playTone('success');
@@ -1404,9 +1470,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     if (list.length === 0) list.push(new eng.TermClass('term', '0'));
                     let newSign = movingSign === '+' ? '-' : '+';
                     
-                    if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') {
-                        targetList.length = 0;
-                    }
+                    if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
 
                     if (targetList.length > 0) targetList.push(new eng.TermClass('op', newSign)); else if (newSign === '-') targetList.push(new eng.TermClass('op', '-'));
                     targetList.push(term);
@@ -1417,29 +1481,122 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             eng.commitState();
         };
 
-eng.tryCombine = (targetWrapper) => {
-            let list = eng.dragSrc.list, targetIdx = parseInt(targetWrapper.dataset.idx);
+        // RESTORED TRY COMBINE (Full Engine)
+        eng.tryCombine = (targetWrapper) => {
+            if (!eng.dragSrc || !eng.dragSrc.el || !targetWrapper) return;
+            let list = eng.dragSrc.list;
+            let targetIdx = parseInt(targetWrapper.dataset.idx);
+            if (isNaN(targetIdx)) targetIdx = parseInt(targetWrapper.dataset.childIdx);
             if (isNaN(targetIdx) || targetIdx === eng.dragSrc.idx) return;
+
+            let srcTerm = eng.dragSrc.term, targetTerm = list[targetIdx];
+            if (!targetTerm) return;
             let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
-            
-            if (max - min === 2) {
-                let op = list[min+1];
-                if (op && (op.value === '+' || op.value === '-')) {
-                    if ((min > 0 && list[min-1].value === '•') || (max < list.length-1 && list[max+1].value === '•')) return eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน");
-                    let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
-                    let p1 = parseVar(list[min].value), p2 = parseVar(list[max].value);
-                    if (p1 && p2 && p1.v === p2.v) {
-                        let s1 = (min > 0 && list[min-1].value === '-') ? -1 : 1, s2 = op.value === '-' ? -1 : 1;
-                        let res = (p1.c * s1) + (p2.c * s2);
-                        list.splice(min, 3, new eng.TermClass('term', res + (p1.v || '')));
-                        eng.incrementMove();
-                        eng.commitState(); eng.playTone('success'); return;
-                    } else { eng.shakeElement(targetWrapper); }
-                } else if (op && op.value === '•') {
-                     // โยนงานให้ฟังก์ชัน combineSplitTerm ทำแทน เพื่อให้รองรับทั้งตัวแปรและวงเล็บ
-                     eng.combineSplitTerm(op, list, min + 1);
+
+            // 1. Term + Term (Addition, Subtraction, Multiplication with variable parsing)
+            if (srcTerm.type === 'term' && targetTerm.type === 'term') {
+                if (max - min === 2) {
+                    let op = list[min+1];
+                    if (op.value === '+' || op.value === '-') {
+                        if (eng.isBoundByMultiply(list, min) || eng.isBoundByMultiply(list, max)) { eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน"); eng.shakeElement(targetWrapper); return; }
+                        let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
+                        let p1 = parseVar(list[min].value), p2 = parseVar(list[max].value);
+                        if (p1 && p2 && p1.v === p2.v) {
+                            let sign1 = (min > 0 && list[min-1].type === 'op' && list[min-1].value === '-') ? -1 : 1;
+                            let sign2 = (op.value === '-') ? -1 : 1;
+                            let resCoef = (p1.c * sign1) + (p2.c * sign2);
+                            let finalVar = p1.v || '';
+                            let finalTermVal = Math.abs(resCoef) + finalVar;
+                            
+                            if (min > 0) { list[min-1].value = resCoef < 0 ? '-' : '+'; list.splice(min, 3, new eng.TermClass('term', finalTermVal)); }
+                            else { if (resCoef < 0) list.splice(min, 3, new eng.TermClass('op', '-'), new eng.TermClass('term', finalTermVal)); else list.splice(min, 3, new eng.TermClass('term', finalTermVal)); }
+                            eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
+                        } else { eng.shakeElement(targetWrapper); return; }
+                    } else if (op.value === '•') {
+                        eng.combineSplitTerm(op, list, min + 1); return;
+                    }
                 }
-            } else { eng.shakeElement(targetWrapper); }
+            }
+
+            // 2. Term + Group OR Group + Term (Distribution)
+            if ((srcTerm.type === 'term' && targetTerm.type === 'group') || (srcTerm.type === 'group' && targetTerm.type === 'term')) {
+                let numberTerm = srcTerm.type === 'term' ? srcTerm : targetTerm;
+                let groupTerm = srcTerm.type === 'group' ? srcTerm : targetTerm;
+                if (max - min === 2 && list[min+1].value === '•' && !isNaN(numberTerm.value)) {
+                    let factor = parseInt(numberTerm.value);
+                    let newTerms = eng.multiplyTerms(groupTerm.children, factor);
+                    list.splice(min, 3, ...newTerms);
+                    eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
+                }
+            }
+
+            // 3. Fraction + Fraction (Find LCM & Add)
+            if (srcTerm.type === 'fraction' && targetTerm.type === 'fraction') {
+                if (max - min === 2) {
+                    let op = list[min+1];
+                    if (op.type === 'op' && (op.value === '+' || op.value === '-')) {
+                        if (eng.isBoundByMultiply(list, min) || eng.isBoundByMultiply(list, max)) { eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน"); eng.shakeElement(targetWrapper); return; }
+                        let den1 = 1, den2 = 1, valid = true;
+                        if (list[min].denominator.type === 'term' && !isNaN(list[min].denominator.value)) den1 = parseInt(list[min].denominator.value); else valid = false;
+                        if (list[max].denominator.type === 'term' && !isNaN(list[max].denominator.value)) den2 = parseInt(list[max].denominator.value); else valid = false;
+                        if (valid) {
+                            let commonDen = eng.lcm(den1, den2), mult1 = commonDen / den1, mult2 = commonDen / den2;
+                            let group1 = (mult1 === 1) ? ((list[min].children.length === 1 && list[min].children[0].type === 'group') ? list[min].children[0] : new eng.TermClass('group', null, JSON.parse(JSON.stringify(list[min].children)))) : new eng.TermClass('group', null, [new eng.TermClass('term', mult1.toString()), new eng.TermClass('op', '•'), (list[min].children.length === 1 && list[min].children[0].type === 'group') ? list[min].children[0] : new eng.TermClass('group', null, JSON.parse(JSON.stringify(list[min].children)))]);
+                            let group2 = (mult2 === 1) ? ((list[max].children.length === 1 && list[max].children[0].type === 'group') ? list[max].children[0] : new eng.TermClass('group', null, JSON.parse(JSON.stringify(list[max].children)))) : new eng.TermClass('group', null, [new eng.TermClass('term', mult2.toString()), new eng.TermClass('op', '•'), (list[max].children.length === 1 && list[max].children[0].type === 'group') ? list[max].children[0] : new eng.TermClass('group', null, JSON.parse(JSON.stringify(list[max].children)))]);
+                            let combinedNumerator = [group1, op, group2];
+                            list.splice(min, 3, new eng.TermClass('fraction', null, combinedNumerator, new eng.TermClass('term', commonDen.toString())));
+                            eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
+                        }
+                    } else if (op.type === 'op' && op.value === '•') {
+                        eng.performFractionMultiply(list, min, max); return;
+                    }
+                }
+            }
+
+            // 4. Term + Fraction (Cross Multiplication / Multiply into fraction)
+            if ((srcTerm.type === 'term' && targetTerm.type === 'fraction') || (srcTerm.type === 'fraction' && targetTerm.type === 'term')) {
+                let termPart = srcTerm.type === 'term' ? srcTerm : targetTerm;
+                let fracPart = srcTerm.type === 'fraction' ? srcTerm : targetTerm;
+                if (max - min === 2) {
+                    if (list[min+1].value === '•') {
+                        let multiplier = new eng.TermClass('term', termPart.value);
+                        let oldNumChildren = JSON.parse(JSON.stringify(fracPart.children));
+                        let oldNumNode = (oldNumChildren.length === 1 && oldNumChildren[0].type === 'group') ? oldNumChildren[0] : new eng.TermClass('group', null, oldNumChildren);
+                        let newNumeratorChildren = [ multiplier, new eng.TermClass('op', '•'), oldNumNode ];
+                        let newFraction = new eng.TermClass('fraction', null, newNumeratorChildren, JSON.parse(JSON.stringify(fracPart.denominator)));
+                        list.splice(min, 3, newFraction);
+                        eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
+                    } else if (list[min+1].value === '+' || list[min+1].value === '-') {
+                        if (eng.isBoundByMultiply(list, min) || eng.isBoundByMultiply(list, max)) { eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน"); eng.shakeElement(targetWrapper); return; }
+                        let operator = list[min+1];
+                        let denomCopy = (fracPart.denominator.type === 'group') ? new eng.TermClass('group', null, JSON.parse(JSON.stringify(fracPart.denominator.children))) : new eng.TermClass('term', fracPart.denominator.value);
+                        let multipliedTermGroup = [ new eng.TermClass('term', termPart.value), new eng.TermClass('op', '•'), denomCopy ];
+                        let multipliedTermNode = new eng.TermClass('group', null, multipliedTermGroup);
+                        let oldNumChildren = JSON.parse(JSON.stringify(fracPart.children));
+                        let newNumeratorChildren = [];
+
+                        if (list[min] === termPart) {
+                            newNumeratorChildren.push(multipliedTermNode);
+                            if (operator.value === '-') {
+                                let distributedNum = eng.multiplyTerms(oldNumChildren, -1);
+                                newNumeratorChildren.push(new eng.TermClass('op', '+'));
+                                newNumeratorChildren.push(new eng.TermClass('group', null, distributedNum));
+                            } else {
+                                newNumeratorChildren.push(new eng.TermClass('op', '+'));
+                                newNumeratorChildren.push(new eng.TermClass('group', null, oldNumChildren));
+                            }
+                        } else {
+                            newNumeratorChildren.push(new eng.TermClass('group', null, oldNumChildren));
+                            newNumeratorChildren.push(new eng.TermClass('op', operator.value));
+                            newNumeratorChildren.push(multipliedTermNode);
+                        }
+                        let newFraction = new eng.TermClass('fraction', null, newNumeratorChildren, JSON.parse(JSON.stringify(fracPart.denominator)));
+                        list.splice(min, 3, newFraction);
+                        eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
+                    }
+                }
+            }
+            eng.shakeElement(targetWrapper);
         };
 
         eng.splitFraction = (term, list, idx) => { let nt = []; term.children.forEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.incrementMove(); eng.commitState(); eng.playTone('pop'); };
@@ -1451,47 +1608,15 @@ eng.tryCombine = (targetWrapper) => {
                 if (coef === '-') coef = '-1';
                 else if (coef === '' || coef === '+') coef = '1';
                 list.splice(idx, 1, new eng.TermClass('term', coef), new eng.TermClass('op', '•'), new eng.TermClass('term', m[2])); 
-                eng.incrementMove();
-                eng.commitState(); eng.playTone('pop'); 
+                eng.incrementMove(); eng.commitState(); eng.playTone('pop'); 
             }
         };
         
         eng.combineSplitTerm = (term, list, idx) => { 
             if(idx > 0 && idx < list.length - 1) { 
-                let prev = list[idx-1];
-                let next = list[idx+1];
-                
-                // ฟังก์ชันย่อยสำหรับแยกตัวเลขและตัวแปร (เช่น 3x จะแยกเป็น สัมประสิทธิ์ 3 และตัวแปร x)
+                let prev = list[idx-1], next = list[idx+1];
                 let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
                 
-                // ฟังก์ชันย่อยสำหรับ "คูณกระจาย" เข้าไปในวงเล็บ
-                const distribute = (multiplierTerm, groupTerm) => {
-                    let mVar = parseVar(multiplierTerm.value);
-                    if (!mVar) return false;
-                    for (let i = 0; i < groupTerm.children.length; i++) {
-                        let child = groupTerm.children[i];
-                        if (child.type === 'term') {
-                            let cVar = parseVar(child.value);
-                            if (cVar) {
-                                if (mVar.v && cVar.v) { eng.showPopup("ระบบยังไม่รองรับการคูณตัวแปรครับ (เช่น x • x)"); return false; }
-                                let combinedVar = mVar.v || cVar.v || "";
-                                child.value = (mVar.c * cVar.c).toString() + combinedVar;
-                            }
-                        } else if (child.type === 'fraction') {
-                             if(child.children.length === 1 && child.children[0].type === 'term') {
-                                 let cVar = parseVar(child.children[0].value);
-                                 if (cVar) {
-                                    if (mVar.v && cVar.v) { eng.showPopup("ระบบยังไม่รองรับการคูณตัวแปรครับ"); return false; }
-                                    let combinedVar = mVar.v || cVar.v || "";
-                                    child.children[0].value = (mVar.c * cVar.c).toString() + combinedVar;
-                                 }
-                             }
-                        }
-                    }
-                    return true;
-                };
-
-                // กรณีที่ 1: ตัวเลขคูณตัวเลข หรือ ตัวเลขคูณตัวแปร (เช่น 2 • 3x)
                 if (prev.type === 'term' && next.type === 'term') {
                     let p1 = parseVar(prev.value), p2 = parseVar(next.value);
                     if(p1 && p2) { 
@@ -1501,28 +1626,34 @@ eng.tryCombine = (targetWrapper) => {
                          eng.incrementMove(); eng.commitState(); eng.playTone('success'); 
                     }
                 }
-                // กรณีที่ 2: ตัวเลขคูณวงเล็บ (เช่น 2 • (x+3))
                 else if (prev.type === 'term' && next.type === 'group') {
-                    if(distribute(prev, next)) {
-                        list.splice(idx - 1, 2); // ลบตัวคูณและเครื่องหมายคูณทิ้ง ปล่อยให้วงเล็บแตกออกอัตโนมัติ
-                        eng.incrementMove(); eng.commitState(); eng.playTone('success');
-                    }
+                    let factor = parseInt(prev.value);
+                    if (!isNaN(factor)) { list.splice(idx - 1, 3, ...eng.multiplyTerms(next.children, factor)); eng.incrementMove(); eng.commitState(); eng.playTone('success'); }
                 }
-                // กรณีที่ 3: วงเล็บคูณตัวเลข (เช่น (x+3) • 2)
                 else if (prev.type === 'group' && next.type === 'term') {
-                    if(distribute(next, prev)) {
-                        list.splice(idx, 2); // ลบเครื่องหมายคูณและตัวคูณทิ้ง
-                        eng.incrementMove(); eng.commitState(); eng.playTone('success');
-                    }
+                    let factor = parseInt(next.value);
+                    if (!isNaN(factor)) { list.splice(idx - 1, 3, ...eng.multiplyTerms(prev.children, factor)); eng.incrementMove(); eng.commitState(); eng.playTone('success'); }
                 }
             } 
         };
         
-        eng.distributeNegative = (term, list, idx) => { if(idx >= list.length-1) return; let t = list[idx+1]; if(t.type==='group') { list[idx].value='+'; list.splice(idx+1, 1, ...t.children); eng.incrementMove(); eng.commitState(); eng.playTone('pop'); } };
+        eng.distributeNegative = (term, list, idx) => { 
+            if(idx >= list.length-1) return; let target = list[idx+1]; 
+            if(target.type === 'group') { 
+                let newChildren = eng.multiplyTerms(target.children, -1);
+                if (idx === 0) list.splice(idx, 2, ...newChildren);
+                else { list[idx].value = '+'; list.splice(idx + 1, 1, ...newChildren); }
+                eng.incrementMove(); eng.commitState(); eng.playTone('pop'); 
+            } else if (target.type === 'fraction') {
+                let newNumChildren = eng.multiplyTerms(target.children, -1);
+                target.children = newNumChildren;
+                if (idx === 0) list.splice(idx, 1); else list[idx].value = '+';
+                eng.incrementMove(); eng.commitState(); eng.playTone('pop'); 
+            }
+        };
 
         eng.checkWinCondition = () => {
             const isSolved = (list) => list.length === 1 && list[0].type === 'term' && (list[0].value === 'x' || list[0].value === '1x');
-            
             const extractNum = (node) => {
                 if (node.type === 'term' && !isNaN(parseFloat(node.value))) return parseInt(node.value);
                 if (node.type === 'group') {
@@ -1536,7 +1667,6 @@ eng.tryCombine = (targetWrapper) => {
                 if (list.length !== 1) return false;
                 let t = list[0];
                 if (t.type === 'term') return !isNaN(parseFloat(t.value)) && !t.value.match(/[a-zA-Z]/);
-                
                 if (t.type === 'fraction') {
                     if (!t.denominator) return false;
                     let denVal = extractNum(t.denominator);
@@ -1545,7 +1675,6 @@ eng.tryCombine = (targetWrapper) => {
                     let numVal = null;
                     if (t.children.length === 1) numVal = extractNum(t.children[0]);
                     if (numVal === null) return false;
-
                     if (numVal % denVal === 0) return false;
                     if (denVal < 0) return false;
                     
@@ -1579,22 +1708,14 @@ eng.tryCombine = (targetWrapper) => {
     };
 
     useEffect(() => {
-        if (!isSandbox) {
-            if (levelData) {
-                initEngine(levelData.lhsHtml || levelData.lhs || '', levelData.rhsHtml || levelData.rhs || '');
-            }
-        } else {
-            initEngine(sbLhsHtml, sbRhsHtml);
-        }
+        if (!isSandbox) { if (levelData) initEngine(levelData.lhsHtml || levelData.lhs || '', levelData.rhsHtml || levelData.rhs || ''); } 
+        else { initEngine(sbLhsHtml, sbRhsHtml); }
         return () => { if(engineRef.current.audioCtx) engineRef.current.audioCtx.suspend(); };
     }, [levelData, isSandbox]);
 
     const handleRestart = () => {
-        if (isSandbox) {
-            initEngine(sbLhsHtml, sbRhsHtml);
-        } else {
-            if(levelData) initEngine(levelData.lhsHtml || levelData.lhs || '', levelData.rhsHtml || levelData.rhs || '');
-        }
+        if (isSandbox) initEngine(sbLhsHtml, sbRhsHtml);
+        else if(levelData) initEngine(levelData.lhsHtml || levelData.lhs || '', levelData.rhsHtml || levelData.rhs || '');
     };
 
     const handleNextLevel = () => {
@@ -1602,28 +1723,20 @@ eng.tryCombine = (targetWrapper) => {
         if (nextLvl <= 10) {
             const nextKey = `map${mapId}_level${nextLvl}`;
             const nextData = allLevels[nextKey];
-            if (nextData) {
-                setSelectedLevel(nextLvl);
-                setLevelData(nextData);
-            } else {
-                alert('คุณครูยังไม่ได้สร้างด่านต่อไปครับ!');
-                setView('levelSelect');
-            }
-        } else {
-            setView('mapSelect');
-        }
+            if (nextData) { setSelectedLevel(nextLvl); setLevelData(nextData); } 
+            else { alert('คุณครูยังไม่ได้สร้างด่านต่อไปครับ!'); setView('levelSelect'); }
+        } else { setView('mapSelect'); }
     };
 
-   return (
+    return (
         <React.Fragment>
             <style>{engineCSS}</style>
             
             {isSandbox ? (
                 // ==========================================
-                // 1. หน้าจอโหมดฝึกฝน (Sandbox) - เลื่อนขึ้นลงได้
+                // 1. หน้าจอโหมดฝึกฝน (Sandbox)
                 // ==========================================
                 <div className="flex flex-col h-screen p-2 md:p-4 bg-gradient-to-br from-[#a8edea] to-blue-100 overflow-y-auto custom-scrollbar" ref={gameContainerRef}>
-                    {/* Top Bar */}
                     <div className="flex justify-between items-center mb-4 bg-white/90 backdrop-blur-md p-2 md:p-3 rounded-full shadow-[0_4px_0_#d1d5db] border-2 border-white shrink-0 sticky top-0 z-[50]">
                         <button onClick={() => setView('menu')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 md:px-6 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all flex items-center shadow-sm">
                             <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
@@ -1638,7 +1751,6 @@ eng.tryCombine = (targetWrapper) => {
                         </div>
                     </div>
 
-                    {/* กล่องตั้งค่าโจทย์ */}
                     <div className="bg-white/95 backdrop-blur-xl p-4 md:p-6 rounded-[2rem] shadow-xl border-4 border-white mb-4 flex flex-col gap-3 shrink-0 mx-auto max-w-5xl w-full z-10">
                         <div className="flex justify-center mb-[-8px]"><span className="bg-orange-100 text-orange-600 px-4 py-1 rounded-full font-bold text-xs uppercase tracking-wider border-2 border-orange-200 shadow-sm"><i className="fas fa-edit mr-1"></i> ตั้งค่าโจทย์ฝึกฝน</span></div>
                         <div className="flex flex-col lg:flex-row gap-4 items-center w-full justify-center">
@@ -1652,7 +1764,6 @@ eng.tryCombine = (targetWrapper) => {
                         </button>
                     </div>
 
-                    {/* กระดานแก้สมการ */}
                     <div className="flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white shadow-inner shrink-0 min-h-[60vh]">
                         <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full flex-1 overflow-x-auto min-h-[40vh] overflow-y-hidden">
                             <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
@@ -1670,10 +1781,9 @@ eng.tryCombine = (targetWrapper) => {
                 </div>
             ) : (
                 // ==========================================
-                // 2. หน้าจอโหมดตะลุยด่าน (Play) - ล็อคขนาดเต็มจอ ไม่เลื่อน
+                // 2. หน้าจอโหมดตะลุยด่าน (Play)
                 // ==========================================
                 <div className="flex flex-col h-screen p-2 md:p-4 bg-gradient-to-br from-[#a8edea] to-blue-100 overflow-hidden" ref={gameContainerRef}>
-                    {/* Top Bar */}
                     <div className="flex justify-between items-center mb-2 md:mb-4 bg-white/90 backdrop-blur-md p-2 md:p-3 rounded-full shadow-[0_4px_0_#d1d5db] border-2 border-white shrink-0 z-20">
                         <button onClick={() => setView('levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 md:px-6 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all flex items-center shadow-sm">
                             <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
@@ -1688,7 +1798,6 @@ eng.tryCombine = (targetWrapper) => {
                         </div>
                     </div>
 
-                    {/* กระดานแก้สมการ */}
                     <div className="flex-1 flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white shadow-inner overflow-hidden">
                         <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full flex-1 overflow-x-auto overflow-y-hidden min-h-0">
                             <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
@@ -1707,16 +1816,13 @@ eng.tryCombine = (targetWrapper) => {
             )}
 
             {/* ========================================== */}
-            {/* กล่องข้อความแจ้งเตือนและหน้าต่างจบเกม (แชร์ร่วมกัน) */}
+            {/* Popups (แชร์ร่วมกัน) */}
             {/* ========================================== */}
             
             {popupMessage && (
                 <div className="absolute bottom-24 md:bottom-32 left-1/2 transform -translate-x-1/2 z-[3000] animate-[slideUpFade_0.3s_ease-out] fixed">
                     <div className="bg-gray-800/90 backdrop-blur-md p-4 md:p-5 rounded-2xl text-center shadow-2xl max-w-sm w-max border-2 border-gray-700 flex flex-col items-center gap-3">
-                        <div className="flex items-center gap-3 text-white">
-                            <i className="fas fa-exclamation-circle text-red-400 text-2xl"></i>
-                            <span className="font-bold text-sm md:text-base">{popupMessage}</span>
-                        </div>
+                        <div className="flex items-center gap-3 text-white"><i className="fas fa-exclamation-circle text-red-400 text-2xl"></i><span className="font-bold text-sm md:text-base">{popupMessage}</span></div>
                         <button onClick={() => setPopupMessage(null)} className="bg-white/20 hover:bg-white/30 text-white font-bold py-1.5 px-6 rounded-full text-xs md:text-sm transition-colors w-full">เข้าใจแล้ว</button>
                     </div>
                 </div>
@@ -1742,9 +1848,7 @@ eng.tryCombine = (targetWrapper) => {
                         
                         <div className="flex flex-wrap gap-3 justify-center w-full">
                             {isSandbox ? (
-                                <button onClick={() => setGameState('playing')} className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-black py-4 px-10 rounded-full text-lg md:text-xl shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none transition-all">
-                                    <i className="fas fa-redo mr-2"></i> ฝึกโจทย์ข้อใหม่
-                                </button>
+                                <button onClick={() => setGameState('playing')} className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-black py-4 px-10 rounded-full text-lg md:text-xl shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-redo mr-2"></i> ฝึกโจทย์ข้อใหม่</button>
                             ) : (
                                 <>
                                     <button onClick={() => setView('levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 md:py-4 px-6 md:px-8 rounded-full text-sm md:text-lg shadow-[0_6px_0_#d1d5db] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-bars"></i> กลับเมนู</button>
