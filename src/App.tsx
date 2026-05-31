@@ -56,7 +56,7 @@ export default function MathGameApp() {
         const checkOrientation = () => setIsLandscape(window.innerWidth > window.innerHeight);
         checkOrientation();
         window.addEventListener('resize', checkOrientation);
-        return () => window.removeEventListener('resize', checkOrientation);
+         () => window.removeEventListener('resize', checkOrientation);
     }, []);
 
     useEffect(() => {
@@ -1526,69 +1526,101 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
     };
 
    return (
-        // เปลี่ยนจาก overflow-hidden เป็น overflow-y-auto เพื่อให้เลื่อนหน้าจอได้
-        <div className="flex flex-col h-screen p-2 md:p-4 bg-gradient-to-br from-[#a8edea] to-blue-100 overflow-y-auto custom-scrollbar" ref={gameContainerRef}>
+        <React.Fragment>
             <style>{engineCSS}</style>
             
-            <div className="flex justify-between items-center mb-2 md:mb-4 bg-white/90 backdrop-blur-md p-2 md:p-3 rounded-full shadow-[0_4px_0_#d1d5db] border-2 border-white relative z-20 shrink-0">
-                <button onClick={() => setView(isSandbox ? 'menu' : 'levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 md:px-6 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all flex items-center shadow-sm">
-                    <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
-                </button>
-                
-                <div className="text-sm md:text-xl font-black text-blue-700 truncate px-4 tracking-wide uppercase drop-shadow-sm">
-                    {isSandbox ? 'โหมดฝึกฝน (Sandbox)' : `Map ${mapId} - Level ${levelId}`}
-                </div>
-                
-                <div className="flex items-center gap-2 md:gap-3">
-                    <button onClick={() => setShowTutorial(true)} className="bg-yellow-100 text-yellow-700 px-3 md:px-4 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-yellow-300 hover:bg-yellow-200 transition-colors shadow-sm">
-                        <i className="fas fa-question-circle"></i>
-                    </button>
-                    <div className="bg-blue-100 text-blue-800 px-3 md:px-5 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-blue-200 whitespace-nowrap shadow-sm">
-                        ย้าย: <span className="text-base md:text-lg text-blue-600 ml-1">{moves}</span> 
-                        {!isSandbox && <span className="hidden md:inline ml-1 text-gray-500 font-bold">/ {levelData?.parMoves || 3}</span>}
+            {isSandbox ? (
+                // ==========================================
+                // 1. หน้าจอโหมดฝึกฝน (Sandbox) - เลื่อนขึ้นลงได้
+                // ==========================================
+                <div className="flex flex-col h-screen p-2 md:p-4 bg-gradient-to-br from-[#a8edea] to-blue-100 overflow-y-auto custom-scrollbar" ref={gameContainerRef}>
+                    {/* Top Bar */}
+                    <div className="flex justify-between items-center mb-4 bg-white/90 backdrop-blur-md p-2 md:p-3 rounded-full shadow-[0_4px_0_#d1d5db] border-2 border-white shrink-0 sticky top-0 z-[50]">
+                        <button onClick={() => setView('menu')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 md:px-6 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all flex items-center shadow-sm">
+                            <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
+                        </button>
+                        <div className="text-sm md:text-xl font-black text-blue-700 truncate px-4 tracking-wide uppercase drop-shadow-sm">โหมดฝึกฝน (Sandbox)</div>
+                        <div className="flex items-center gap-2 md:gap-3">
+                            <button onClick={() => setShowTutorial(true)} className="bg-yellow-100 text-yellow-700 px-3 md:px-4 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-yellow-300 hover:bg-yellow-200 transition-colors shadow-sm"><i className="fas fa-question-circle"></i></button>
+                            <div className="bg-blue-100 text-blue-800 px-3 md:px-5 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-blue-200 whitespace-nowrap shadow-sm">
+                                ย้าย: <span className="text-base md:text-lg text-blue-600 ml-1">{moves}</span> 
+                            </div>
+                            <button onClick={handleRestart} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all shadow-[0_4px_0_#b91c1c]"><i className="fas fa-sync-alt"></i></button>
+                        </div>
                     </div>
-                    <button onClick={handleRestart} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all shadow-[0_4px_0_#b91c1c]">
-                        <i className="fas fa-sync-alt"></i>
-                    </button>
-                </div>
-            </div>
 
-            {isSandbox && (
-                <div className="bg-white/95 backdrop-blur-xl p-4 md:p-6 rounded-[2rem] shadow-xl border-4 border-white mb-4 flex flex-col gap-3 shrink-0 mx-auto max-w-5xl w-full z-10 relative">
-                    <div className="flex justify-center mb-[-8px]"><span className="bg-orange-100 text-orange-600 px-4 py-1 rounded-full font-bold text-xs uppercase tracking-wider border-2 border-orange-200 shadow-sm"><i className="fas fa-edit mr-1"></i> ตั้งค่าโจทย์ฝึกฝน</span></div>
-                    <div className="flex flex-col lg:flex-row gap-4 items-center w-full justify-center">
-                        <div className="w-full lg:w-5/12"><VisualEditor id="sbLhs" label="สมการฝั่งซ้าย" value={sbLhsHtml} onChange={setSbLhsHtml} /></div>
-                        {/* ปรับเครื่องหมายเท่ากับให้สวยขึ้นและรองรับมือถือแนวตั้ง/แนวนอน */}
-                        <div className="text-4xl md:text-5xl font-black text-gray-300 drop-shadow-sm hidden lg:block">=</div>
-                        <div className="text-4xl font-black text-gray-300 drop-shadow-sm lg:hidden my-[-10px]">=</div>
-                        <div className="w-full lg:w-5/12"><VisualEditor id="sbRhs" label="สมการฝั่งขวา" value={sbRhsHtml} onChange={setSbRhsHtml} /></div>
+                    {/* กล่องตั้งค่าโจทย์ */}
+                    <div className="bg-white/95 backdrop-blur-xl p-4 md:p-6 rounded-[2rem] shadow-xl border-4 border-white mb-4 flex flex-col gap-3 shrink-0 mx-auto max-w-5xl w-full z-10">
+                        <div className="flex justify-center mb-[-8px]"><span className="bg-orange-100 text-orange-600 px-4 py-1 rounded-full font-bold text-xs uppercase tracking-wider border-2 border-orange-200 shadow-sm"><i className="fas fa-edit mr-1"></i> ตั้งค่าโจทย์ฝึกฝน</span></div>
+                        <div className="flex flex-col lg:flex-row gap-4 items-center w-full justify-center">
+                            <div className="w-full lg:w-5/12"><VisualEditor id="sbLhs" label="สมการฝั่งซ้าย" value={sbLhsHtml} onChange={setSbLhsHtml} /></div>
+                            <div className="text-4xl md:text-5xl font-black text-gray-300 drop-shadow-sm hidden lg:block">=</div>
+                            <div className="text-4xl font-black text-gray-300 drop-shadow-sm lg:hidden my-[-10px]">=</div>
+                            <div className="w-full lg:w-5/12"><VisualEditor id="sbRhs" label="สมการฝั่งขวา" value={sbRhsHtml} onChange={setSbRhsHtml} /></div>
+                        </div>
+                        <button onClick={() => { initEngine(sbLhsHtml, sbRhsHtml); setGameState('playing'); }} className="bg-gradient-to-b from-blue-500 to-blue-700 text-white font-black py-3 px-10 rounded-full text-sm md:text-lg self-center transition-all shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none mt-2 uppercase tracking-wide hover:brightness-110 border-2 border-blue-400">
+                            <i className="fas fa-play mr-2"></i> สร้างโจทย์และเริ่มเล่น
+                        </button>
                     </div>
-                    <button onClick={() => { initEngine(sbLhsHtml, sbRhsHtml); setGameState('playing'); }} className="bg-gradient-to-b from-blue-500 to-blue-700 text-white font-black py-3 px-10 rounded-full text-sm md:text-lg self-center transition-all shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none mt-2 uppercase tracking-wide hover:brightness-110 border-2 border-blue-400">
-                        <i className="fas fa-play mr-2"></i> สร้างโจทย์และเริ่มเล่น
-                    </button>
-                </div>
-            )}
 
-            {/* เพิ่ม overflow-hidden เพื่อตัดขอบมุมสีขาวที่ทะลุออกมาให้โค้งมนพอดี */}
-            <div className="flex-1 flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white min-h-[50vh] shadow-inner mb-4 overflow-hidden">
-                {/* ปรับขอบมุมกล่องสีขาวเป็น rounded-[1.5rem] ให้โค้งขนานกับกล่องด้านนอกเป๊ะๆ */}
-                <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full h-full flex-1 overflow-x-auto min-h-[300px]">
-                    <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
-                    <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-3 md:pr-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
-                    <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white flex-shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl">=</div>
-                    <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-3 md:pl-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
-                </div>
-
-                <div className="flex justify-center mt-3 md:mt-4">
-                    <div className="flex items-center gap-3 md:gap-5 bg-white/95 px-5 py-2 md:px-6 md:py-3 rounded-full shadow-lg border-2 border-gray-200 whitespace-nowrap">
-                        <button onClick={() => engineRef.current.undo()} className="text-gray-500 hover:text-blue-600 text-lg md:text-2xl active:scale-90 transition-transform bg-gray-100 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-inner border border-gray-200"><i className="fas fa-undo"></i></button>
-                        <div className="text-gray-600 font-bold border-l-2 pl-3 md:pl-4 text-xs md:text-sm border-gray-200 flex items-center">
-                            <i className="fas fa-hand-pointer text-blue-500 mr-2 text-lg drop-shadow-sm"></i> ลากวาง <span className="hidden md:inline font-medium text-gray-400 ml-2 tracking-wide">| แตะเบิ้ล 2 ครั้งเพื่อแยกส่วน</span>
+                    {/* กระดานแก้สมการ */}
+                    <div className="flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white shadow-inner shrink-0 min-h-[60vh]">
+                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full flex-1 overflow-x-auto min-h-[40vh] overflow-y-hidden">
+                            <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
+                            <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-3 md:pr-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                            <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl">=</div>
+                            <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-3 md:pl-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                        </div>
+                        <div className="shrink-0 flex justify-center mt-3 md:mt-4">
+                            <div className="flex items-center gap-3 md:gap-5 bg-white/95 px-5 py-2 md:px-6 md:py-3 rounded-full shadow-lg border-2 border-gray-200 whitespace-nowrap">
+                                <button onClick={() => engineRef.current.undo()} className="text-gray-500 hover:text-blue-600 text-lg md:text-2xl active:scale-90 transition-transform bg-gray-100 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-inner border border-gray-200"><i className="fas fa-undo"></i></button>
+                                <div className="text-gray-600 font-bold border-l-2 pl-3 md:pl-4 text-xs md:text-sm border-gray-200 flex items-center"><i className="fas fa-hand-pointer text-blue-500 mr-2 text-lg drop-shadow-sm"></i> ลากวาง <span className="hidden md:inline font-medium text-gray-400 ml-2 tracking-wide">| แตะเบิ้ล 2 ครั้งเพื่อแยกส่วน</span></div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            ) : (
+                // ==========================================
+                // 2. หน้าจอโหมดตะลุยด่าน (Play) - ล็อคขนาดเต็มจอ ไม่เลื่อน
+                // ==========================================
+                <div className="flex flex-col h-screen p-2 md:p-4 bg-gradient-to-br from-[#a8edea] to-blue-100 overflow-hidden" ref={gameContainerRef}>
+                    {/* Top Bar */}
+                    <div className="flex justify-between items-center mb-2 md:mb-4 bg-white/90 backdrop-blur-md p-2 md:p-3 rounded-full shadow-[0_4px_0_#d1d5db] border-2 border-white shrink-0 z-20">
+                        <button onClick={() => setView('levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 md:px-6 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all flex items-center shadow-sm">
+                            <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
+                        </button>
+                        <div className="text-sm md:text-xl font-black text-blue-700 truncate px-4 tracking-wide uppercase drop-shadow-sm">Map {mapId} - Level {levelId}</div>
+                        <div className="flex items-center gap-2 md:gap-3">
+                            <button onClick={() => setShowTutorial(true)} className="bg-yellow-100 text-yellow-700 px-3 md:px-4 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-yellow-300 hover:bg-yellow-200 transition-colors shadow-sm"><i className="fas fa-question-circle"></i></button>
+                            <div className="bg-blue-100 text-blue-800 px-3 md:px-5 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-blue-200 whitespace-nowrap shadow-sm">
+                                ย้าย: <span className="text-base md:text-lg text-blue-600 ml-1">{moves}</span> <span className="hidden md:inline ml-1 text-gray-500 font-bold">/ {levelData?.parMoves || 3}</span>
+                            </div>
+                            <button onClick={handleRestart} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all shadow-[0_4px_0_#b91c1c]"><i className="fas fa-sync-alt"></i></button>
+                        </div>
+                    </div>
 
+                    {/* กระดานแก้สมการ */}
+                    <div className="flex-1 flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white shadow-inner overflow-hidden">
+                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full flex-1 overflow-x-auto overflow-y-hidden min-h-0">
+                            <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
+                            <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-3 md:pr-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                            <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl">=</div>
+                            <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-3 md:pl-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                        </div>
+                        <div className="shrink-0 flex justify-center mt-3 md:mt-4">
+                            <div className="flex items-center gap-3 md:gap-5 bg-white/95 px-5 py-2 md:px-6 md:py-3 rounded-full shadow-lg border-2 border-gray-200 whitespace-nowrap">
+                                <button onClick={() => engineRef.current.undo()} className="text-gray-500 hover:text-blue-600 text-lg md:text-2xl active:scale-90 transition-transform bg-gray-100 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-inner border border-gray-200"><i className="fas fa-undo"></i></button>
+                                <div className="text-gray-600 font-bold border-l-2 pl-3 md:pl-4 text-xs md:text-sm border-gray-200 flex items-center"><i className="fas fa-hand-pointer text-blue-500 mr-2 text-lg drop-shadow-sm"></i> ลากวาง <span className="hidden md:inline font-medium text-gray-400 ml-2 tracking-wide">| แตะเบิ้ล 2 ครั้งเพื่อแยกส่วน</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ========================================== */}
+            {/* กล่องข้อความแจ้งเตือนและหน้าต่างจบเกม (แชร์ร่วมกัน) */}
+            {/* ========================================== */}
+            
             {popupMessage && (
                 <div className="absolute bottom-24 md:bottom-32 left-1/2 transform -translate-x-1/2 z-[3000] animate-[slideUpFade_0.3s_ease-out] fixed">
                     <div className="bg-gray-800/90 backdrop-blur-md p-4 md:p-5 rounded-2xl text-center shadow-2xl max-w-sm w-max border-2 border-gray-700 flex flex-col items-center gap-3">
@@ -1649,6 +1681,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     </div>
                 </div>
             )}
-        </div>
+        </React.Fragment>
     );
 }
