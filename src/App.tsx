@@ -1502,10 +1502,19 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             if (!targetTerm) return;
             let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
 
-            // 🚀 NEW: เพิ่มความยืดหยุ่น ถ้าเด็กลากไปปล่อยทับเครื่องหมายคูณ (•) โดยตรง ก็ให้จับคูณกันเลย!
+            // 🚀 ยืดหยุ่น 1: ถ้าเผลอปล่อยทับเครื่องหมายคูณ (•) ตรงกลาง ให้จับคูณกันเลย
             if (targetTerm.type === 'op' && targetTerm.value === '•') {
-                if (max - min === 1) {
-                    eng.combineSplitTerm(targetTerm, list, targetIdx); return;
+                if (max - min === 1) { eng.combineSplitTerm(targetTerm, list, targetIdx); return; }
+            }
+
+            // 🚀 ยืดหยุ่น 2: ถ้าเผลอปล่อยทับเครื่องหมาย (+) หรือ (-) ให้ระบบรู้ใจ ชี้เป้าไปหาตัวเลขข้างๆ อัตโนมัติ!
+            if (targetTerm.type === 'op' && (targetTerm.value === '+' || targetTerm.value === '-')) {
+                if (Math.abs(eng.dragSrc.idx - targetIdx) === 1) {
+                    let otherIdx = targetIdx === eng.dragSrc.idx - 1 ? targetIdx - 1 : targetIdx + 1;
+                    if (list[otherIdx] && list[otherIdx].type === 'term') {
+                        targetIdx = otherIdx; targetTerm = list[targetIdx];
+                        min = Math.min(eng.dragSrc.idx, targetIdx); max = Math.max(eng.dragSrc.idx, targetIdx);
+                    }
                 }
             }
 
@@ -1515,7 +1524,8 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                     let op = list[min+1];
                     if (op.value === '+' || op.value === '-') {
                         if (eng.isBoundByMultiply(list, min) || eng.isBoundByMultiply(list, max)) { eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน"); eng.shakeElement(targetWrapper); return; }
-                        let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
+                        // เพิ่ม .trim() ตัดช่องว่างทิ้ง ป้องกันบั๊กการบวกตัวแปร
+                        let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.trim().match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
                         let p1 = parseVar(list[min].value), p2 = parseVar(list[max].value);
                         if (p1 && p2 && p1.v === p2.v) {
                             let sign1 = (min > 0 && list[min-1].type === 'op' && list[min-1].value === '-') ? -1 : 1;
@@ -1524,8 +1534,8 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                             let finalVar = p1.v || '';
                             let finalTermVal = Math.abs(resCoef) + finalVar;
                             
-                            if (min > 0) { list[min-1].value = resCoef < 0 ? '-' : '+'; list.splice(min, 3, new eng.TermClass('term', finalTermVal)); }
-                            else { if (resCoef < 0) list.splice(min, 3, new eng.TermClass('op', '-'), new eng.TermClass('term', finalTermVal)); else list.splice(min, 3, new eng.TermClass('term', finalTermVal)); }
+                            if (min > 0) { list[min-1].value = resCoef < 0 ? '-' : '+'; list.splice(min, 3, new eng.TermClass('term', finalTermVal.toString())); }
+                            else { if (resCoef < 0) list.splice(min, 3, new eng.TermClass('op', '-'), new eng.TermClass('term', finalTermVal.toString())); else list.splice(min, 3, new eng.TermClass('term', finalTermVal.toString())); }
                             eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
                         } else { eng.shakeElement(targetWrapper); return; }
                     } else if (op.value === '•') {
@@ -1569,7 +1579,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                 }
             }
 
-          // 4. Term + Fraction (Cross Multiplication / Multiply into fraction)
+            // 4. Term + Fraction (Cross Multiplication / Multiply into fraction)
             if ((srcTerm.type === 'term' && targetTerm.type === 'fraction') || (srcTerm.type === 'fraction' && targetTerm.type === 'term')) {
                 let termPart = srcTerm.type === 'term' ? srcTerm : targetTerm;
                 let fracPart = srcTerm.type === 'fraction' ? srcTerm : targetTerm;
@@ -1587,7 +1597,6 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
                         let operator = list[min+1];
                         let denomCopy = (fracPart.denominator.type === 'group') ? new eng.TermClass('group', null, JSON.parse(JSON.stringify(fracPart.denominator.children))) : new eng.TermClass('term', fracPart.denominator.value);
                         
-                        // คืนค่าให้แยกกลุ่มกัน (เช่น 3x • 2) เพื่อให้เด็กได้กดรวมพจน์เอง
                         let multipliedTermGroup = [ new eng.TermClass('term', termPart.value), new eng.TermClass('op', '•'), denomCopy ];
                         let multipliedTermNode = new eng.TermClass('group', null, multipliedTermGroup);
                         
