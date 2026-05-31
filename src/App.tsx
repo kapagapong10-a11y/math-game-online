@@ -160,16 +160,16 @@ export default function MathGameApp() {
 
     return (
         <div className="min-h-screen bg-[#a8edea] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] font-['Kanit'] overflow-hidden relative selection:bg-blue-300">
-            {/* ย่อขนาด UI ด้านบน เลื่อนลงมาหลบ และตั้งค่า Layer ให้สูงที่สุด (z-[100]) */}
+            {/* User Info Top Bar - กลับไปอยู่ชิดขวาบนสุดตามเดิม */}
             {user && view !== 'play' && view !== 'sandbox' && view !== 'profile' && (
-                <div className="absolute top-14 right-2 md:top-16 md:right-4 flex items-center gap-1.5 md:gap-3 bg-white/90 backdrop-blur-md px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-[0_4px_0_rgba(0,0,0,0.1)] border border-white/50 z-[100] transform transition hover:scale-105 origin-top-right scale-75 md:scale-90">
-                    <div className="text-xs md:text-base font-black text-gray-800 flex items-center bg-yellow-100 px-2.5 py-0.5 rounded-full shadow-inner">
-                        <i className="fas fa-star text-yellow-500 mr-1 drop-shadow-sm"></i> {userData?.totalStars || 0}
+                <div className="absolute top-4 right-4 md:top-6 md:right-6 flex items-center gap-1.5 md:gap-3 bg-white/90 backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-full shadow-lg border-2 border-white/80 z-[100] transform transition hover:scale-105 origin-top-right scale-90 md:scale-100">
+                    <div className="text-sm md:text-base font-black text-gray-800 flex items-center bg-yellow-100 px-3 py-1 rounded-full shadow-inner">
+                        <i className="fas fa-star text-yellow-500 mr-1.5 drop-shadow-sm"></i> {userData?.totalStars || 0}
                     </div>
-                    <button onClick={() => setView('profile')} className="text-[10px] md:text-sm text-gray-700 hover:text-blue-600 font-bold flex items-center pl-1.5 md:pl-3 border-l-2 border-gray-200 transition-colors cursor-pointer group">
-                        <i className="fas fa-user-astronaut text-blue-500 mr-1 text-base"></i> {userData?.displayName} <i className="fas fa-cog ml-1.5 text-gray-400 group-hover:animate-spin"></i>
+                    <button onClick={() => setView('profile')} className="text-xs md:text-sm text-gray-700 hover:text-blue-600 font-bold flex items-center pl-2 md:pl-3 border-l-2 border-gray-200 transition-colors cursor-pointer group">
+                        <i className="fas fa-user-astronaut text-blue-500 mr-1.5 text-lg"></i> {userData?.displayName} <i className="fas fa-cog ml-1.5 text-gray-400 group-hover:animate-spin"></i>
                     </button>
-                    <button onClick={handleSignOut} className="text-white text-[10px] md:text-xs ml-1 bg-red-500 hover:bg-red-600 px-2 py-1 md:px-2.5 md:py-1 rounded-full shadow-[0_2px_0_#b91c1c] active:translate-y-[2px] active:shadow-none transition-all">
+                    <button onClick={handleSignOut} className="text-white text-xs md:text-sm ml-1 bg-red-500 hover:bg-red-600 px-2.5 py-1.5 rounded-full shadow-[0_3px_0_#b91c1c] active:translate-y-[3px] active:shadow-none transition-all">
                         <i className="fas fa-sign-out-alt"></i>
                     </button>
                 </div>
@@ -301,14 +301,14 @@ function ProfileSettings({ setView, user, userData }) {
     );
 }
 
-// ออกแบบหน้าแรกใหม่: ใช้รูปภาพเป็นปุ่ม และจัดเรียงด้านข้าง/ล่างได้ตามสไตล์เกม
+// ออกแบบหน้าแรกใหม่: ย่อขนาดและเลื่อนเมนูลงด้านล่างมุมขวา
 function MainMenu({ setView, isAdmin, globalSettings }) {
     const bgStyle = globalSettings?.mainMenuBgUrl ? { backgroundImage: `url(${globalSettings.mainMenuBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {};
     
     return (
-        <div className="flex h-screen w-full items-end md:items-center justify-end p-6 md:p-12 relative overflow-hidden bg-gradient-to-b from-blue-300 to-blue-500" style={bgStyle}>
-            {/* ซ่อนข้อความ 'เลือกโหมดการเล่น' ตามคำขอ และวางปุ่มไว้ขวาล่างเพื่อโชว์ภาพพื้นหลังเต็มๆ */}
-            <div className="flex flex-col gap-3 w-full max-w-[200px] md:max-w-[280px] z-10">
+        <div className="flex h-screen w-full items-end justify-end p-6 md:p-10 pb-8 md:pb-12 relative overflow-hidden bg-gradient-to-b from-blue-300 to-blue-500" style={bgStyle}>
+            {/* เลื่อนลงล่างสุด และลดขนาดความกว้างปุ่มลง (max-w-[160px]) */}
+            <div className="flex flex-col gap-2.5 w-full max-w-[160px] md:max-w-[220px] z-10 mt-auto">
                 <MenuButton icon="fa-map-marked-alt" text="ลุยด่าน (Play)" color="from-green-400 to-green-600" shadowColor="#166534" imgUrl={globalSettings?.btnPlay} onClick={() => setView('mapSelect')} />
                 <MenuButton icon="fa-flask" text="ฝึกฝน (Sandbox)" color="from-orange-400 to-orange-600" shadowColor="#9a3412" imgUrl={globalSettings?.btnSandbox} onClick={() => setView('sandbox')} />
                 <MenuButton icon="fa-trophy" text="ตารางอันดับ" color="from-yellow-300 to-yellow-500" shadowColor="#a16207" textColor="text-yellow-900" imgUrl={globalSettings?.btnRank} onClick={() => setView('leaderboard')} />
@@ -319,23 +319,19 @@ function MainMenu({ setView, isAdmin, globalSettings }) {
 }
 
 function MenuButton({ icon, text, color, shadowColor, textColor = "text-white", onClick, imgUrl }) {
-    // ถ้าอัปโหลดรูปปุ่มมา จะโชว์รูปแทนกรอบสี่เหลี่ยม
     if (imgUrl) {
         return (
-            <button onClick={onClick} className="w-full transform transition-transform hover:scale-105 active:scale-95 origin-center focus:outline-none filter drop-shadow-xl hover:brightness-110">
-                <img src={imgUrl} alt={text} className="w-full h-auto object-contain rounded-2xl" />
+            <button onClick={onClick} className="w-full transform transition-transform hover:scale-105 active:scale-95 origin-bottom-right focus:outline-none filter drop-shadow-xl hover:brightness-110">
+                <img src={imgUrl} alt={text} className="w-full h-auto object-contain rounded-[1rem] md:rounded-2xl" />
             </button>
         );
     }
-    // ปุ่มสำรองกรณีไม่ได้อัปโหลดรูป
     return (
-        <button onClick={onClick} className={`w-full bg-gradient-to-b ${color} ${textColor} font-black py-4 px-4 rounded-[1.5rem] shadow-[0_6px_0_${shadowColor}] transform transition-all active:translate-y-[6px] active:shadow-none text-base md:text-xl flex items-center justify-center gap-3 border-2 border-white/30 hover:brightness-110`}>
-            <i className={`fas ${icon} text-2xl md:text-3xl drop-shadow-sm`}></i> <span className="tracking-wide drop-shadow-sm">{text}</span>
+        <button onClick={onClick} className={`w-full bg-gradient-to-b ${color} ${textColor} font-black py-2.5 md:py-3.5 px-3 rounded-[1.25rem] md:rounded-[1.5rem] shadow-[0_5px_0_${shadowColor}] transform transition-all active:translate-y-[5px] active:shadow-none text-sm md:text-lg flex items-center justify-center gap-2 border-2 border-white/30 hover:brightness-110`}>
+            <i className={`fas ${icon} text-lg md:text-2xl drop-shadow-sm`}></i> <span className="tracking-wide drop-shadow-sm">{text}</span>
         </button>
     );
 }
-
-// ระบบแผนที่โลกแนวตั้ง (เลื่อนจากล่างขึ้นบน + ลากวาง)
 // ระบบแผนที่โลกแนวตั้ง (เลื่อนจากล่างขึ้นบน + ลากวาง)
 function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
     const maps = Array.from({ length: 10 }, (_, i) => i + 1);
@@ -1529,16 +1525,17 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         }
     };
 
-    return (
-        <div className="flex flex-col h-screen p-2 md:p-4 bg-[#a8edea]" ref={gameContainerRef}>
+   return (
+        // เปลี่ยนจาก overflow-hidden เป็น overflow-y-auto เพื่อให้เลื่อนหน้าจอได้
+        <div className="flex flex-col h-screen p-2 md:p-4 bg-gradient-to-br from-[#a8edea] to-blue-100 overflow-y-auto custom-scrollbar" ref={gameContainerRef}>
             <style>{engineCSS}</style>
             
-            <div className="flex justify-between items-center mb-2 md:mb-4 bg-white/90 backdrop-blur-md p-2 md:p-3 rounded-full shadow-[0_4px_0_#d1d5db] border-2 border-white relative z-20">
+            <div className="flex justify-between items-center mb-2 md:mb-4 bg-white/90 backdrop-blur-md p-2 md:p-3 rounded-full shadow-[0_4px_0_#d1d5db] border-2 border-white relative z-20 shrink-0">
                 <button onClick={() => setView(isSandbox ? 'menu' : 'levelSelect')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 md:px-6 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all flex items-center shadow-sm">
                     <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
                 </button>
                 
-                <div className="text-base md:text-xl font-black text-blue-700 truncate px-4 tracking-wide uppercase drop-shadow-sm">
+                <div className="text-sm md:text-xl font-black text-blue-700 truncate px-4 tracking-wide uppercase drop-shadow-sm">
                     {isSandbox ? 'โหมดฝึกฝน (Sandbox)' : `Map ${mapId} - Level ${levelId}`}
                 </div>
                 
@@ -1557,36 +1554,39 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             </div>
 
             {isSandbox && (
-                <div className="bg-white/95 backdrop-blur-md p-3 md:p-4 rounded-[1.5rem] shadow-md border-4 border-white mb-2 md:mb-4 flex flex-col gap-2 shrink-0 mx-auto max-w-5xl w-full">
-                    <div className="flex flex-col md:flex-row gap-2 md:gap-4 items-center w-full justify-center">
-                        <div className="w-full md:w-5/12"><VisualEditor id="sbLhs" label="สมการฝั่งซ้าย" value={sbLhsHtml} onChange={setSbLhsHtml} /></div>
-                        <div className="text-3xl md:text-4xl font-black text-gray-300 mt-2 md:mt-4">=</div>
-                        <div className="w-full md:w-5/12"><VisualEditor id="sbRhs" label="สมการฝั่งขวา" value={sbRhsHtml} onChange={setSbRhsHtml} /></div>
+                <div className="bg-white/95 backdrop-blur-xl p-4 md:p-6 rounded-[2rem] shadow-xl border-4 border-white mb-4 flex flex-col gap-3 shrink-0 mx-auto max-w-5xl w-full z-10 relative">
+                    <div className="flex justify-center mb-[-8px]"><span className="bg-orange-100 text-orange-600 px-4 py-1 rounded-full font-bold text-xs uppercase tracking-wider border-2 border-orange-200 shadow-sm"><i className="fas fa-edit mr-1"></i> ตั้งค่าโจทย์ฝึกฝน</span></div>
+                    <div className="flex flex-col lg:flex-row gap-4 items-center w-full justify-center">
+                        <div className="w-full lg:w-5/12"><VisualEditor id="sbLhs" label="สมการฝั่งซ้าย" value={sbLhsHtml} onChange={setSbLhsHtml} /></div>
+                        {/* ปรับเครื่องหมายเท่ากับให้สวยขึ้นและรองรับมือถือแนวตั้ง/แนวนอน */}
+                        <div className="text-4xl md:text-5xl font-black text-gray-300 drop-shadow-sm hidden lg:block">=</div>
+                        <div className="text-4xl font-black text-gray-300 drop-shadow-sm lg:hidden my-[-10px]">=</div>
+                        <div className="w-full lg:w-5/12"><VisualEditor id="sbRhs" label="สมการฝั่งขวา" value={sbRhsHtml} onChange={setSbRhsHtml} /></div>
                     </div>
-                    <button onClick={() => { initEngine(sbLhsHtml, sbRhsHtml); setGameState('playing'); }} className="bg-blue-500 text-white font-black py-2.5 px-8 rounded-full text-sm md:text-base self-center transition-all shadow-[0_4px_0_#1d4ed8] active:translate-y-1 mt-2">
-                        <i className="fas fa-play mr-2"></i> เล่นสมการนี้
+                    <button onClick={() => { initEngine(sbLhsHtml, sbRhsHtml); setGameState('playing'); }} className="bg-gradient-to-b from-blue-500 to-blue-700 text-white font-black py-3 px-10 rounded-full text-sm md:text-lg self-center transition-all shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none mt-2 uppercase tracking-wide hover:brightness-110 border-2 border-blue-400">
+                        <i className="fas fa-play mr-2"></i> สร้างโจทย์และเริ่มเล่น
                     </button>
                 </div>
             )}
 
-            <div className="flex-1 flex flex-col relative bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white min-h-[40vh] shadow-inner">
-                <div id="engine-playground" className="bg-white rounded-2xl md:rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full h-full flex-1 overflow-x-auto">
-                    <div className="w-[1px] bg-gray-300 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0"></div>
-                    <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-2 md:pr-10 gap-1 md:gap-2 z-10 w-1/2 overflow-visible"></div>
-                    <div className="engine-equal bg-red-400 text-white rounded-full flex items-center justify-center font-black z-20 shadow-sm flex-shrink-0">=</div>
-                    <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-2 md:pl-10 gap-1 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+            <div className="flex-1 flex flex-col relative bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white min-h-[50vh] shadow-inner mb-4">
+                <div id="engine-playground" className="bg-white rounded-2xl md:rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full h-full flex-1 overflow-x-auto min-h-[300px]">
+                    <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
+                    <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-3 md:pr-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                    <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white flex-shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl">=</div>
+                    <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-3 md:pl-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
                 </div>
 
-                <div className="absolute bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-2 md:gap-4 bg-white/95 px-5 py-2 md:px-6 md:py-2.5 rounded-full shadow-[0_4px_0_#d1d5db] border-2 border-gray-200 z-30 whitespace-nowrap">
-                    <button onClick={() => engineRef.current.undo()} className="text-gray-600 hover:text-blue-600 text-base md:text-xl active:scale-90 transition-transform"><i className="fas fa-undo"></i></button>
-                    <div className="text-gray-500 font-bold border-l-2 pl-3 md:pl-4 text-xs md:text-sm border-gray-200 flex items-center">
-                        <i className="fas fa-hand-pointer text-blue-400 mr-1.5 text-lg"></i> ลากวาง <span className="hidden md:inline font-medium text-gray-400 ml-2">| แตะเบิ้ล 2 ครั้งเพื่อแยกส่วน</span>
+                <div className="absolute bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-3 md:gap-5 bg-white/95 px-5 py-2 md:px-6 md:py-3 rounded-full shadow-lg border-2 border-gray-200 z-30 whitespace-nowrap">
+                    <button onClick={() => engineRef.current.undo()} className="text-gray-500 hover:text-blue-600 text-lg md:text-2xl active:scale-90 transition-transform bg-gray-100 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-inner border border-gray-200"><i className="fas fa-undo"></i></button>
+                    <div className="text-gray-600 font-bold border-l-2 pl-3 md:pl-4 text-xs md:text-sm border-gray-200 flex items-center">
+                        <i className="fas fa-hand-pointer text-blue-500 mr-2 text-lg drop-shadow-sm"></i> ลากวาง <span className="hidden md:inline font-medium text-gray-400 ml-2 tracking-wide">| แตะเบิ้ล 2 ครั้งเพื่อแยกส่วน</span>
                     </div>
                 </div>
             </div>
 
             {popupMessage && (
-                <div className="absolute bottom-24 md:bottom-32 left-1/2 transform -translate-x-1/2 z-[3000] animate-[slideUpFade_0.3s_ease-out]">
+                <div className="absolute bottom-24 md:bottom-32 left-1/2 transform -translate-x-1/2 z-[3000] animate-[slideUpFade_0.3s_ease-out] fixed">
                     <div className="bg-gray-800/90 backdrop-blur-md p-4 md:p-5 rounded-2xl text-center shadow-2xl max-w-sm w-max border-2 border-gray-700 flex flex-col items-center gap-3">
                         <div className="flex items-center gap-3 text-white">
                             <i className="fas fa-exclamation-circle text-red-400 text-2xl"></i>
