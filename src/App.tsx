@@ -1443,21 +1443,21 @@ eng.handleFractionDivision = (targetCard) => {
                         let rect = pg.getBoundingClientRect(), midX = rect.left + rect.width/2;
                         let isGlobalMove = (role === 'term' || role === 'denominator' || role === 'whole-fraction');
                         let currentSide = eng.dragSrc.side || (eng.dragSrc.list === eng.localGameState.lhs ? 'lhs' : (eng.dragSrc.list === eng.localGameState.rhs ? 'rhs' : null));
-                        let crossRight = currentSide === 'lhs' && endX > midX + 30, crossLeft = currentSide === 'rhs' && endX < midX - 30;
+                       let crossRight = currentSide === 'lhs' && endX > midX + 30, crossLeft = currentSide === 'rhs' && endX < midX - 30;
 
-                        if (crossRight || crossLeft) {
-                            let isMainList = (eng.dragSrc.list === eng.localGameState.lhs || eng.dragSrc.list === eng.localGameState.rhs);
-                            let isValidCrossMove = (role === 'denominator' || role === 'whole-fraction' || (role === 'term' && isMainList));
-                            
-                            if (isValidCrossMove) {
-                                eng.dragSrc.side = currentSide; eng.executeMoveSide();
+                            if (crossRight || crossLeft) {
+                                let isMainList = (eng.dragSrc.list === eng.localGameState.lhs || eng.dragSrc.list === eng.localGameState.rhs);
+                                let isValidCrossMove = (role === 'denominator' || role === 'whole-fraction' || (role === 'term' && isMainList));
+                                
+                                if (isValidCrossMove) {
+                                    eng.dragSrc.side = currentSide; eng.executeMoveSide();
+                                } else {
+                                    eng.showPopup("ย้ายตัวเศษข้ามฝั่งไม่ได้ครับ! ต้องย้ายตัวส่วน(หาร) ไปคูณก่อน");
+                                    eng.incrementMove();
+                                    eng.shakeElement(eng.dragSrc.el);
+                                }
                             } else {
-                                eng.showPopup("ย้ายตัวที่อยู่ในวงเล็บข้ามฝั่งไม่ได้ครับ! ต้องจัดการตัวที่อยู่ด้านนอกให้เสร็จก่อน");
-                                eng.incrementMove();
-                                eng.shakeElement(eng.dragSrc.el);
-                            }
-                        } else {
-                            let elemBelow = document.elementFromPoint(endX, endY);
+                                let elemBelow = document.elementFromPoint(endX, endY);
                             
                             // 🚀 FIX: สแกนโซนเป้าหมายว่าอยู่เศษ(บน) หรือ ส่วน(ล่าง)
                             let numTarget = elemBelow ? elemBelow.closest('.numerator-container') : null;
@@ -1512,7 +1512,12 @@ eng.handleFractionDivision = (targetCard) => {
             if (!list) return; let targetList = side === 'lhs' ? eng.localGameState.rhs : eng.localGameState.lhs;
             
             if (role === 'denominator') {
-                if (list.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'))) return eng.showPopup("ต้องรวมเศษส่วนฝั่งนี้ให้เป็นก้อนเดียวกันก่อน จึงจะย้ายตัวหารได้ครับ");
+                if (list.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'))) {
+                    eng.showPopup("ต้องรวมเศษส่วนฝั่งนี้ให้เป็นก้อนเดียวกันก่อน จึงจะย้ายตัวหารได้ครับ");
+                    eng.incrementMove();
+                    if(eng.dragSrc && eng.dragSrc.el) eng.shakeElement(eng.dragSrc.el);
+                    return;
+                }
                 list.splice(idx, 1, new eng.TermClass('group', null, JSON.parse(JSON.stringify(term.children))));
                 if (targetList.length > 1) { let inner = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('group', null, inner)); }
                 
@@ -1534,7 +1539,12 @@ eng.handleFractionDivision = (targetCard) => {
                 let isFactor = false, removeIdx = idx, removeCount = 1, nextTerm = (idx < list.length - 1) ? list[idx+1] : null, prevTerm = (idx > 0) ? list[idx-1] : null;
                 if (nextTerm && nextTerm.value === '•') { isFactor = true; removeCount = 2; } else if (prevTerm && prevTerm.value === '•') { isFactor = true; removeIdx = idx - 1; removeCount = 2; }
                 if (isFactor || sourceContext === 'denominator') {
-                    if (list.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'))) return eng.showPopup("ต้องกำจัดบวกลบก่อนย้ายตัวคูณครับ");
+                    if (list.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'))) {
+                        eng.showPopup("ต้องกำจัดบวกลบก่อนย้ายตัวคูณครับ");
+                        eng.incrementMove();
+                        if(eng.dragSrc && eng.dragSrc.el) eng.shakeElement(eng.dragSrc.el);
+                        return;
+                    }
                     let moveValue = term.value;
                     if(idx === 1 && list[0].type === 'op' && (list[0].value === '-' || list[0].value === '+')) { if(list[0].value === '-') moveValue = '-' + moveValue; removeIdx = 0; removeCount += 1; }
                     list.splice(removeIdx, removeCount);
