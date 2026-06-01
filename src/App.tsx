@@ -178,7 +178,7 @@ export default function MathGameApp() {
 
             {view === 'login' && <LoginScreen globalSettings={globalSettings} />}
             {view === 'menu' && <MainMenu setView={setView} isAdmin={userData?.role === 'admin' || user?.email?.includes('admin')} globalSettings={globalSettings} />}
-            {view === 'mapSelect' && <MapSelect setView={setView} setSelectedMap={setSelectedMap} userProgress={userProgress} globalSettings={globalSettings} />}
+            {view === 'mapSelect' && <MapSelect setView={setView} setSelectedMap={setSelectedMap} userProgress={userProgress} globalSettings={globalSettings} allMaps={allMaps} />}
             {view === 'levelSelect' && <LevelSelect setView={setView} mapId={selectedMap} setSelectedLevel={setSelectedLevel} setLevelData={setLevelData} allLevels={allLevels} allMaps={allMaps} userProgress={userProgress} />}
             {view === 'admin' && <AdminPanel setView={setView} allLevels={allLevels} allMaps={allMaps} globalSettings={globalSettings} />}
             {view === 'leaderboard' && <Leaderboard setView={setView} leaderboard={leaderboard} />}
@@ -327,10 +327,17 @@ function MenuButton({ icon, text, color, shadowColor, textColor = "text-white", 
         </button>
     );
 }
-// ระบบแผนที่โลกแนวตั้ง (เลื่อนหาด่านล่าสุดอัตโนมัติ)
-function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
-    const maps = Array.from({ length: 10 }, (_, i) => i + 1);
-    const isMapUnlocked = (m) => m === 1 || (userProgress[`map${m - 1}_level10`]?.stars || 0) > 0;
+
+function MapSelect({ setView, setSelectedMap, userProgress, globalSettings, allMaps }) {
+const maps = Array.from({ length: 10 }, (_, i) => i + 1);
+
+const isMapUnlocked = (m) => {
+    if (m === 1) return true;
+    let prevMapStars = 0;
+    for (let i = 1; i <= 10; i++) prevMapStars += (userProgress[`map${m - 1}_level${i}`]?.stars || 0);
+    const reqStars = (allMaps && allMaps[m - 1]?.requiredStars !== undefined) ? allMaps[m - 1].requiredStars : 15;
+    return prevMapStars >= reqStars;
+};
     
     // ตั้งค่าให้กล้องสไลด์ไปหาด่านสูงสุดที่ปลดล็อคแล้ว
     const scrollRef = useRef(null);
@@ -581,9 +588,10 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
     const [lhsHtml, setLhsHtml] = useState('');
     const [rhsHtml, setRhsHtml] = useState('');
     const [parMoves, setParMoves] = useState(3);
-    
+    const [maxMoves, setMaxMoves] = useState(5);
     const [bgUrl, setBgUrl] = useState('');
     const [positions, setPositions] = useState({});
+    const [requiredStars, setRequiredStars] = useState(15);
     const [draggingNode, setDraggingNode] = useState(null);
     const mapContainerRef = useRef(null);
 
@@ -598,11 +606,11 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
         if (tab === 'equations') {
             const levelKey = `map${mapId}_level${levelId}`;
             const data = allLevels[levelKey];
-            if (data) { setLhsHtml(data.lhsHtml || ''); setRhsHtml(data.rhsHtml || ''); setParMoves(data.parMoves || 3); } 
+            if (data) { setLhsHtml(data.lhsHtml || ''); setRhsHtml(data.rhsHtml || ''); setParMoves(data.parMoves || 3); setMaxMoves(data.maxMoves || 5); } 
             else { setLhsHtml(''); setRhsHtml(''); setParMoves(3); }
         } else if (tab === 'levelmap') {
             const mapData = allMaps && allMaps[mapId];
-            if (mapData && mapData.bgUrl) { setBgUrl(mapData.bgUrl); setPositions(mapData.levels || {}); } 
+            if (mapData && mapData.bgUrl) { setBgUrl(mapData.bgUrl); setPositions(mapData.levels || {}); setRequiredStars(mapData.requiredStars !== undefined ? mapData.requiredStars : 15); }
             else { setBgUrl(''); let defPos = {}; for(let i=1; i<=10; i++) defPos[i] = { x: i * 8.5, y: 50 }; setPositions(defPos); }
         } else if (tab === 'worldmap') {
             if (globalSettings?.worldMapBgUrl) { setBgUrl(globalSettings.worldMapBgUrl); setPositions(globalSettings.worldPositions || {}); } 
@@ -618,13 +626,13 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
 
     const handleSaveEquations = async () => {
         if (!lhsHtml || !rhsHtml) { setMessage('กรุณาสร้างสมการให้ครบครับ'); return; }
-        await set(ref(db, `levels/map${mapId}_level${levelId}`), { mapId, levelId, lhsHtml, rhsHtml, parMoves: parseInt(parMoves) });
+        await set(ref(db, `levels/map${mapId}_level${levelId}`), { mapId, levelId, lhsHtml, rhsHtml, parMoves: parseInt(parMoves), maxMoves: parseInt(maxMoves) });
         setMessage(`บันทึก Map ${mapId} เลเวล ${levelId} เรียบร้อย!`); setTimeout(() => setMessage(''), 3000);
     };
 
     const handleSaveLevelMap = async () => {
         if (!bgUrl) { setMessage('กรุณาอัปโหลดรูปแผนที่ก่อนครับ'); return; }
-        await set(ref(db, `maps/${mapId}`), { mapId, bgUrl, levels: positions });
+        await set(ref(db, `maps/${mapId}`), { mapId, bgUrl, levels: positions, requiredStars: parseInt(requiredStars) });
         setMessage(`บันทึกแผนที่ Map ${mapId} สำเร็จ!`); setTimeout(() => setMessage(''), 3000);
     };
 
@@ -696,8 +704,12 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                                 <select value={levelId} onChange={e => setLevelId(parseInt(e.target.value))} className="w-full p-3 rounded-xl border-2 border-blue-200 text-lg font-bold focus:border-blue-500 outline-none">{Array.from({length: 10}, (_, i) => i + 1).map(n => <option key={n} value={n}>Level {n}</option>)}</select>
                             </div>
                             <div className="flex-1">
-                                <label className="block text-blue-800 font-black text-sm mb-2 uppercase px-2">เป้าหมาย (ครั้ง)</label>
+                                <label className="block text-blue-800 font-black text-sm mb-2 uppercase px-2">ได้ 3 ดาว (ครั้ง)</label>
                                 <input type="number" value={parMoves} onChange={e => setParMoves(e.target.value)} min="1" className="w-full p-3 rounded-xl border-2 border-blue-200 text-xl font-black text-center text-blue-700 outline-none" />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-red-800 font-black text-sm mb-2 uppercase px-2">จำกัดย้าย (แพ้)</label>
+                                <input type="number" value={maxMoves} onChange={e => setMaxMoves(e.target.value)} min="1" className="w-full p-3 rounded-xl border-2 border-red-200 text-xl font-black text-center text-red-700 outline-none" />
                             </div>
                         </div>
                         <div className="flex flex-col xl:flex-row gap-6 items-stretch w-full mb-10 flex-1">
@@ -717,8 +729,12 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
                                 <label className="block text-green-800 font-black text-sm mb-2">เลือก Map</label>
                                 <select value={mapId} onChange={e => setMapId(parseInt(e.target.value))} className="w-full p-3 rounded-xl border-2 border-green-200 text-lg font-bold focus:border-green-500 outline-none">{Array.from({length: 10}, (_, i) => i + 1).map(n => <option key={n} value={n}>Map {n}</option>)}</select>
                             </div>
-                            <div className="w-full md:w-2/3">
-                                <label className="block text-green-800 font-black text-sm mb-2">อัปโหลดรูปพื้นหลัง (16:9 แนวนอน)</label>
+                            <div className="w-full md:w-1/3">
+                                <label className="block text-green-800 font-black text-sm mb-2">ดาวที่ใช้ปลดล็อคแมพถัดไป</label>
+                                <input type="number" value={requiredStars} onChange={e => setRequiredStars(e.target.value)} min="0" className="w-full p-2.5 rounded-xl border-2 border-green-200 text-lg font-bold outline-none" />
+                            </div>
+                            <div className="w-full md:w-1/3">
+                                <label className="block text-green-800 font-black text-sm mb-2">รูปพื้นหลัง (16:9 แนวนอน)</label>
                                 <input type="file" accept="image/*" onChange={handleImageUpload(setBgUrl, false)} className="w-full bg-white border-2 border-green-200 rounded-xl px-2 py-1 outline-none" />
                             </div>
                         </div>
@@ -958,7 +974,18 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         };
 
         eng.showPopup = (msg) => { eng.playTone('error'); setPopupMessage(msg); };
-        eng.incrementMove = () => { eng.internalMoveCount++; setMoves(eng.internalMoveCount); };
+        eng.incrementMove = () => { 
+        eng.internalMoveCount++; 
+            setMoves(eng.internalMoveCount); 
+            
+            let limit = levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10);
+            if (!isSandbox && eng.internalMoveCount >= limit) {
+                setTimeout(() => {
+                    eng.playTone('error');
+                    setGameState('lost');
+                }, 500);
+            }
+        };
 
         const parseHTMLtoMath = (htmlString) => {
             if (!htmlString) return { terms: [], TermObj: null };
@@ -1364,11 +1391,17 @@ eng.handleFractionDivision = (targetCard) => {
                         let isGlobalMove = (role === 'term' || role === 'denominator' || role === 'whole-fraction');
                         let currentSide = eng.dragSrc.side || (eng.dragSrc.list === eng.localGameState.lhs ? 'lhs' : (eng.dragSrc.list === eng.localGameState.rhs ? 'rhs' : null));
                         let crossRight = currentSide === 'lhs' && endX > midX + 30, crossLeft = currentSide === 'rhs' && endX < midX - 30;
-                        
-                        if (isGlobalMove && (crossRight || crossLeft)) {
-                            eng.dragSrc.side = currentSide; eng.executeMoveSide();
+
+                        if (crossRight || crossLeft) {
+                            if (isGlobalMove) {
+                                eng.dragSrc.side = currentSide; eng.executeMoveSide();
+                            } else {
+                                eng.showPopup("ย้ายตัวนี้ข้ามฝั่งไม่ได้ครับ! ต้องจัดการตัวที่อยู่ด้านนอก (เช่น ตัวส่วน) ก่อน");
+                                eng.incrementMove();
+                                eng.shakeElement(eng.dragSrc.el);
+                            }
                         } else {
-                            let elemBelow = document.elementFromPoint(endX, endY); 
+                            let elemBelow = document.elementFromPoint(endX, endY);
                             
                             // 🚀 FIX: สแกนโซนเป้าหมายว่าอยู่เศษ(บน) หรือ ส่วน(ล่าง)
                             let numTarget = elemBelow ? elemBelow.closest('.numerator-container') : null;
@@ -1833,8 +1866,9 @@ eng.handleFractionDivision = (targetCard) => {
                         <div className="text-sm md:text-xl font-black text-blue-700 truncate px-4 tracking-wide uppercase drop-shadow-sm">โหมดฝึกฝน (Sandbox)</div>
                         <div className="flex items-center gap-2 md:gap-3">
                             <button onClick={() => setShowTutorial(true)} className="bg-yellow-100 text-yellow-700 px-3 md:px-4 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-yellow-300 hover:bg-yellow-200 transition-colors shadow-sm"><i className="fas fa-question-circle"></i></button>
-                            <div className="bg-blue-100 text-blue-800 px-3 md:px-5 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-blue-200 whitespace-nowrap shadow-sm">
-                                ย้าย: <span className="text-base md:text-lg text-blue-600 ml-1">{moves}</span> 
+                            <div className={`px-3 md:px-5 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 whitespace-nowrap shadow-sm ${((levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10)) - moves) <= 2 ? 'bg-red-100 text-red-800 border-red-300 animate-pulse' : 'bg-blue-100 text-blue-800 border-blue-200'}`}>
+                                เหลือย้ายได้: <span className={`text-base md:text-lg ml-1 ${((levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10)) - moves) <= 2 ? 'text-red-600' : 'text-blue-600'}`}>{Math.max(0, (levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10)) - moves)}</span>
+                                <span className="hidden md:inline ml-1 font-bold"> ครั้ง</span>
                             </div>
                             <button onClick={handleRestart} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all shadow-[0_4px_0_#b91c1c]"><i className="fas fa-sync-alt"></i></button>
                         </div>
@@ -1917,6 +1951,19 @@ eng.handleFractionDivision = (targetCard) => {
                 </div>
             )}
 
+            {gameState === 'lost' && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
+                        <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-8 border-red-500 text-center max-w-lg w-full">
+                            <div className="text-6xl md:text-8xl mb-4"><i className="fas fa-times-circle text-red-500 drop-shadow-lg animate-bounce"></i></div>
+                            <h2 className="text-4xl md:text-5xl font-black text-red-600 mb-2 drop-shadow-md">Game Over!</h2>
+                            <p className="text-gray-600 text-lg md:text-xl font-bold mb-8">คุณย้ายสมการเกินจำนวนครั้งที่กำหนดแล้วครับ</p>
+                            <div className="flex flex-col gap-3 w-full">
+                                <button onClick={handleRestart} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-full text-xl shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-sync-alt mr-2"></i> ลองใหม่อีกครั้ง</button>
+                                <button onClick={() => setView('levelSelect')} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-4 rounded-full text-lg shadow-[0_6px_0_#d1d5db] active:translate-y-[6px] active:shadow-none transition-all mt-2">กลับไปหน้าเลือกด่าน</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             {gameState === 'won' && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
                     <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-8 border-green-400 text-center max-w-2xl w-full">
