@@ -1704,27 +1704,73 @@ eng.handleFractionDivision = (targetCard) => {
                 }
             }
 
-            if (srcTerm.type === 'term' && targetTerm.type === 'term') {
-                if (max - min === 2) {
-                    let op = list[min+1];
-                    if (op.value === '+' || op.value === '-') {
-                        if (eng.isBoundByMultiply(list, min) || eng.isBoundByMultiply(list, max)) { eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน"); eng.shakeElement(targetWrapper); return; }
-                        let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.trim().match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
-                        let p1 = parseVar(list[min].value), p2 = parseVar(list[max].value);
-                        if (p1 && p2 && p1.v === p2.v) {
-                            let sign1 = (min > 0 && list[min-1].type === 'op' && list[min-1].value === '-') ? -1 : 1;
-                            let sign2 = (op.value === '-') ? -1 : 1;
-                            let resCoef = (p1.c * sign1) + (p2.c * sign2);
-                            let finalVar = p1.v || '';
-                            let finalTermVal = Math.abs(resCoef) + finalVar;
-                            
-                            if (min > 0) { list[min-1].value = resCoef < 0 ? '-' : '+'; list.splice(min, 3, new eng.TermClass('term', finalTermVal.toString())); }
-                            else { if (resCoef < 0) list.splice(min, 3, new eng.TermClass('op', '-'), new eng.TermClass('term', finalTermVal.toString())); else list.splice(min, 3, new eng.TermClass('term', finalTermVal.toString())); }
-                            eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
-                        } else { eng.shakeElement(targetWrapper); return; }
-                    }
-                }
+// 🎯 1. Term + Term (ยุบรวมพจน์ที่เหมือนกัน หรือ สลับที่พจน์ที่ต่างกัน)
+    if (srcTerm.type === 'term' && targetTerm.type === 'term') {
+        let isMult = (max - min === 2 && list[min+1].value === '•');
+        if (!isMult) {
+            if (eng.isBoundByMultiply(list, eng.dragSrc.idx) || eng.isBoundByMultiply(list, targetIdx)) { 
+                eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน"); eng.shakeElement(targetWrapper); return; 
             }
+            let parseVar = (v) => { 
+                if(typeof v!=='string') return null; 
+                let m=v.trim().match(/^(-?\d*)([a-zA-Z]*)$/); 
+                if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null;
+            };
+            let p1 = parseVar(srcTerm.value), p2 = parseVar(targetTerm.value);
+            
+            // เช็คว่าพจน์อยู่ "ติดกัน" โดยมีเครื่องหมาย + หรือ - คั่นกลางเท่านั้น
+            if (max - min === 2 && (list[min+1].value === '+' || list[min+1].value === '-')) {
+                if (p1 && p2 && p1.v === p2.v) {
+                    // ✔️ กรณีที่ 1: ตัวแปรตระกูลเดียวกัน (เช่น 36x กับ -20x) -> ยุบรวมร่าง
+                    let srcSign = (eng.dragSrc.idx > 0 && list[eng.dragSrc.idx-1].type === 'op' && list[eng.dragSrc.idx-1].value === '-') ? -1 : 1;
+                    let targetSign = (targetIdx > 0 && list[targetIdx-1].type === 'op' && list[targetIdx-1].value === '-') ? -1 : 1;
+                    let resCoef = (p1.c * srcSign) + (p2.c * targetSign);
+                    let finalTermVal = Math.abs(resCoef) + (p1.v || '');
+
+                    list[targetIdx].value = finalTermVal.toString();
+                    if (targetIdx > 0 && list[targetIdx-1].type === 'op') list[targetIdx-1].value = resCoef < 0 ? '-' : '+';
+                    else if (targetIdx === 0 && resCoef < 0) list[targetIdx].value = '-' + finalTermVal.toString();
+
+                    let removeIdx = eng.dragSrc.idx, removeCount = 1;
+                    if (eng.dragSrc.idx > 0 && list[eng.dragSrc.idx-1].type === 'op' && (list[eng.dragSrc.idx-1].value === '+' || list[eng.dragSrc.idx-1].value === '-')) { removeIdx = eng.dragSrc.idx - 1; removeCount = 2; }
+                    else if (eng.dragSrc.idx === 0 && list.length > 1 && (list[1].value === '+' || list[1].value === '-')) { removeCount = 2; }
+                    list.splice(removeIdx, removeCount);
+                    
+                    eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
+                } else {
+                    // 🔄 กรณีที่ 2: คนละตระกูล (เช่น ตัวเลข กับ ตัวแปร) -> สลับตำแหน่ง (Swap)
+                    let leftIdx = min;
+                    let rightIdx = max;
+                    let midOpIdx = min + 1;
+                    
+                    let opLeftNode = leftIdx > 0 && list[leftIdx-1].type === 'op' ? list[leftIdx-1] : null;
+                    let opRightNode = list[midOpIdx];
+                    
+                    let opLeftVal = opLeftNode ? opLeftNode.value : '+';
+                    let opRightVal = opRightNode.value;
+                    
+                    // สลับก้อนข้อมูล
+                    let tempTerm = list[leftIdx];
+                    list[leftIdx] = list[rightIdx];
+                    list[rightIdx] = tempTerm;
+                    
+                    // สลับเครื่องหมาย
+                    opRightNode.value = opLeftVal;
+                    if (opLeftNode) {
+                        opLeftNode.value = opRightVal;
+                    } else if (opRightVal === '-') {
+                        // ถ้าพจน์ที่ถูกดึงมาหน้าสุดติดลบ ให้เติมโหนดเครื่องหมาย - นำหน้าสมการ
+                        list.unshift(new eng.TermClass('op', '-'));
+                    }
+                    
+                    eng.incrementMove(); eng.commitState(); eng.playTone('pop'); return;
+                }
+            } else {
+                // ถ้าพยายามลากข้ามหัวไกลๆ (ไม่ได้อยู่ติดกัน) ระบบจะสั่นเตือน บังคับให้ลากสลับทีละขั้น
+                eng.shakeElement(targetWrapper); return;
+            }
+        }
+    }
 
             if ((srcTerm.type === 'term' && targetTerm.type === 'group') || (srcTerm.type === 'group' && targetTerm.type === 'term')) {
                 let numberTerm = srcTerm.type === 'term' ? srcTerm : targetTerm;
