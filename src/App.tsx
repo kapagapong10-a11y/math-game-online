@@ -369,9 +369,18 @@ const isMapUnlocked = (m) => {
                             
                             if (pos) {
                                 return (
-                                    <button key={mapNum} id={`world-map-btn-${mapNum}`} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
-                                        className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-12 h-12 md:w-24 md:h-24 rounded-full border-2 md:border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-blue-400 to-blue-600 border-white shadow-[0_4px_0_#1e3a8a] md:shadow-[0_8px_0_#1e3a8a] active:translate-y-[4px] active:shadow-none cursor-pointer hover:scale-110 z-20' : 'bg-gray-400 border-gray-200 shadow-md opacity-90 cursor-not-allowed z-10'}`}
-                                        style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                                    <button key={mapNum} id={`world-map-btn-${mapNum}`} onClick={() => { 
+                                        if(unlocked) { setSelectedMap(mapNum); setView('levelSelect'); } 
+                                        else { 
+                                            let prevMapStars = 0; 
+                                            for (let i = 1; i <= 10; i++) prevMapStars += (userProgress[`map${mapNum - 1}_level${i}`]?.stars || 0); 
+                                            const reqStars = (allMaps && allMaps[mapNum - 1]?.requiredStars !== undefined) ? allMaps[mapNum - 1].requiredStars : 15; 
+                                            alert(`ยังเข้าไม่ได้ครับ!\nต้องสะสมดาวใน MAP ${mapNum - 1} ให้ถึง ${reqStars} ดาวก่อน\n(ตอนนี้ทำได้ ${prevMapStars} / ${reqStars} ดาว)`); 
+                                        } 
+                                    }}
+                                    className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-12 h-12 md:w-24 md:h-24 rounded-full border-2 md:border-4 transition-all ${unlocked ?
+                                    'bg-gradient-to-b from-blue-400 to-blue-600 border-white shadow-[0_4px_0_#1e3a8a] md:shadow-[0_8px_0_#1e3a8a] active:translate-y-[4px] active:shadow-none cursor-pointer hover:scale-110 z-20' : 'bg-gray-500 border-gray-300 shadow-md opacity-90 cursor-pointer z-10'}`}
+                                    style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
                                     >
                                         <span className="text-[8px] md:text-xs font-bold text-blue-100 uppercase tracking-widest mb-[-2px] md:mb-[-4px]">Map</span>
                                         <span className={`text-xl md:text-4xl font-black text-white drop-shadow-md ${!unlocked && 'opacity-50'}`}>{mapNum}</span>
@@ -397,8 +406,17 @@ const isMapUnlocked = (m) => {
                 {maps.map(mapNum => {
                     const unlocked = isMapUnlocked(mapNum);
                     return (
-                        <button key={mapNum} id={`world-map-btn-${mapNum}`} disabled={!unlocked} onClick={() => { setSelectedMap(mapNum); setView('levelSelect'); }}
-                            className={`relative flex flex-col items-center justify-center h-28 rounded-[2rem] border-4 transition-all ${unlocked ? 'bg-gradient-to-b from-blue-100 to-white border-blue-400 shadow-[0_6px_0_#60a5fa] active:translate-y-[6px] active:shadow-none cursor-pointer' : 'bg-gray-200 border-gray-300 shadow-sm opacity-80 cursor-not-allowed'}`}>
+                        <button key={mapNum} id={`world-map-btn-${mapNum}`} onClick={() => { 
+                                if(unlocked) { setSelectedMap(mapNum); setView('levelSelect'); } 
+                                else { 
+                                    let prevMapStars = 0; 
+                                    for (let i = 1; i <= 10; i++) prevMapStars += (userProgress[`map${mapNum - 1}_level${i}`]?.stars || 0); 
+                                    const reqStars = (allMaps && allMaps[mapNum - 1]?.requiredStars !== undefined) ? allMaps[mapNum - 1].requiredStars : 15; 
+                                    alert(`ยังเข้าไม่ได้ครับ!\nต้องสะสมดาวใน MAP ${mapNum - 1} ให้ถึง ${reqStars} ดาวก่อน\n(ตอนนี้ทำได้ ${prevMapStars} / ${reqStars} ดาว)`); 
+                                } 
+                            }}
+                            className={`relative flex flex-col items-center justify-center h-28 rounded-[2rem] border-4 transition-all ${unlocked ?
+                            'bg-gradient-to-b from-blue-100 to-white border-blue-400 shadow-[0_6px_0_#60a5fa] active:translate-y-[6px] active:shadow-none cursor-pointer' : 'bg-gray-300 border-gray-400 shadow-sm opacity-90 cursor-pointer'}`}>
                             <span className="text-sm font-bold text-blue-500 uppercase tracking-widest mb-1">Map</span>
                             <span className={`text-4xl font-black ${unlocked ? 'text-blue-700' : 'text-gray-400'}`}>{mapNum}</span>
                             {!unlocked && <div className="absolute inset-0 bg-black/5 rounded-[1.75rem] flex items-center justify-center"><i className="fas fa-lock text-gray-500/50 text-3xl"></i></div>}
@@ -414,6 +432,11 @@ const isMapUnlocked = (m) => {
 function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels, allMaps, userProgress }) {
     const levels = Array.from({ length: 10 }, (_, i) => i + 1);
     const isLevelUnlocked = (l) => l === 1 || (userProgress[`map${mapId}_level${l - 1}`]?.stars || 0) > 0;
+
+    let currentMapStars = 0;
+    for (let i = 1; i <= 10; i++) {
+        currentMapStars += (userProgress[`map${mapId}_level${i}`]?.stars || 0);
+    }
     
     const currentMapConfig = allMaps && allMaps[mapId] ? allMaps[mapId] : null;
 
@@ -424,8 +447,11 @@ function LevelSelect({ setView, mapId, setSelectedLevel, setLevelData, allLevels
                     <button onClick={() => setView('mapSelect')} className="bg-white/90 backdrop-blur-md text-green-600 px-3 py-1.5 md:px-5 md:py-2 rounded-full font-black shadow-[0_4px_0_#86efac] active:translate-y-[4px] active:shadow-none transition-all text-sm md:text-base border-2 border-green-200">
                         <i className="fas fa-chevron-left mr-1 md:mr-2"></i> แผนที่
                     </button>
-                    <div className="bg-white/90 backdrop-blur-md px-4 py-1.5 md:px-6 md:py-2 rounded-full shadow-lg border-2 border-white flex items-center justify-center">
-                        <h1 className="text-base md:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-blue-600 m-0 tracking-wide uppercase leading-none">MAP {mapId}</h1>
+                    <div className="bg-white/90 backdrop-blur-md px-4 py-1.5 md:px-6 md:py-2 rounded-full shadow-lg border-2 border-white flex items-center justify-center gap-3">
+                        <h1 className="text-base md:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-blue-600 m-0 tracking-wide uppercase leading-none border-r-2 border-gray-300 pr-3">MAP {mapId}</h1>
+                        <div className="flex items-center text-yellow-600 font-black text-sm md:text-base drop-shadow-sm">
+                            <i className="fas fa-star mr-1"></i> {currentMapStars} / 50
+                        </div>
                     </div>
                 </div>
 
@@ -1863,13 +1889,14 @@ eng.handleFractionDivision = (targetCard) => {
                         <button onClick={() => setView('menu')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 md:px-6 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all flex items-center shadow-sm">
                             <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
                         </button>
-                        <div className="text-sm md:text-xl font-black text-blue-700 truncate px-4 tracking-wide uppercase drop-shadow-sm">โหมดฝึกฝน (Sandbox)</div>
+                        <div className="flex flex-col items-center justify-center">
+                            <div className="text-sm md:text-xl font-black text-blue-700 truncate px-4 tracking-wide uppercase drop-shadow-sm">Map {mapId} - Level {levelId}</div>
+                            <div className="bg-red-100 text-red-600 px-4 py-0.5 rounded-full font-bold text-xs md:text-sm border-2 border-red-200 mt-1 shadow-sm">
+                                เหลือ {Math.max(0, (levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10)) - moves)} ครั้ง
+                            </div>
+                        </div>
                         <div className="flex items-center gap-2 md:gap-3">
                             <button onClick={() => setShowTutorial(true)} className="bg-yellow-100 text-yellow-700 px-3 md:px-4 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-yellow-300 hover:bg-yellow-200 transition-colors shadow-sm"><i className="fas fa-question-circle"></i></button>
-                            <div className={`px-3 md:px-5 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 whitespace-nowrap shadow-sm ${((levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10)) - moves) <= 2 ? 'bg-red-100 text-red-800 border-red-300 animate-pulse' : 'bg-blue-100 text-blue-800 border-blue-200'}`}>
-                                เหลือย้ายได้: <span className={`text-base md:text-lg ml-1 ${((levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10)) - moves) <= 2 ? 'text-red-600' : 'text-blue-600'}`}>{Math.max(0, (levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10)) - moves)}</span>
-                                <span className="hidden md:inline ml-1 font-bold"> ครั้ง</span>
-                            </div>
                             <button onClick={handleRestart} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all shadow-[0_4px_0_#b91c1c]"><i className="fas fa-sync-alt"></i></button>
                         </div>
                     </div>
