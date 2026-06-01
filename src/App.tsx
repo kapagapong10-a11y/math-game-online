@@ -1344,24 +1344,26 @@ eng.handleFractionDivision = (targetCard) => {
             let fractionTerm = findFractionTerm(mainList, parentFracId);
             if (!fractionTerm) return;
 
-            // 🚀 1. จัดการเครื่องหมายลบก่อน (ลบตัดลบ หรือดันลบขึ้นบน)
-            let numTerm = (fractionTerm.children.length === 1) ? fractionTerm.children[0] : null;
-            let denTerm = (fractionTerm.denominator.type === 'term') ? fractionTerm.denominator : (fractionTerm.denominator.children?.length === 1 ? fractionTerm.denominator.children[0] : null);
+            let isTargetNumerator = targetCard.closest('.numerator-container') !== null;
+            let isTargetDenominator = targetCard.closest('.denominator-container') !== null;
 
-            if (numTerm && denTerm) {
-                let nCoef = parseInt(numTerm.value) || (numTerm.value.startsWith('-') ? -1 : 1);
-                let dCoef = parseInt(denTerm.value) || (denTerm.value.startsWith('-') ? -1 : 1);
-                
-                if (nCoef < 0 && dCoef < 0) {
+            // ค้นหา Object ใน State ที่จะแก้เครื่องหมาย
+            let childIdx = targetCard.dataset.childIdx !== undefined ? parseInt(targetCard.dataset.childIdx) : 0;
+            let targetNumTerm = fractionTerm.children[childIdx] || fractionTerm.children[0];
+            let targetDenTerm = (fractionTerm.denominator.type === 'term') ? fractionTerm.denominator : (fractionTerm.denominator.children ? fractionTerm.denominator.children[0] : null);
+
+            // 🚀 1. จัดการเครื่องหมายลบก่อน (ลบตัดลบ หรือดันลบขึ้นบน)
+            if (targetNumTerm && targetDenTerm) {
+                if (nVal < 0 && dVal < 0) {
                     eng.playTone('combine');
-                    numTerm.value = numTerm.value.replace('-', '');
-                    denTerm.value = denTerm.value.replace('-', '');
+                    targetNumTerm.value = targetNumTerm.value.replace('-', '');
+                    targetDenTerm.value = targetDenTerm.value.replace('-', '');
                     eng.incrementMove(); eng.commitState();
                     return;
-                } else if (dCoef < 0 && nCoef > 0) {
+                } else if (dVal < 0 && nVal > 0) {
                     eng.playTone('combine');
-                    numTerm.value = '-' + numTerm.value;
-                    denTerm.value = denTerm.value.replace('-', '');
+                    targetNumTerm.value = '-' + targetNumTerm.value.replace('-', '');
+                    targetDenTerm.value = targetDenTerm.value.replace('-', '');
                     eng.incrementMove(); eng.commitState();
                     return;
                 }
@@ -1369,27 +1371,6 @@ eng.handleFractionDivision = (targetCard) => {
 
             // 🚀 2. ถ้าเครื่องหมายปกติแล้ว ค่อยมาเช็คว่ามีตัวหารร่วมไหม
             if (common === 1 && Math.abs(dVal) !== 1) { eng.showPopup("ตัดทอนไม่ได้ครับ ไม่มีตัวหารร่วม"); eng.shakeElement(targetCard); return; }
-
-            // 🚀 จัดการเครื่องหมายลบก่อน (ลบตัดลบ หรือดันลบขึ้นบน) โดยไม่สนว่า ห.ร.ม. จะเป็น 1 หรือไม่
-            if (nVal < 0 && dVal < 0) {
-                eng.playTone('combine');
-                fractionTerm.children = [{ type: 'term', value: Math.abs(nVal).toString(), id: eng.generateId() }];
-                fractionTerm.denominator = { type: 'term', value: Math.abs(dVal).toString(), id: eng.generateId() };
-                eng.saveState();
-                return;
-            } else if (dVal < 0 && nVal > 0) {
-                eng.playTone('combine');
-                fractionTerm.children = [{ type: 'term', value: (-nVal).toString(), id: eng.generateId() }];
-                fractionTerm.denominator = { type: 'term', value: Math.abs(dVal).toString(), id: eng.generateId() };
-                eng.saveState();
-                return;
-            }
-
-            // ถ้าเครื่องหมายปกติแล้ว ค่อยมาเช็คว่ามีตัวหารร่วมไหม
-            if (common === 1 && Math.abs(dVal) !== 1) { eng.showPopup("ตัดทอนไม่ได้ครับ ไม่มีตัวหารร่วม"); eng.shakeElement(targetCard); return; }
-
-            let isTargetNumerator = targetCard.closest('.numerator-container') !== null;
-            let isTargetDenominator = targetCard.closest('.denominator-container') !== null;
 
             if (isTargetNumerator) {
                 let isPolynomial = fractionTerm.children.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'));
@@ -1425,10 +1406,6 @@ eng.handleFractionDivision = (targetCard) => {
                     let newNumValCalc = (Math.abs(nVal) / common) * resultSign;
                     let newSourceVal = Math.abs(dVal) / common;
 
-                    let childIdx = parseInt(targetCard.dataset.childIdx);
-                    let targetNumTerm = fractionTerm.children[childIdx];
-                    if (!targetNumTerm) return;
-                    
                     let numVarMatch = targetNumTerm.value.match(/[a-zA-Z]+/);
                     targetNumTerm.value = newNumValCalc + (numVarMatch ? numVarMatch[0] : "");
                     
@@ -1437,8 +1414,7 @@ eng.handleFractionDivision = (targetCard) => {
                 }
             } else if (isTargetDenominator) {
                 let newDenomVal = Math.abs(nVal) / common;
-                if (fractionTerm.denominator.type === 'term') fractionTerm.denominator.value = newDenomVal.toString();
-                else if (fractionTerm.denominator.children) fractionTerm.denominator.children[0].value = newDenomVal.toString();
+                targetDenTerm.value = newDenomVal.toString();
                 
                 let newSourceVal = Math.abs(dVal) / common;
                 if (dVal < 0) newSourceVal = -newSourceVal;
