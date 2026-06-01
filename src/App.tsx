@@ -1442,8 +1442,8 @@ eng.handleFractionDivision = (targetCard) => {
                     if(pg && endX && endY && eng.dragSrc.hasMoved) {
                         let rect = pg.getBoundingClientRect(), midX = rect.left + rect.width/2;
                         let isGlobalMove = (role === 'term' || role === 'denominator' || role === 'whole-fraction');
-                        let currentSide = eng.dragSrc.side || (eng.dragSrc.list === eng.localGameState.lhs ? 'lhs' : (eng.dragSrc.list === eng.localGameState.rhs ? 'rhs' : null));
-                       let crossRight = currentSide === 'lhs' && endX > midX + 30, crossLeft = currentSide === 'rhs' && endX < midX - 30;
+                        let currentSide = eng.dragSrc.side || eng.dragSrc.el.closest('[data-side]')?.dataset.side || (eng.dragSrc.list === eng.localGameState.lhs ? 'lhs' : (eng.dragSrc.list === eng.localGameState.rhs ? 'rhs' : null));
+                        let crossRight = currentSide === 'lhs' && endX > midX + 30, crossLeft = currentSide === 'rhs' && endX < midX - 30;
 
                             if (crossRight || crossLeft) {
                                 let isMainList = (eng.dragSrc.list === eng.localGameState.lhs || eng.dragSrc.list === eng.localGameState.rhs);
