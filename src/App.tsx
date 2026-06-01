@@ -2126,12 +2126,11 @@ eng.handleFractionDivision = (targetCard) => {
                         <button onClick={() => setView('menu')} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 md:px-6 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all flex items-center shadow-sm">
                             <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
                         </button>
-                        <div className="flex flex-col items-center justify-center">
-                            <div className="text-sm md:text-xl font-black text-blue-700 truncate px-4 tracking-wide uppercase drop-shadow-sm">Map {mapId} - Level {levelId}</div>
-                            <div className="bg-red-100 text-red-600 px-4 py-0.5 rounded-full font-bold text-xs md:text-sm border-2 border-red-200 mt-1 shadow-sm">
-                                เหลือ {Math.max(0, (levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10)) - moves)} ครั้ง
+                           <div className="flex flex-col items-center justify-center">
+                            <div className="text-sm md:text-xl font-black text-orange-500 truncate px-4 tracking-wide uppercase drop-shadow-sm">
+                                <i className="fas fa-flask mr-2"></i>โหมดฝึกฝน (Sandbox)
                             </div>
-                        </div>
+                            </div>
                         <div className="flex items-center gap-2 md:gap-3">
                             <button onClick={() => setShowTutorial(true)} className="bg-yellow-100 text-yellow-700 px-3 md:px-4 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-yellow-300 hover:bg-yellow-200 transition-colors shadow-sm"><i className="fas fa-question-circle"></i></button>
                             <button onClick={handleRestart} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all shadow-[0_4px_0_#b91c1c]"><i className="fas fa-sync-alt"></i></button>
