@@ -1344,6 +1344,32 @@ eng.handleFractionDivision = (targetCard) => {
             let fractionTerm = findFractionTerm(mainList, parentFracId);
             if (!fractionTerm) return;
 
+            // 🚀 1. จัดการเครื่องหมายลบก่อน (ลบตัดลบ หรือดันลบขึ้นบน)
+            let numTerm = (fractionTerm.children.length === 1) ? fractionTerm.children[0] : null;
+            let denTerm = (fractionTerm.denominator.type === 'term') ? fractionTerm.denominator : (fractionTerm.denominator.children?.length === 1 ? fractionTerm.denominator.children[0] : null);
+
+            if (numTerm && denTerm) {
+                let nCoef = parseInt(numTerm.value) || (numTerm.value.startsWith('-') ? -1 : 1);
+                let dCoef = parseInt(denTerm.value) || (denTerm.value.startsWith('-') ? -1 : 1);
+                
+                if (nCoef < 0 && dCoef < 0) {
+                    eng.playTone('combine');
+                    numTerm.value = numTerm.value.replace('-', '');
+                    denTerm.value = denTerm.value.replace('-', '');
+                    eng.incrementMove(); eng.commitState();
+                    return;
+                } else if (dCoef < 0 && nCoef > 0) {
+                    eng.playTone('combine');
+                    numTerm.value = '-' + numTerm.value;
+                    denTerm.value = denTerm.value.replace('-', '');
+                    eng.incrementMove(); eng.commitState();
+                    return;
+                }
+            }
+
+            // 🚀 2. ถ้าเครื่องหมายปกติแล้ว ค่อยมาเช็คว่ามีตัวหารร่วมไหม
+            if (common === 1 && Math.abs(dVal) !== 1) { eng.showPopup("ตัดทอนไม่ได้ครับ ไม่มีตัวหารร่วม"); eng.shakeElement(targetCard); return; }
+
             // 🚀 จัดการเครื่องหมายลบก่อน (ลบตัดลบ หรือดันลบขึ้นบน) โดยไม่สนว่า ห.ร.ม. จะเป็น 1 หรือไม่
             if (nVal < 0 && dVal < 0) {
                 eng.playTone('combine');
