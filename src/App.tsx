@@ -38,7 +38,16 @@ export default function MathGameApp() {
     const [userData, setUserData] = useState(null);
     const [view, setView] = useState('login');
     const [isLandscape, setIsLandscape] = useState(true);
-    const [isCheckingAuth, setIsCheckingAuth] = useState(true); // 🚀 เพิ่ม State โหลดดิ้งตอนเปิดแอป
+    const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+    const [appProgress, setAppProgress] = useState(0); // 🚀 เพิ่ม State สำหรับวิ่ง %
+    
+    // 🚀 ให้ % วิ่งขึ้นอัตโนมัติระหว่างที่รอ Firebase ตรวจสอบ
+    useEffect(() => {
+        if (isCheckingAuth) {
+            const timer = setInterval(() => setAppProgress(p => p < 99 ? p + 2 : 99), 30);
+            return () => clearInterval(timer);
+        }
+    }, [isCheckingAuth]);
     
     const [selectedMap, setSelectedMap] = useState(1);
     const [selectedLevel, setSelectedLevel] = useState(1);
@@ -158,15 +167,21 @@ if (!isLandscape) {
     );
 }
 
-// 🚀 กรณี 1.2: แสดงหน้าจอโหลดดิ้งตอนเปิดแอป แทนที่จะกระพริบหน้า Login
+// 🚀 กรณี 1.2: โหลดดิ้งแบบคลาสสิก (ตอนเปิดแอปครั้งแรก)
 if (isCheckingAuth) {
+    const bgStyle = globalSettings?.loginBgUrl ? { backgroundImage: `url(${globalSettings.loginBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {};
     return (
-        <div className="flex h-screen items-center justify-center p-2 bg-gradient-to-br from-blue-300 to-indigo-500 font-['Kanit'] relative overflow-hidden">
-            <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-            <div className="bg-white/95 backdrop-blur-md p-10 rounded-[2.5rem] shadow-[0_15px_40px_rgba(0,0,0,0.2)] border-4 border-white text-center flex flex-col items-center z-10 animate-[zoomInCenter_0.3s_ease-out]">
-                <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin mb-6"></div>
-                <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-2">สมาร์ทแมท AI</h1>
-                <p className="text-gray-500 font-bold animate-pulse text-sm md:text-base">กำลังตรวจสอบข้อมูลผู้เล่น...</p>
+        <div className="flex h-screen items-end justify-center pb-16 md:pb-24 relative bg-gray-900 font-['Kanit']" style={bgStyle}>
+            {/* พื้นหลังดำโปร่งแสงบางๆ เพื่อให้ตัวอักษรสีขาวและหลอดโหลดโดดเด่นขึ้น */}
+            <div className="absolute inset-0 bg-black/30"></div> 
+            
+            <div className="relative z-10 w-full max-w-lg px-8 text-center flex flex-col items-center">
+                <div className="text-white font-black text-xl md:text-2xl mb-3 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] tracking-widest">
+                    LOADING... {appProgress}%
+                </div>
+                <div className="w-full h-2 md:h-3 bg-black/60 rounded-full border border-white/40 overflow-hidden shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+                    <div className="h-full bg-white transition-all duration-75 ease-out rounded-full" style={{ width: `${appProgress}%` }}></div>
+                </div>
             </div>
         </div>
     );
@@ -211,7 +226,16 @@ function LoginScreen({ globalSettings }) {
     const [password, setPassword] = useState('');
     const [isLogin, setIsLogin] = useState(true);
     const [error, setError] = useState('');
-    const [isLoggingIn, setIsLoggingIn] = useState(false); // 🚀 State จับสถานะตอนกดปุ่มล็อคอิน
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const [loginProgress, setLoginProgress] = useState(0); // 🚀 เพิ่ม State สำหรับวิ่ง % ตอนกดล็อคอิน
+    
+    useEffect(() => {
+        if (isLoggingIn) {
+            setLoginProgress(0); // รีเซ็ตเป็น 0 ทุกครั้งที่กด
+            const timer = setInterval(() => setLoginProgress(p => p < 99 ? p + 3 : 99), 40);
+            return () => clearInterval(timer);
+        }
+    }, [isLoggingIn]);
     
     const bgStyle = globalSettings?.loginBgUrl ? { backgroundImage: `url(${globalSettings.loginBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {};
     
@@ -230,15 +254,19 @@ function LoginScreen({ globalSettings }) {
         }
     };
 
-    // 🚀 กรณี 1.1: แสดงหน้าโหลดดิ้งแทนฟอร์มล็อคอิน ขณะกำลังประมวลผล
+   // 🚀 กรณี 1.1: โหลดดิ้งแบบคลาสสิก (ตอนกดปุ่มเข้าสู่ระบบ)
     if (isLoggingIn) {
         return (
-            <div className="flex h-screen items-center justify-center p-2 relative" style={bgStyle}>
-                <div className="absolute inset-0 bg-blue-900/30 backdrop-blur-sm"></div>
-                <div className="bg-white/95 backdrop-blur-md p-10 rounded-[2.5rem] shadow-[0_15px_40px_rgba(0,0,0,0.2)] border-4 border-white text-center flex flex-col items-center z-10 animate-[zoomInCenter_0.3s_ease-out]">
-                    <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin mb-6"></div>
-                    <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-2">สมาร์ทแมท AI</h1>
-                    <p className="text-gray-500 font-bold animate-pulse text-sm md:text-base">กำลังนำท่านเข้าสู่ระบบ...</p>
+            <div className="flex h-screen items-end justify-center pb-16 md:pb-24 relative bg-gray-900 font-['Kanit']" style={bgStyle}>
+                <div className="absolute inset-0 bg-black/30"></div> 
+                
+                <div className="relative z-10 w-full max-w-lg px-8 text-center flex flex-col items-center">
+                    <div className="text-white font-black text-xl md:text-2xl mb-3 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] tracking-widest">
+                        LOADING... {loginProgress}%
+                    </div>
+                    <div className="w-full h-2 md:h-3 bg-black/60 rounded-full border border-white/40 overflow-hidden shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+                        <div className="h-full bg-white transition-all duration-75 ease-out rounded-full" style={{ width: `${loginProgress}%` }}></div>
+                    </div>
                 </div>
             </div>
         );
