@@ -328,104 +328,131 @@ function MenuButton({ icon, text, color, shadowColor, textColor = "text-white", 
     );
 }
 
+// ระบบแผนที่โลกแนวตั้ง (เลื่อนหาด่านล่าสุดอัตโนมัติ)
 function MapSelect({ setView, setSelectedMap, userProgress, globalSettings, allMaps }) {
-const maps = Array.from({ length: 10 }, (_, i) => i + 1);
+  const maps = Array.from({ length: 10 }, (_, i) => i + 1);
+  const [alertPopup, setAlertPopup] = useState(null); // เพิ่ม State สำหรับจัดการ Popup แจ้งเตือน
 
-const isMapUnlocked = (m) => {
+  const isMapUnlocked = (m) => {
     if (m === 1) return true;
     let prevMapStars = 0;
     for (let i = 1; i <= 10; i++) prevMapStars += (userProgress[`map${m - 1}_level${i}`]?.stars || 0);
     const reqStars = (allMaps && allMaps[m - 1]?.requiredStars !== undefined) ? allMaps[m - 1].requiredStars : 15;
     return prevMapStars >= reqStars;
-};
-    
-    // ตั้งค่าให้กล้องสไลด์ไปหาด่านสูงสุดที่ปลดล็อคแล้ว
-    const scrollRef = useRef(null);
-    useEffect(() => { 
-        // หาด่านล่าสุด
-        const highestUnlocked = [...maps].reverse().find(m => isMapUnlocked(m)) || 1;
-        const targetBtn = document.getElementById(`world-map-btn-${highestUnlocked}`);
-        
-        if (targetBtn) {
-            setTimeout(() => targetBtn.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
-        } else if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [globalSettings, userProgress]);
+  };
 
-    if (globalSettings?.worldMapBgUrl) {
-        return (
-            <div className="relative w-full h-screen bg-black overflow-y-auto overflow-x-hidden flex flex-col items-center custom-scrollbar" ref={scrollRef}>
-                <button onClick={() => setView('menu')} className="fixed top-4 left-4 md:top-6 md:left-6 bg-white/90 backdrop-blur-md text-blue-600 px-4 py-2 md:px-5 md:py-2.5 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-blue-200 z-50">
-                    <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
-                </button>
-                
-                <div className="relative w-full max-w-2xl mx-auto shadow-2xl h-max">
-                    <img src={globalSettings.worldMapBgUrl} alt="World Map" className="w-full h-auto block pointer-events-none" />
-                    <div className="absolute inset-0">
-                        {maps.map(mapNum => {
-                            const unlocked = isMapUnlocked(mapNum);
-                            const pos = globalSettings?.worldPositions ? globalSettings.worldPositions[mapNum] : null;
-                            
-                            if (pos) {
-                                return (
-                                    <button key={mapNum} id={`world-map-btn-${mapNum}`} onClick={() => { 
-                                        if(unlocked) { setSelectedMap(mapNum); setView('levelSelect'); } 
-                                        else { 
-                                            let prevMapStars = 0; 
-                                            for (let i = 1; i <= 10; i++) prevMapStars += (userProgress[`map${mapNum - 1}_level${i}`]?.stars || 0); 
-                                            const reqStars = (allMaps && allMaps[mapNum - 1]?.requiredStars !== undefined) ? allMaps[mapNum - 1].requiredStars : 15; 
-                                            alert(`ยังเข้าไม่ได้ครับ!\nต้องสะสมดาวใน MAP ${mapNum - 1} ให้ถึง ${reqStars} ดาวก่อน\n(ตอนนี้ทำได้ ${prevMapStars} / ${reqStars} ดาว)`); 
-                                        } 
-                                    }}
-                                    className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-12 h-12 md:w-24 md:h-24 rounded-full border-2 md:border-4 transition-all ${unlocked ?
-                                    'bg-gradient-to-b from-blue-400 to-blue-600 border-white shadow-[0_4px_0_#1e3a8a] md:shadow-[0_8px_0_#1e3a8a] active:translate-y-[4px] active:shadow-none cursor-pointer hover:scale-110 z-20' : 'bg-gray-500 border-gray-300 shadow-md opacity-90 cursor-pointer z-10'}`}
-                                    style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                                    >
-                                        <span className="text-[8px] md:text-xs font-bold text-blue-100 uppercase tracking-widest mb-[-2px] md:mb-[-4px]">Map</span>
-                                        <span className={`text-xl md:text-4xl font-black text-white drop-shadow-md ${!unlocked && 'opacity-50'}`}>{mapNum}</span>
-                                        {!unlocked && <div className="absolute inset-0 flex items-center justify-center bg-gray-900/40 rounded-full"><i className="fas fa-lock text-white/80 text-base md:text-3xl drop-shadow-md"></i></div>}
-                                    </button>
-                                );
-                            }
-                            return null;
-                        })}
-                    </div>
+  // ตั้งค่าให้กล้องสไลด์ไปหาด่านสูงสุดที่ปลดล็อคแล้ว
+  const scrollRef = useRef(null);
+  useEffect(() => {
+    // หาด่านล่าสุด
+    const highestUnlocked = [...maps].reverse().find(m => isMapUnlocked(m)) || 1;
+    const targetBtn = document.getElementById(`world-map-btn-${highestUnlocked}`);
+
+    if (targetBtn) {
+      setTimeout(() => targetBtn.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+    } else if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [globalSettings, userProgress]);
+
+  // ฟังก์ชันจัดการตอนผู้เล่นกดเข้า Map
+  const handleMapClick = (mapNum, unlocked) => {
+    if (unlocked) {
+      setSelectedMap(mapNum);
+      setView('levelSelect');
+    } else {
+      let prevMapStars = 0;
+      for (let i = 1; i <= 10; i++) prevMapStars += (userProgress[`map${mapNum - 1}_level${i}`]?.stars || 0);
+      const reqStars = (allMaps && allMaps[mapNum - 1]?.requiredStars !== undefined) ? allMaps[mapNum - 1].requiredStars : 15;
+      // เปิด Popup แทน alert() เดิม
+      setAlertPopup({ mapNum: mapNum - 1, current: prevMapStars, required: reqStars });
+    }
+  };
+
+  // UI ของ Popup แจ้งเตือน (สวยงามเข้ากับธีม)
+  const AlertModal = () => alertPopup && (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[9999] p-4 animate-[zoomInCenter_0.3s_ease-out]">
+        <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-4 border-blue-400 text-center max-w-sm w-full relative">
+            <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-blue-500 w-20 h-20 rounded-full flex items-center justify-center border-4 border-white shadow-lg">
+                <i className="fas fa-lock text-3xl text-white"></i>
+            </div>
+            <h2 className="text-2xl md:text-3xl font-black text-gray-800 mt-6 mb-2">ยังเข้าไม่ได้ครับ!</h2>
+            <p className="text-gray-500 font-bold mb-4 text-sm md:text-base">ต้องสะสมดาวใน MAP {alertPopup.mapNum} ให้ครบก่อน</p>
+            <div className="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-4 mb-6">
+                <div className="text-yellow-600 font-black text-2xl md:text-3xl flex items-center justify-center gap-2">
+                    <i className="fas fa-star text-yellow-400 drop-shadow-md animate-pulse"></i> {alertPopup.current} / {alertPopup.required}
                 </div>
             </div>
-        );
-    }
-
-    return (
-        <div className="p-4 md:p-8 h-screen overflow-y-auto relative" ref={scrollRef}>
-            <button onClick={() => setView('menu')} className="absolute top-4 left-4 bg-white text-blue-600 px-4 py-2 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-blue-200 z-10"><i className="fas fa-chevron-left mr-2"></i> กลับ</button>
-            <div className="mt-14 mb-8 text-center">
-                <h1 className="text-4xl font-black text-white drop-shadow-md inline-block px-10 py-3 bg-blue-500 rounded-full border-4 border-white">เลือกแผนที่</h1>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 max-w-5xl mx-auto pb-10 px-2">
-                {maps.map(mapNum => {
-                    const unlocked = isMapUnlocked(mapNum);
-                    return (
-                        <button key={mapNum} id={`world-map-btn-${mapNum}`} onClick={() => { 
-                                if(unlocked) { setSelectedMap(mapNum); setView('levelSelect'); } 
-                                else { 
-                                    let prevMapStars = 0; 
-                                    for (let i = 1; i <= 10; i++) prevMapStars += (userProgress[`map${mapNum - 1}_level${i}`]?.stars || 0); 
-                                    const reqStars = (allMaps && allMaps[mapNum - 1]?.requiredStars !== undefined) ? allMaps[mapNum - 1].requiredStars : 15; 
-                                    alert(`ยังเข้าไม่ได้ครับ!\nต้องสะสมดาวใน MAP ${mapNum - 1} ให้ถึง ${reqStars} ดาวก่อน\n(ตอนนี้ทำได้ ${prevMapStars} / ${reqStars} ดาว)`); 
-                                } 
-                            }}
-                            className={`relative flex flex-col items-center justify-center h-28 rounded-[2rem] border-4 transition-all ${unlocked ?
-                            'bg-gradient-to-b from-blue-100 to-white border-blue-400 shadow-[0_6px_0_#60a5fa] active:translate-y-[6px] active:shadow-none cursor-pointer' : 'bg-gray-300 border-gray-400 shadow-sm opacity-90 cursor-pointer'}`}>
-                            <span className="text-sm font-bold text-blue-500 uppercase tracking-widest mb-1">Map</span>
-                            <span className={`text-4xl font-black ${unlocked ? 'text-blue-700' : 'text-gray-400'}`}>{mapNum}</span>
-                            {!unlocked && <div className="absolute inset-0 bg-black/5 rounded-[1.75rem] flex items-center justify-center"><i className="fas fa-lock text-gray-500/50 text-3xl"></i></div>}
-                        </button>
-                    )
-                })}
-            </div>
+            <button onClick={() => setAlertPopup(null)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-3 rounded-full text-lg shadow-[0_4px_0_#1d4ed8] active:translate-y-[4px] active:shadow-none transition-all tracking-wide">
+                ตกลง
+            </button>
         </div>
+    </div>
+  );
+
+  if (globalSettings?.worldMapBgUrl) {
+    return (
+      <div className="relative w-full h-screen bg-black overflow-y-auto overflow-x-hidden flex flex-col items-center custom-scrollbar" ref={scrollRef}>
+        <button onClick={() => setView('menu')} className="fixed top-4 left-4 md:top-6 md:left-6 bg-white/90 backdrop-blur-md text-blue-600 px-4 py-2 md:px-5 md:py-2.5 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-blue-200 z-50">
+          <i className="fas fa-chevron-left mr-1 md:mr-2"></i> กลับ
+        </button>
+
+        <div className="relative w-full max-w-2xl mx-auto shadow-2xl h-max">
+          <img src={globalSettings.worldMapBgUrl} alt="World Map" className="w-full h-auto block pointer-events-none" />
+          <div className="absolute inset-0">
+            {maps.map(mapNum => {
+              const unlocked = isMapUnlocked(mapNum);
+              const pos = globalSettings?.worldPositions ? globalSettings.worldPositions[mapNum] : null;
+
+              if (pos) {
+                return (
+                  <button key={mapNum} id={`world-map-btn-${mapNum}`} onClick={() => handleMapClick(mapNum, unlocked)}
+                    className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-12 h-12 md:w-24 md:h-24 rounded-full border-2 md:border-4 transition-all ${unlocked ?
+                    'bg-gradient-to-b from-blue-400 to-blue-600 border-white shadow-[0_4px_0_#1e3a8a] md:shadow-[0_8px_0_#1e3a8a] active:translate-y-[4px] active:shadow-none cursor-pointer hover:scale-110 z-20' : 'bg-gray-500 border-gray-300 shadow-md opacity-90 cursor-pointer z-10'}`}
+                    style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                  >
+                    <span className="text-[8px] md:text-xs font-bold text-blue-100 uppercase tracking-widest mb-[-2px] md:mb-[-4px]">Map</span>
+                    <span className={`text-xl md:text-4xl font-black text-white drop-shadow-md ${!unlocked && 'opacity-50'}`}>{mapNum}</span>
+                    {!unlocked && <div className="absolute inset-0 flex items-center justify-center bg-gray-900/40 rounded-full"><i className="fas fa-lock text-white/80 text-base md:text-3xl drop-shadow-md"></i></div>}
+                  </button>
+                );
+              }
+              return null;
+            })}
+          </div>
+        </div>
+        
+        {/* เรียกใช้ Popup ตรงนี้ */}
+        {AlertModal()} 
+      </div>
     );
+  }
+
+  return (
+    <div className="p-4 md:p-8 h-screen overflow-y-auto relative" ref={scrollRef}>
+      <button onClick={() => setView('menu')} className="absolute top-4 left-4 bg-white text-blue-600 px-4 py-2 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-blue-200 z-10"><i className="fas fa-chevron-left mr-2"></i> กลับ</button>
+      <div className="mt-14 mb-8 text-center">
+        <h1 className="text-4xl font-black text-white drop-shadow-md inline-block px-10 py-3 bg-blue-500 rounded-full border-4 border-white">เลือกแผนที่</h1>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 max-w-5xl mx-auto pb-10 px-2">
+        {maps.map(mapNum => {
+          const unlocked = isMapUnlocked(mapNum);
+          return (
+            <button key={mapNum} id={`world-map-btn-${mapNum}`} onClick={() => handleMapClick(mapNum, unlocked)}
+              className={`relative flex flex-col items-center justify-center h-28 rounded-[2rem] border-4 transition-all ${unlocked ?
+              'bg-gradient-to-b from-blue-100 to-white border-blue-400 shadow-[0_6px_0_#60a5fa] active:translate-y-[6px] active:shadow-none cursor-pointer' : 'bg-gray-300 border-gray-400 shadow-sm opacity-90 cursor-pointer'}`}>
+              <span className="text-sm font-bold text-blue-500 uppercase tracking-widest mb-1">Map</span>
+              <span className={`text-4xl font-black ${unlocked ? 'text-blue-700' : 'text-gray-400'}`}>{mapNum}</span>
+              {!unlocked && <div className="absolute inset-0 bg-black/5 rounded-[1.75rem] flex items-center justify-center"><i className="fas fa-lock text-gray-500/50 text-3xl"></i></div>}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* เรียกใช้ Popup ตรงนี้เหมือนกัน */}
+      {AlertModal()}
+    </div>
+  );
 }
 
 // แผนที่ระดับ Level
