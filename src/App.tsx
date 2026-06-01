@@ -1260,7 +1260,9 @@ box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.15); }
 
         // RESTORED SIMPLIFY LIST
 eng.simplifyList = (list) => {
+    // 🧹 กวาดรอบแรก: ลบ + ที่อยู่หน้าสุด
     while (list.length > 0 && list[0].type === 'op' && list[0].value === '+') list.shift();
+    
     for (let i = 0; i < list.length; i++) {
         let term = list[i];
         if (term.type === 'group') eng.simplifyList(term.children);
@@ -1292,17 +1294,14 @@ eng.simplifyList = (list) => {
                 else if (i === 1 && list[0].type === 'op' && list[0].value === '-') { 
                     list.shift(); term.value = term.value.substring(1); i--; 
                 }
-                // 🚀 กฎที่เพิ่มเข้ามา: ถ้าพจน์ติดลบโดนดันไปอยู่ตัวแรกสุด (i=0) ให้แยกเครื่องหมายลบออกมาเป็นก้อนใหม่
-                else if (i === 0) {
-                    term.value = term.value.substring(1);
-                    list.unshift(new eng.TermClass('op', '-'));
-                    i++;
-                }
+                // ❌ ลบกฎที่สั่งให้ฉีก - ออกจาก x ในตำแหน่งแรกสุดทิ้งไป เพื่อรักษาโครงสร้างสัมประสิทธิ์ -1
             }
             if (term.value) { let m = term.value.match(/^(-?)1([a-zA-Z]+)$/); if (m) term.value = m[1] + m[2]; }
         }
-        if (term.type === 'term' && term.value === '1') { if (i+1 < list.length && list[i+1].value === '•') { list.splice(i, 2);
-        i--; continue; } if (i > 0 && list[i-1].value === '•') { list.splice(i-1, 2); i-=2; continue; } }
+        if (term.type === 'term' && term.value === '1') { 
+            if (i+1 < list.length && list[i+1].value === '•') { list.splice(i, 2); i--; continue; } 
+            if (i > 0 && list[i-1].value === '•') { list.splice(i-1, 2); i-=2; continue; } 
+        }
         
         if (term.type === 'fraction') {
             let denVal = term.denominator.type === 'term' ? term.denominator.value : (term.denominator.type === 'group' && term.denominator.children.length === 1 && term.denominator.children[0].type === 'term' ? term.denominator.children[0].value : null);
@@ -1313,9 +1312,12 @@ eng.simplifyList = (list) => {
                 i--; 
                 continue; 
             }
-            // 🛑 โค้ดดึงเครื่องหมายลบอัตโนมัติถูกหั่นทิ้งไปแล้ว
-            // ตอนนี้เศษส่วนจะแสดงผลตรงไปตรงมาตามโจทย์ตั้งต้นเป๊ะๆ
         }
+    }
+    
+    // 🧹 กวาดรอบสอง: เก็บตกเครื่องหมาย + ที่เพิ่งถูกสร้างขึ้นมาใหม่และดันไปอยู่หน้าสุด
+    while (list.length > 0 && list[0].type === 'op' && list[0].value === '+') {
+        list.shift();
     }
 };
 
