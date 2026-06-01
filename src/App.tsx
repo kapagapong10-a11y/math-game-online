@@ -1291,16 +1291,18 @@ eng.simplifyList = (list) => {
 
 eng.createTermElement = (term, side, list, idx, depth) => {
     let wrapper = document.createElement('div'); wrapper.className = 'term-container'; wrapper.dataset.idx = idx; wrapper.dataset.side = side;
-    if (term.animatePop) { wrapper.classList.add('animate-flip-pop'); delete term.animatePop; }
     if (term.type === 'op') {
         let card = document.createElement('div'); card.className = 'term-card is-operator'; card.innerText = term.value;
         if (term.value === '•') { makeDoubleTap(card, () => { eng.combineSplitTerm(term, list, idx); }); }
-        else if (term.value === '-' && idx < list.length - 1 && (list[idx+1].type === 'group' || list[idx+1].type === 'fraction')) { card.classList.add('draggable-negative');
-        eng.setupDrag(card, term, side, list, idx, 'distribute-negative'); }
+        // ✨ โค้ดใหม่: ทำให้ + และ - ที่อยู่หน้าวงเล็บ/เศษส่วน ลากได้
+        else if ((term.value === '+' || term.value === '-') && idx < list.length - 1 && (list[idx+1].type === 'group' || list[idx+1].type === 'fraction')) { 
+            card.style.cursor = 'grab'; card.style.fontWeight = 'bold';
+            card.style.color = term.value === '-' ? '#e53e3e' : '#38a169'; // สีแดงสำหรับลบ, เขียวสำหรับบวก
+            eng.setupDrag(card, term, side, list, idx, 'distribute-operator'); 
+        }
         wrapper.appendChild(card);
     } else if (term.type === 'group') {
-        let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ?
-        ['[', ']'] : ['{', '}'];
+        let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}'];
         let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
         wrapper.appendChild(lB); term.children.forEach((c, i) => wrapper.appendChild(eng.createTermElement(c, side, term.children, i, depth + 1))); wrapper.appendChild(rB);
         eng.setupDrag(wrapper, term, side, list, idx, 'group'); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
@@ -1326,9 +1328,7 @@ eng.createChildTermElement = (child, list, childIdx, parentId, context, side, pa
     let el;
     if (child.type === 'group') {
         el = document.createElement('div'); el.className = 'term-container inline-flex items-center mx-1';
-        let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ?
-        ['[', ']'] : ['{', '}']; let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; let rB = document.createElement('div');
-        rB.innerText = br[1]; rB.className = 'group-bracket';
+        let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}']; let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
         el.appendChild(lB); child.children.forEach((gc, i) => el.appendChild(eng.createChildTermElement(gc, child.children, i, parentId, context, side, parentFracTerm, mainList, mainIdx, depth + 1))); el.appendChild(rB);
         if(list) eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context);
     } else {
@@ -1337,19 +1337,20 @@ eng.createChildTermElement = (child, list, childIdx, parentId, context, side, pa
         if(child.type === 'op') {
             el.className = 'term-card is-operator mx-1'; el.innerText = child.value;
             if(child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); }); }
-            else if (child.value === '-' && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { el.classList.add('draggable-negative');
-            eng.setupDrag(el, child, side, list, childIdx, 'distribute-negative', parentFracTerm, mainList, mainIdx, context); }
+            // ✨ โค้ดใหม่: ทำให้ + และ - ในเศษส่วนลากได้เช่นกัน
+            else if ((child.value === '+' || child.value === '-') && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { 
+                el.style.cursor = 'grab'; el.style.fontWeight = 'bold';
+                el.style.color = child.value === '-' ? '#e53e3e' : '#38a169';
+                eng.setupDrag(el, child, side, list, childIdx, 'distribute-operator', parentFracTerm, mainList, mainIdx, context); 
+            }
         } else {
             el.className = (child.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number') + ' px-1 py-1 min-w-[20px] ' + context + '-term';
             el.innerText = child.value; el.dataset.parentFracId = parentId;
             if(list) el.dataset.childIdx = childIdx;
-            if (context === 'denominator' && !list) { el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, null, mainList, mainIdx, 'denominator', null, null, null, context);
-            }
-            else if(list) { makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); });
-            eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); }
+            if (context === 'denominator' && !list) { el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, null, mainList, mainIdx, 'denominator', null, null, null, context); }
+            else if(list) { makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); }); eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); }
         }
     }
-    if (child.animatePop && el) { el.classList.add('animate-flip-pop'); delete child.animatePop; }
     if (el && list) el.dataset.side = side;
     return el;
 };
@@ -1681,7 +1682,38 @@ eng.handleFractionDivision = (targetCard) => {
             let srcTerm = eng.dragSrc.term, targetTerm = list[targetIdx];
             if (!targetTerm) return;
             let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
-
+            // 🎯 ฟีเจอร์ใหม่: ลากเครื่องหมาย + หรือ - ไปใส่ วงเล็บ หรือ เศษส่วน เพื่อกระจายและสลายร่าง
+    if (srcTerm.type === 'op' && (srcTerm.value === '+' || srcTerm.value === '-') && (targetTerm.type === 'group' || targetTerm.type === 'fraction')) {
+        if (max - min === 1 && eng.dragSrc.idx < targetIdx) { // ลากจากซ้ายไปขวา และอยู่ติดกัน
+            if (eng.isBoundByMultiply(list, targetIdx)) {
+                eng.showPopup("ติดตัวคูณอยู่ครับ ต้องเอาตัวเลขเข้าไปคูณก่อน");
+                eng.shakeElement(targetWrapper);
+                return;
+            }
+            let multiplier = srcTerm.value === '-' ? -1 : 1;
+            
+            if (targetTerm.type === 'group') {
+                // 1. นำเครื่องหมายกระจายเข้าไปกลับหน้าลูกๆ ในวงเล็บ
+                let newChildren = eng.multiplyTerms(targetTerm.children, multiplier);
+                // 2. สลายวงเล็บ นำลูกๆ ออกมาเรียง และลบเครื่องหมายตัวต้นทางทิ้ง
+                list.splice(eng.dragSrc.idx, 2, ...newChildren);
+                // 3. Safety net: ถ้าสลายแล้วไปติดกับตัวเลขข้างหน้าโดยไม่มีเครื่องหมายคั่น ให้ระบบเติม + เข้าไปเชื่อมชั่วคราว
+                if (eng.dragSrc.idx > 0 && list[eng.dragSrc.idx - 1].type !== 'op') {
+                    list.splice(eng.dragSrc.idx, 0, new eng.TermClass('op', '+'));
+                }
+                eng.incrementMove(); eng.commitState(); eng.playTone('pop'); return;
+            } 
+            else if (targetTerm.type === 'fraction') {
+                // สำหรับเศษส่วน เรากระจายลบเข้าตัวเศษ แต่ไม่สลายเศษส่วนทิ้ง
+                targetTerm.children = eng.multiplyTerms(targetTerm.children, multiplier);
+                list.splice(eng.dragSrc.idx, 1); // ลบแค่เครื่องหมายหน้าเศษส่วนทิ้ง
+                if (eng.dragSrc.idx > 0 && list[eng.dragSrc.idx - 1].type !== 'op') {
+                    list.splice(eng.dragSrc.idx, 0, new eng.TermClass('op', '+'));
+                }
+                eng.incrementMove(); eng.commitState(); eng.playTone('pop'); return;
+            }
+        }
+    }
             // 🚀 FIX: จัดการ 3*5 ให้คูณได้ทันที โดยไม่ถูกบล็อกด้วยเครื่องหมายรอบๆ
             if (srcTerm.type === 'term' && targetTerm.type === 'term' && max - min === 2 && list[min+1].value === '•') {
                 eng.combineSplitTerm(list[min+1], list, min+1); return;
