@@ -1284,10 +1284,20 @@ eng.simplifyList = (list) => {
         if (term.type === 'term') {
             if (term.value && term.value.startsWith('+') && term.value.length > 1) term.value = term.value.substring(1);
             if (term.value && term.value.startsWith('-') && term.value.length > 1) {
-                if (i > 0 && list[i-1].type === 'op') { let op = list[i-1];
-                if (op.value === '+') { op.value = '-'; term.value = term.value.substring(1);
-                } else if (op.value === '-') { op.value = '+'; term.value = term.value.substring(1); } }
-                else if (i === 1 && list[0].type === 'op' && list[0].value === '-') { list.shift(); term.value = term.value.substring(1); i--; }
+                if (i > 0 && list[i-1].type === 'op') { 
+                    let op = list[i-1];
+                    if (op.value === '+') { op.value = '-'; term.value = term.value.substring(1); } 
+                    else if (op.value === '-') { op.value = '+'; term.value = term.value.substring(1); } 
+                }
+                else if (i === 1 && list[0].type === 'op' && list[0].value === '-') { 
+                    list.shift(); term.value = term.value.substring(1); i--; 
+                }
+                // 🚀 กฎที่เพิ่มเข้ามา: ถ้าพจน์ติดลบโดนดันไปอยู่ตัวแรกสุด (i=0) ให้แยกเครื่องหมายลบออกมาเป็นก้อนใหม่
+                else if (i === 0) {
+                    term.value = term.value.substring(1);
+                    list.unshift(new eng.TermClass('op', '-'));
+                    i++;
+                }
             }
             if (term.value) { let m = term.value.match(/^(-?)1([a-zA-Z]+)$/); if (m) term.value = m[1] + m[2]; }
         }
