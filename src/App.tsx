@@ -959,40 +959,50 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         historyStack: [], historyIndex: -1, internalMoveCount: 0, dragSrc: null, audioCtx: null
     });
 
-    const engineCSS = `
-        .term-container { display: inline-flex; align-items: center; margin: 0 2px; transition: all 0.2s; }
-        .term-card { display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; color: #4a5568; font-family: 'Fredoka', sans-serif; font-weight: 600; border-radius: 12px; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.08); border: 2px solid #e2e8f0; position: relative; user-select: none; }
-        .term-card.is-variable { background: #4FACFE; color: white; border-color: #00f2fe; }
-        .term-card.is-number { background: linear-gradient(to top, #fbc2eb 0%, #a6c1ee 100%); color: white; border-color: #fff; }
-        .term-card.is-operator { background: transparent; box-shadow: none; border: none; color: #718096; padding: 0 4px; min-width: auto; cursor: default; }
-        .term-card.is-operator.interactive { cursor: pointer; }
-        .term-card.is-operator.draggable-negative { cursor: grab; color: #e53e3e; font-weight: bold; }
-        .term-card:active { transform: scale(0.95); }
-        
-        .fraction-group { display: inline-flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.7); border: 2px dashed #cbd5e0; cursor: grab; margin: 0 4px; }
-        .fraction-line { width: 100%; background-color: #4a5568; margin: 4px 0; }
-        .numerator-container, .denominator-container { display: flex; align-items: center; justify-content: center; padding: 2px; }
-        
-        .group-bracket { color: #94a3b8; font-weight: 300; line-height: 0.8; font-family: 'Kanit'; cursor: default; }
-        .dragging-ghost { opacity: 0.9; position: fixed; z-index: 9999; pointer-events: none; transform: scale(1.05) rotate(2deg); box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.15); }
+const engineCSS = `
+.term-container { display: inline-flex; align-items: center; margin: 0 2px; transition: all 0.2s; }
+.term-card { display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; color: #4a5568; font-family: 'Fredoka', sans-serif; font-weight: 600;
+border-radius: 12px; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.08); border: 2px solid #e2e8f0; position: relative; user-select: none; }
+.term-card.is-variable { background: #4FACFE; color: white; border-color: #00f2fe; }
+.term-card.is-number { background: linear-gradient(to top, #fbc2eb 0%, #a6c1ee 100%); color: white; border-color: #fff; }
+.term-card.is-operator { background: transparent; box-shadow: none; border: none; color: #718096; padding: 0 4px; min-width: auto; cursor: default; }
+.term-card.is-operator.interactive { cursor: pointer; }
+.term-card.is-operator.draggable-negative { cursor: grab; color: #e53e3e; font-weight: bold; }
+.term-card:active { transform: scale(0.95); }
 
-        @media (max-width: 768px) {
-            .term-card { font-size: 1.2rem; padding: 6px 10px; min-width: 35px; border-radius: 10px; }
-            .term-card.is-operator { font-size: 1.2rem; }
-            .group-bracket { font-size: 2.2rem; transform: translateY(-2px); }
-            .fraction-group { padding: 4px 6px; border-radius: 10px; }
-            .fraction-line { height: 2px; }
-            .numerator-container, .denominator-container { min-height: 25px; min-width: 30px; }
-        }
-        @media (min-width: 769px) {
-            .term-card { font-size: 1.8rem; padding: 10px 16px; min-width: 60px; border-radius: 16px; }
-            .term-card.is-operator { font-size: 1.5rem; }
-            .group-bracket { font-size: 3.5rem; transform: translateY(-4px); }
-            .fraction-group { padding: 8px 12px; border-radius: 16px; }
-            .fraction-line { height: 3px; }
-            .numerator-container, .denominator-container { min-height: 45px; min-width: 60px; }
-        }
-    `;
+.fraction-group { display: inline-flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.7); border: 2px dashed #cbd5e0; cursor: grab; margin: 0 4px; }
+.fraction-line { width: 100%; background-color: #4a5568; margin: 4px 0; }
+.numerator-container, .denominator-container { display: flex; align-items: center; justify-content: center; padding: 2px; }
+
+.group-bracket { color: #94a3b8; font-weight: 300; line-height: 0.8; font-family: 'Kanit'; cursor: default; }
+.dragging-ghost { opacity: 0.9; position: fixed; z-index: 9999; pointer-events: none; transform: scale(1.05) rotate(2deg);
+box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.15); }
+
+/* ✨ แอนิเมชันสำหรับแนวทางที่ 2: เครื่องหมายและพจน์คณิตศาสตร์เด้งป๊อปตอนสลับเครื่องหมาย */
+.animate-flip-pop { animation: flipPopEffect 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important; }
+@keyframes flipPopEffect {
+    0% { transform: scale(1.4); filter: brightness(1.6); }
+    40% { transform: scale(0.85); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+
+@media (max-width: 768px) {
+.term-card { font-size: 1.2rem; padding: 6px 10px; min-width: 35px; border-radius: 10px; }
+.term-card.is-operator { font-size: 1.2rem; }
+.group-bracket { font-size: 2.2rem; transform: translateY(-2px); }
+.fraction-group { padding: 4px 6px; border-radius: 10px; }
+.fraction-line { height: 2px; }
+.numerator-container, .denominator-container { min-height: 25px; min-width: 30px; }
+}
+@media (min-width: 769px) {
+.term-card { font-size: 1.8rem; padding: 10px 16px; min-width: 60px; border-radius: 16px; }
+.term-card.is-operator { font-size: 1.5rem; }
+.group-bracket { font-size: 3.5rem; transform: translateY(-4px); }
+.fraction-group { padding: 8px 12px; border-radius: 16px; }
+.fraction-line { height: 3px; }
+.numerator-container, .denominator-container { min-height: 45px; min-width: 60px; }
+}
+`;
 
     const initEngine = (lhsHtmlSource, rhsHtmlSource) => {
         const eng = engineRef.current;
@@ -1183,40 +1193,84 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         };
 
         // RESTORED SIMPLIFY LIST
-        eng.simplifyList = (list) => {
-            while (list.length > 0 && list[0].type === 'op' && list[0].value === '+') list.shift();
-            for (let i = 0; i < list.length; i++) {
-                let term = list[i];
-                if (term.type === 'group') eng.simplifyList(term.children);
-                if (term.type === 'fraction') { if (term.children) eng.simplifyList(term.children); if (term.denominator && term.denominator.type === 'group') eng.simplifyList(term.denominator.children); }
-                if (i === 0 && term.type === 'op' && term.value === '+') { list.splice(i, 1); i--; continue; }
+eng.simplifyList = (list) => {
+    while (list.length > 0 && list[0].type === 'op' && list[0].value === '+') list.shift();
+    for (let i = 0; i < list.length; i++) {
+        let term = list[i];
+        if (term.type === 'group') eng.simplifyList(term.children);
+        if (term.type === 'fraction') {
+            if (term.children) eng.simplifyList(term.children);
+            if (term.denominator && term.denominator.type === 'group') eng.simplifyList(term.denominator.children);
+        }
+        if (i === 0 && term.type === 'op' && term.value === '+') { list.splice(i, 1); i--; continue; }
+
+        if (term.type === 'op' && term.value === '-' && i < list.length - 1) {
+            let nextTerm = list[i+1];
+            if (nextTerm.type === 'term' && nextTerm.value.startsWith('-')) { term.value = '+'; nextTerm.value = nextTerm.value.substring(1); }
+        }
+        if (term.type === 'op' && i < list.length - 1 && list[i+1].type === 'op') {
+            let n = list[i+1];
+            if (term.value === '-' && n.value === '-') { term.value = '+'; list.splice(i+1, 1); i--; }
+            else if (term.value === '+' && n.value === '-') { term.value = '-'; list.splice(i+1, 1); i--; }
+            else if (term.value === '-' && n.value === '+') { term.value = '-'; list.splice(i+1, 1); i--; }
+            else if (term.value === '+' && n.value === '+') { term.value = '+'; list.splice(i+1, 1); i--; }
+        }
+        if (term.type === 'term') {
+            if (term.value && term.value.startsWith('+') && term.value.length > 1) term.value = term.value.substring(1);
+            if (term.value && term.value.startsWith('-') && term.value.length > 1) {
+                if (i > 0 && list[i-1].type === 'op') { let op = list[i-1];
+                if (op.value === '+') { op.value = '-'; term.value = term.value.substring(1);
+                } else if (op.value === '-') { op.value = '+'; term.value = term.value.substring(1); } }
+                else if (i === 1 && list[0].type === 'op' && list[0].value === '-') { list.shift(); term.value = term.value.substring(1); i--; }
+            }
+            if (term.value) { let m = term.value.match(/^(-?)1([a-zA-Z]+)$/); if (m) term.value = m[1] + m[2]; }
+        }
+        if (term.type === 'term' && term.value === '1') { if (i+1 < list.length && list[i+1].value === '•') { list.splice(i, 2);
+        i--; continue; } if (i > 0 && list[i-1].value === '•') { list.splice(i-1, 2); i-=2; continue; } }
+        
+        if (term.type === 'fraction') {
+            let denVal = term.denominator.type === 'term' ? term.denominator.value : (term.denominator.type === 'group' && term.denominator.children.length === 1 && term.denominator.children[0].type === 'term' ? term.denominator.children[0].value : null);
+            if (denVal === '1') { let content = term.children; let newTerm = (content.length === 1 && content[0].type !== 'op') ?
+            content[0] : new eng.TermClass('group', null, content); list.splice(i, 1, newTerm); i--; continue; }
+
+            // --- NEW LOGIC & ANIMATION: ดึงเครื่องหมายลบออกจากตัวเศษอัตโนมัติพร้อมเสียงป๊อปสะดุดตา ---
+            if (term.children && term.children.length > 0) {
+                let num = term.children;
+                let hasLeadingNegative = false;
                 
-                if (term.type === 'op' && term.value === '-' && i < list.length - 1) {
-                    let nextTerm = list[i+1];
-                    if (nextTerm.type === 'term' && nextTerm.value.startsWith('-')) { term.value = '+'; nextTerm.value = nextTerm.value.substring(1); }
-                }
-                if (term.type === 'op' && i < list.length - 1 && list[i+1].type === 'op') { 
-                    let n = list[i+1]; 
-                    if (term.value === '-' && n.value === '-') { term.value = '+'; list.splice(i+1, 1); i--; } 
-                    else if (term.value === '+' && n.value === '-') { term.value = '-'; list.splice(i+1, 1); i--; } 
-                    else if (term.value === '-' && n.value === '+') { term.value = '-'; list.splice(i+1, 1); i--; } 
-                    else if (term.value === '+' && n.value === '+') { term.value = '+'; list.splice(i+1, 1); i--; } 
-                }
-                if (term.type === 'term') {
-                    if (term.value && term.value.startsWith('+') && term.value.length > 1) term.value = term.value.substring(1);
-                    if (term.value && term.value.startsWith('-') && term.value.length > 1) { 
-                        if (i > 0 && list[i-1].type === 'op') { let op = list[i-1]; if (op.value === '+') { op.value = '-'; term.value = term.value.substring(1); } else if (op.value === '-') { op.value = '+'; term.value = term.value.substring(1); } } 
-                        else if (i === 1 && list[0].type === 'op' && list[0].value === '-') { list.shift(); term.value = term.value.substring(1); i--; } 
+                if (num[0].type === 'op' && num[0].value === '-') hasLeadingNegative = true;
+                else if (num[0].type === 'term' && num[0].value.startsWith('-')) hasLeadingNegative = true;
+
+                if (hasLeadingNegative) {
+                    // 💥 บรรเลงเสียงเอฟเฟกต์ Pop ของเว็บบราวเซอร์ทันทีตอนเครื่องหมายเด้งแยกตัวประกอบ
+                    if (eng.playTone) eng.playTone('pop');
+
+                    // 1. นำ -1 ไปคูณกลับพจน์ในตัวเศษทั้งหมด 
+                    term.children = eng.multiplyTerms(num, -1);
+                    
+                    // 2. ฝังสถานะแอนิเมชันให้ลูกๆ ในเศษส่วนทุกตัวกระพริบเด้งตัวนูนขึ้นมา
+                    term.children.forEach(c => { c.animatePop = true; if(c.children) c.children.forEach(cc => cc.animatePop = true); });
+                    
+                    // 3. สร้างโหนดเครื่องหมายลบตัวใหม่ที่จะหลุดกระเด็นออกมาข้างหน้า และสั่งให้เล่นแอนิเมชันเด้งป๊อปด้วย
+                    let newMinusOp = new eng.TermClass('op', '-');
+                    newMinusOp.animatePop = true;
+
+                    if (i === 0) {
+                        list.splice(i, 0, newMinusOp);
+                        i++;
+                    } else if (i > 0 && list[i-1].type === 'op') {
+                        list[i-1].animatePop = true;
+                        if (list[i-1].value === '+') list[i-1].value = '-';
+                        else if (list[i-1].value === '-') list[i-1].value = '+';
                     }
-                    if (term.value) { let m = term.value.match(/^(-?)1([a-zA-Z]+)$/); if (m) term.value = m[1] + m[2]; }
-                }
-                if (term.type === 'term' && term.value === '1') { if (i+1 < list.length && list[i+1].value === '•') { list.splice(i, 2); i--; continue; } if (i > 0 && list[i-1].value === '•') { list.splice(i-1, 2); i-=2; continue; } }
-                if (term.type === 'fraction') { 
-                    let denVal = term.denominator.type === 'term' ? term.denominator.value : (term.denominator.type === 'group' && term.denominator.children.length === 1 && term.denominator.children[0].type === 'term' ? term.denominator.children[0].value : null); 
-                    if (denVal === '1') { let content = term.children; let newTerm = (content.length === 1 && content[0].type !== 'op') ? content[0] : new eng.TermClass('group', null, content); list.splice(i, 1, newTerm); i--; continue; } 
+                    
+                    eng.simplifyList(term.children); 
                 }
             }
-        };
+            // ----------------------------------------------------------------------------------
+        }
+    }
+};
 
         eng.render = () => {
             const lhsZone = document.getElementById('engine-lhs'), rhsZone = document.getElementById('engine-rhs');
@@ -1235,62 +1289,70 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             };
         };
 
-        eng.createTermElement = (term, side, list, idx, depth) => {
-            let wrapper = document.createElement('div'); wrapper.className = 'term-container'; wrapper.dataset.idx = idx; wrapper.dataset.side = side;
-            if (term.type === 'op') {
-                let card = document.createElement('div'); card.className = 'term-card is-operator'; card.innerText = term.value;
-                if (term.value === '•') { makeDoubleTap(card, () => { eng.combineSplitTerm(term, list, idx); }); } 
-                else if (term.value === '-' && idx < list.length - 1 && (list[idx+1].type === 'group' || list[idx+1].type === 'fraction')) { card.classList.add('draggable-negative'); eng.setupDrag(card, term, side, list, idx, 'distribute-negative'); }
-                wrapper.appendChild(card);
-            } else if (term.type === 'group') {
-                let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}'];
-                let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
-                wrapper.appendChild(lB); term.children.forEach((c, i) => wrapper.appendChild(eng.createTermElement(c, side, term.children, i, depth + 1))); wrapper.appendChild(rB);
-                eng.setupDrag(wrapper, term, side, list, idx, 'group'); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
-            } else if (term.type === 'fraction') {
-                let fracGroup = document.createElement('div'); fracGroup.className = 'fraction-group';
-                let numCont = document.createElement('div'); numCont.className = 'numerator-container'; numCont.dataset.parentFracId = term.id;
-                term.children.forEach((c, i) => numCont.appendChild(eng.createChildTermElement(c, term.children, i, term.id, 'numerator', side, null, null, null, depth)));
-                let line = document.createElement('div'); line.className = 'fraction-line';
-                let denCont = document.createElement('div'); denCont.className = 'denominator-container'; denCont.dataset.parentFracId = term.id;
-                if (term.denominator.type === 'group') term.denominator.children.forEach((c, i) => denCont.appendChild(eng.createChildTermElement(c, term.denominator.children, i, term.id, 'denominator', side, term, list, idx, depth)));
-                else denCont.appendChild(eng.createChildTermElement(term.denominator, null, -1, term.id, 'denominator', side, term, list, idx, depth));
-                fracGroup.append(numCont, line, denCont); 
-                makeDoubleTap(fracGroup, () => { eng.splitFraction(term, list, idx); });
-                eng.setupDrag(fracGroup, term, side, list, idx, 'whole-fraction'); wrapper.appendChild(fracGroup); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
-            } else {
-                let card = document.createElement('div'); card.className = term.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number'; card.innerText = term.value;
-                makeDoubleTap(card, () => { eng.splitTerm(term, list, idx); });
-                eng.setupDrag(card, term, side, list, idx, 'term'); wrapper.appendChild(card); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
+eng.createTermElement = (term, side, list, idx, depth) => {
+    let wrapper = document.createElement('div'); wrapper.className = 'term-container'; wrapper.dataset.idx = idx; wrapper.dataset.side = side;
+    if (term.animatePop) { wrapper.classList.add('animate-flip-pop'); delete term.animatePop; }
+    if (term.type === 'op') {
+        let card = document.createElement('div'); card.className = 'term-card is-operator'; card.innerText = term.value;
+        if (term.value === '•') { makeDoubleTap(card, () => { eng.combineSplitTerm(term, list, idx); }); }
+        else if (term.value === '-' && idx < list.length - 1 && (list[idx+1].type === 'group' || list[idx+1].type === 'fraction')) { card.classList.add('draggable-negative');
+        eng.setupDrag(card, term, side, list, idx, 'distribute-negative'); }
+        wrapper.appendChild(card);
+    } else if (term.type === 'group') {
+        let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ?
+        ['[', ']'] : ['{', '}'];
+        let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
+        wrapper.appendChild(lB); term.children.forEach((c, i) => wrapper.appendChild(eng.createTermElement(c, side, term.children, i, depth + 1))); wrapper.appendChild(rB);
+        eng.setupDrag(wrapper, term, side, list, idx, 'group'); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
+    } else if (term.type === 'fraction') {
+        let fracGroup = document.createElement('div'); fracGroup.className = 'fraction-group';
+        let numCont = document.createElement('div'); numCont.className = 'numerator-container'; numCont.dataset.parentFracId = term.id;
+        term.children.forEach((c, i) => numCont.appendChild(eng.createChildTermElement(c, term.children, i, term.id, 'numerator', side, null, null, null, depth)));
+        let line = document.createElement('div'); line.className = 'fraction-line';
+        let denCont = document.createElement('div'); denCont.className = 'denominator-container'; denCont.dataset.parentFracId = term.id;
+        if (term.denominator.type === 'group') term.denominator.children.forEach((c, i) => denCont.appendChild(eng.createChildTermElement(c, term.denominator.children, i, term.id, 'denominator', side, term, list, idx, depth)));
+        else denCont.appendChild(eng.createChildTermElement(term.denominator, null, -1, term.id, 'denominator', side, term, list, idx, depth));
+        fracGroup.append(numCont, line, denCont);
+        makeDoubleTap(fracGroup, () => { eng.splitFraction(term, list, idx); });
+        eng.setupDrag(fracGroup, term, side, list, idx, 'whole-fraction'); wrapper.appendChild(fracGroup); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
+    } else {
+        let card = document.createElement('div'); card.className = term.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number'; card.innerText = term.value;
+        makeDoubleTap(card, () => { eng.splitTerm(term, list, idx); });
+        eng.setupDrag(card, term, side, list, idx, 'term'); wrapper.appendChild(card); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
+    }
+    return wrapper;
+};
+eng.createChildTermElement = (child, list, childIdx, parentId, context, side, parentFracTerm, mainList, mainIdx, depth) => {
+    let el;
+    if (child.type === 'group') {
+        el = document.createElement('div'); el.className = 'term-container inline-flex items-center mx-1';
+        let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ?
+        ['[', ']'] : ['{', '}']; let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; let rB = document.createElement('div');
+        rB.innerText = br[1]; rB.className = 'group-bracket';
+        el.appendChild(lB); child.children.forEach((gc, i) => el.appendChild(eng.createChildTermElement(gc, child.children, i, parentId, context, side, parentFracTerm, mainList, mainIdx, depth + 1))); el.appendChild(rB);
+        if(list) eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context);
+    } else {
+        el = child.type === 'op' ? document.createElement('span') : document.createElement('div');
+        if (parentId) el.dataset.parentFracId = parentId;
+        if(child.type === 'op') {
+            el.className = 'term-card is-operator mx-1'; el.innerText = child.value;
+            if(child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); }); }
+            else if (child.value === '-' && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { el.classList.add('draggable-negative');
+            eng.setupDrag(el, child, side, list, childIdx, 'distribute-negative', parentFracTerm, mainList, mainIdx, context); }
+        } else {
+            el.className = (child.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number') + ' px-1 py-1 min-w-[20px] ' + context + '-term';
+            el.innerText = child.value; el.dataset.parentFracId = parentId;
+            if(list) el.dataset.childIdx = childIdx;
+            if (context === 'denominator' && !list) { el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, null, mainList, mainIdx, 'denominator', null, null, null, context);
             }
-            return wrapper;
-        };
-
-        eng.createChildTermElement = (child, list, childIdx, parentId, context, side, parentFracTerm, mainList, mainIdx, depth) => {
-            let el;
-            if (child.type === 'group') {
-                el = document.createElement('div'); el.className = 'term-container inline-flex items-center mx-1'; 
-                let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}']; let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
-                el.appendChild(lB); child.children.forEach((gc, i) => el.appendChild(eng.createChildTermElement(gc, child.children, i, parentId, context, side, parentFracTerm, mainList, mainIdx, depth + 1))); el.appendChild(rB);
-                if(list) eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context);
-            } else {
-                el = child.type === 'op' ? document.createElement('span') : document.createElement('div');
-                if (parentId) el.dataset.parentFracId = parentId; 
-                if(child.type === 'op') { 
-                    el.className = 'term-card is-operator mx-1'; el.innerText = child.value;
-                    if(child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); }); }
-                    else if (child.value === '-' && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { el.classList.add('draggable-negative'); eng.setupDrag(el, child, side, list, childIdx, 'distribute-negative', parentFracTerm, mainList, mainIdx, context); }
-                } else {
-                    el.className = (child.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number') + ' px-1 py-1 min-w-[20px] ' + context + '-term'; el.innerText = child.value; el.dataset.parentFracId = parentId; 
-                    if(list) el.dataset.childIdx = childIdx;
-                    if (context === 'denominator' && !list) { el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, null, mainList, mainIdx, 'denominator', null, null, null, context); } 
-                    else if(list) { makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); }); eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); }
-                }
-            }
-            if (el && list) el.dataset.side = side;
-            return el;
-        };
-
+            else if(list) { makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); });
+            eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); }
+        }
+    }
+    if (child.animatePop && el) { el.classList.add('animate-flip-pop'); delete child.animatePop; }
+    if (el && list) el.dataset.side = side;
+    return el;
+};
         const findFractionTerm = (list, id) => {
             for (let t of list) {
                 if (t.id === id && t.type === 'fraction') return t;
