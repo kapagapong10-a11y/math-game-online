@@ -178,7 +178,7 @@ export default function MathGameApp() {
 
             {view === 'login' && <LoginScreen globalSettings={globalSettings} />}
             {view === 'menu' && <MainMenu setView={setView} isAdmin={userData?.role === 'admin' || user?.email?.includes('admin')} globalSettings={globalSettings} />}
-            {view === 'mapSelect' && <MapSelect setView={setView} setSelectedMap={setSelectedMap} userProgress={userProgress} globalSettings={globalSettings} allMaps={allMaps} />}
+            {view === 'mapSelect' && <MapSelect setView={setView} setSelectedMap={setSelectedMap} userProgress={userProgress} globalSettings={globalSettings} />}
             {view === 'levelSelect' && <LevelSelect setView={setView} mapId={selectedMap} setSelectedLevel={setSelectedLevel} setLevelData={setLevelData} allLevels={allLevels} allMaps={allMaps} userProgress={userProgress} />}
             {view === 'admin' && <AdminPanel setView={setView} allLevels={allLevels} allMaps={allMaps} globalSettings={globalSettings} />}
             {view === 'leaderboard' && <Leaderboard setView={setView} leaderboard={leaderboard} />}
@@ -328,25 +328,10 @@ function MenuButton({ icon, text, color, shadowColor, textColor = "text-white", 
     );
 }
 // ระบบแผนที่โลกแนวตั้ง (เลื่อนหาด่านล่าสุดอัตโนมัติ)
-function MapSelect({ setView, setSelectedMap, userProgress, globalSettings, allMaps }) {
-  const maps = Array.from({ length: 10 }, (_, i) => i + 1);
-  
-  const getStarsInMap = (mId) => {
-    let sum = 0;
-    for (let l = 1; l <= 10; l++) {
-      sum += userProgress[`map${mId}_level${l}`]?.stars || 0;
-    }
-    return sum;
-  };
-
-  const isMapUnlocked = (m) => {
-    if (m === 1) return true;
-    const currentMapConfig = allMaps && allMaps[m];
-    if (currentMapConfig && currentMapConfig.unlockStars > 0) {
-      return getStarsInMap(m - 1) >= currentMapConfig.unlockStars;
-    }
-    return (userProgress[`map${m - 1}_level10`]?.stars || 0) > 0;
-  };
+function MapSelect({ setView, setSelectedMap, userProgress, globalSettings }) {
+    const maps = Array.from({ length: 10 }, (_, i) => i + 1);
+    const isMapUnlocked = (m) => m === 1 || (userProgress[`map${m - 1}_level10`]?.stars || 0) > 0;
+    
     // ตั้งค่าให้กล้องสไลด์ไปหาด่านสูงสุดที่ปลดล็อคแล้ว
     const scrollRef = useRef(null);
     useEffect(() => { 
@@ -973,18 +958,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
         };
 
         eng.showPopup = (msg) => { eng.playTone('error'); setPopupMessage(msg); };
-        const limit = isSandbox ? Infinity : (levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10));
-
-        eng.incrementMove = () => { 
-            eng.internalMoveCount++; 
-            setMoves(eng.internalMoveCount); 
-            if (!isSandbox && eng.internalMoveCount >= limit) {
-                setTimeout(() => {
-                    setGameState('lost');
-                    eng.playTone('error');
-                }, 400);
-            }
-        };
+        eng.incrementMove = () => { eng.internalMoveCount++; setMoves(eng.internalMoveCount); };
 
         const parseHTMLtoMath = (htmlString) => {
             if (!htmlString) return { terms: [], TermObj: null };
@@ -1445,15 +1419,7 @@ eng.handleFractionDivision = (targetCard) => {
 
         eng.executeMoveSide = () => {
             let { term, side, list, idx, role, parentFracTerm, mainList, mainIdx, sourceContext } = eng.dragSrc;
-        
-            if (sourceContext === 'numerator') {
-                eng.showPopup("ต้องกำจัดตัวส่วนก่อนครับ ถึงจะย้ายตัวเศษได้");
-                eng.incrementMove();
-                return;
-            }
-        
-            if (role === 'inner-term' && parentFracTerm && list.length === 1) { term = parentFracTerm; list = mainList; idx = mainIdx;
-            role = 'denominator'; }
+            if (role === 'inner-term' && parentFracTerm && list.length === 1) { term = parentFracTerm; list = mainList; idx = mainIdx; role = 'denominator'; }
             if (!list) return; let targetList = side === 'lhs' ? eng.localGameState.rhs : eng.localGameState.lhs;
             
             if (role === 'denominator') {
@@ -1915,11 +1881,7 @@ eng.handleFractionDivision = (targetCard) => {
                         <div className="flex items-center gap-2 md:gap-3">
                             <button onClick={() => setShowTutorial(true)} className="bg-yellow-100 text-yellow-700 px-3 md:px-4 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-yellow-300 hover:bg-yellow-200 transition-colors shadow-sm"><i className="fas fa-question-circle"></i></button>
                             <div className="bg-blue-100 text-blue-800 px-3 md:px-5 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-blue-200 whitespace-nowrap shadow-sm">
-                                {isSandbox ? (
-                                    <>ย้าย: <span className="text-base md:text-lg text-blue-600 ml-1">{moves}</span></>
-                                ) : (
-                                    <>เหลือ: <span className={`text-base md:text-lg ml-1 ${limit - moves <= 3 ? 'text-red-600 animate-pulse' : 'text-blue-600'}`}>{limit - moves}</span> ครั้ง</>
-                                )}
+                                ย้าย: <span className="text-base md:text-lg text-blue-600 ml-1">{moves}</span> <span className="hidden md:inline ml-1 text-gray-500 font-bold">/ {levelData?.parMoves || 3}</span>
                             </div>
                             <button onClick={handleRestart} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all shadow-[0_4px_0_#b91c1c]"><i className="fas fa-sync-alt"></i></button>
                         </div>
@@ -1955,20 +1917,7 @@ eng.handleFractionDivision = (targetCard) => {
                 </div>
             )}
 
-            {gameState === 'lost' && (
-                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
-                        <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-8 border-red-500 text-center max-w-lg w-full">
-                            <div className="text-6xl md:text-8xl mb-4 animate-bounce"><i className="fas fa-times-circle text-red-500"></i></div>
-                            <h2 className="text-3xl md:text-5xl font-black text-red-600 mb-2 drop-shadow-md">โธ่เอ๊ย! ไม่ผ่าน</h2>
-                            <p className="text-gray-600 text-base md:text-xl font-bold mb-8">คุณใช้สิทธิ์การย้ายสมการครบกำหนดแล้วครับ</p>
-                            <div className="flex gap-4 justify-center w-full">
-                                <button onClick={() => setView('levelSelect')} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-full text-sm md:text-lg shadow-[0_6px_0_#9ca3af] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-sign-out-alt mr-2"></i>กลับแผนที่</button>
-                                <button onClick={handleRestart} className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-black py-3 px-4 rounded-full text-sm md:text-lg shadow-[0_6px_0_#1d4ed8] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-sync-alt mr-2"></i>ลองใหม่</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                {gameState === 'won' && (
+            {gameState === 'won' && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
                     <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-8 border-green-400 text-center max-w-2xl w-full">
                         <h2 className="text-4xl md:text-6xl font-black text-green-500 mb-2 drop-shadow-md">ยอดเยี่ยม!</h2>
