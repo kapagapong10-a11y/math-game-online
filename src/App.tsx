@@ -1028,17 +1028,17 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
 
         eng.showPopup = (msg) => { eng.playTone('error'); setPopupMessage(msg); };
         eng.incrementMove = () => { 
-                eng.internalMoveCount++; 
-                setMoves(eng.internalMoveCount); 
-                
-                let limit = levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10);
-                if (!isSandbox && eng.internalMoveCount >= limit) {
-                    setTimeout(() => {
-                        eng.playTone('error');
-                        setGameState('lost');
-                    }, 500);
-                }
-            };
+            eng.internalMoveCount++; 
+            setMoves(eng.internalMoveCount); 
+            
+            let limit = levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10);
+            if (!isSandbox && eng.internalMoveCount >= limit) {
+                setTimeout(() => {
+                    eng.playTone('error');
+                    setGameState('lost');
+                }, 500);
+            }
+        };
             
         const parseHTMLtoMath = (htmlString) => {
             if (!htmlString) return { terms: [], TermObj: null };
@@ -2006,19 +2006,19 @@ eng.handleFractionDivision = (targetCard) => {
                 </div>
             )}
 
-         {gameState === 'lost' && (
-                    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
-                        <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-8 border-red-500 text-center max-w-lg w-full">
-                            <div className="text-6xl md:text-8xl mb-4"><i className="fas fa-times-circle text-red-500 drop-shadow-lg animate-bounce"></i></div>
-                            <h2 className="text-4xl md:text-5xl font-black text-red-600 mb-2 drop-shadow-md">Game Over!</h2>
-                            <p className="text-gray-600 text-lg md:text-xl font-bold mb-8">คุณย้ายสมการเกินจำนวนครั้งที่กำหนดแล้วครับ</p>
-                            <div className="flex flex-col gap-3 w-full">
-                                <button onClick={handleRestart} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-full text-xl shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-sync-alt mr-2"></i> ลองใหม่อีกครั้ง</button>
-                                <button onClick={() => setView('levelSelect')} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-4 rounded-full text-lg shadow-[0_6px_0_#d1d5db] active:translate-y-[6px] active:shadow-none transition-all mt-2">กลับไปหน้าเลือกด่าน</button>
-                            </div>
-                        </div>
+        {gameState === 'lost' && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
+                <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-8 border-red-500 text-center max-w-lg w-full">
+                    <div className="text-6xl md:text-8xl mb-4"><i className="fas fa-times-circle text-red-500 drop-shadow-lg animate-bounce"></i></div>
+                    <h2 className="text-4xl md:text-5xl font-black text-red-600 mb-2 drop-shadow-md">Game Over!</h2>
+                    <p className="text-gray-600 text-lg md:text-xl font-bold mb-8">คุณย้ายสมการเกินจำนวนครั้งที่กำหนดแล้วครับ</p>
+                    <div className="flex flex-col gap-3 w-full">
+                        <button onClick={handleRestart} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-full text-xl shadow-[0_6px_0_#c2410c] active:translate-y-[6px] active:shadow-none transition-all"><i className="fas fa-sync-alt mr-2"></i> ลองใหม่อีกครั้ง</button>
+                        <button onClick={() => setView('levelSelect')} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-4 rounded-full text-lg shadow-[0_6px_0_#d1d5db] active:translate-y-[6px] active:shadow-none transition-all mt-2">กลับไปหน้าเลือกด่าน</button>
                     </div>
-                )}
+                </div>
+            </div>
+        )}
         {gameState === 'won' && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
                     <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-8 border-green-400 text-center max-w-2xl w-full">
