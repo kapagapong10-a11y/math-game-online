@@ -1028,18 +1028,18 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
 
         eng.showPopup = (msg) => { eng.playTone('error'); setPopupMessage(msg); };
         eng.incrementMove = () => { 
-        eng.internalMoveCount++; 
-            setMoves(eng.internalMoveCount); 
+                eng.internalMoveCount++; 
+                setMoves(eng.internalMoveCount); 
+                
+                let limit = levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10);
+                if (!isSandbox && eng.internalMoveCount >= limit) {
+                    setTimeout(() => {
+                        eng.playTone('error');
+                        setGameState('lost');
+                    }, 500);
+                }
+            };
             
-            let limit = levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10);
-            if (!isSandbox && eng.internalMoveCount >= limit) {
-                setTimeout(() => {
-                    eng.playTone('error');
-                    setGameState('lost');
-                }, 500);
-            }
-        };
-
         const parseHTMLtoMath = (htmlString) => {
             if (!htmlString) return { terms: [], TermObj: null };
             const tempDiv = document.createElement('div'); tempDiv.innerHTML = htmlString;
@@ -1968,8 +1968,9 @@ eng.handleFractionDivision = (targetCard) => {
                         <div className="text-sm md:text-xl font-black text-blue-700 truncate px-4 tracking-wide uppercase drop-shadow-sm">Map {mapId} - Level {levelId}</div>
                         <div className="flex items-center gap-2 md:gap-3">
                             <button onClick={() => setShowTutorial(true)} className="bg-yellow-100 text-yellow-700 px-3 md:px-4 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-yellow-300 hover:bg-yellow-200 transition-colors shadow-sm"><i className="fas fa-question-circle"></i></button>
-                            <div className="bg-blue-100 text-blue-800 px-3 md:px-5 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 border-blue-200 whitespace-nowrap shadow-sm">
-                                ย้าย: <span className="text-base md:text-lg text-blue-600 ml-1">{moves}</span> <span className="hidden md:inline ml-1 text-gray-500 font-bold">/ {levelData?.parMoves || 3}</span>
+                            <div className={`px-3 md:px-5 py-1.5 md:py-2 rounded-full font-black text-xs md:text-sm border-2 whitespace-nowrap shadow-sm ${((levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10)) - moves) <= 2 ? 'bg-red-100 text-red-800 border-red-300 animate-pulse' : 'bg-blue-100 text-blue-800 border-blue-200'}`}>
+                                เหลือย้ายได้: <span className={`text-base md:text-lg ml-1 ${((levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10)) - moves) <= 2 ? 'text-red-600' : 'text-blue-600'}`}>{Math.max(0, (levelData?.maxMoves || (levelData?.parMoves ? levelData.parMoves + 5 : 10)) - moves)}</span>
+                                <span className="hidden md:inline ml-1 font-bold"> ครั้ง</span>
                             </div>
                             <button onClick={handleRestart} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-black text-xs md:text-sm active:translate-y-1 transition-all shadow-[0_4px_0_#b91c1c]"><i className="fas fa-sync-alt"></i></button>
                         </div>
@@ -2005,7 +2006,7 @@ eng.handleFractionDivision = (targetCard) => {
                 </div>
             )}
 
-            {gameState === 'lost' && (
+         {gameState === 'lost' && (
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
                         <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-8 border-red-500 text-center max-w-lg w-full">
                             <div className="text-6xl md:text-8xl mb-4"><i className="fas fa-times-circle text-red-500 drop-shadow-lg animate-bounce"></i></div>
@@ -2018,7 +2019,7 @@ eng.handleFractionDivision = (targetCard) => {
                         </div>
                     </div>
                 )}
-            {gameState === 'won' && (
+        {gameState === 'won' && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
                     <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-8 border-green-400 text-center max-w-2xl w-full">
                         <h2 className="text-4xl md:text-6xl font-black text-green-500 mb-2 drop-shadow-md">ยอดเยี่ยม!</h2>
