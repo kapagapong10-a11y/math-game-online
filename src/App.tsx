@@ -1245,7 +1245,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
             } else if (term.type === 'group') {
                 let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}'];
                 let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
-                wrapper.appendChild(lB); term.children.forEach((c, i) => wrapper.appendChild(eng.createTermElement(c, side, list, i, depth + 1))); wrapper.appendChild(rB);
+                wrapper.appendChild(lB); term.children.forEach((c, i) => wrapper.appendChild(eng.createTermElement(c, side, term.children, i, depth + 1))); wrapper.appendChild(rB);
                 eng.setupDrag(wrapper, term, side, list, idx, 'group'); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
             } else if (term.type === 'fraction') {
                 let fracGroup = document.createElement('div'); fracGroup.className = 'fraction-group';
@@ -1446,10 +1446,13 @@ eng.handleFractionDivision = (targetCard) => {
                         let crossRight = currentSide === 'lhs' && endX > midX + 30, crossLeft = currentSide === 'rhs' && endX < midX - 30;
 
                         if (crossRight || crossLeft) {
-                            if (isGlobalMove) {
+                            let isMainList = (eng.dragSrc.list === eng.localGameState.lhs || eng.dragSrc.list === eng.localGameState.rhs);
+                            let isValidCrossMove = (role === 'denominator' || role === 'whole-fraction' || (role === 'term' && isMainList));
+                            
+                            if (isValidCrossMove) {
                                 eng.dragSrc.side = currentSide; eng.executeMoveSide();
                             } else {
-                                eng.showPopup("ย้ายตัวนี้ข้ามฝั่งไม่ได้ครับ! ต้องจัดการตัวที่อยู่ด้านนอก (เช่น ตัวส่วน) ก่อน");
+                                eng.showPopup("ย้ายตัวที่อยู่ในวงเล็บข้ามฝั่งไม่ได้ครับ! ต้องจัดการตัวที่อยู่ด้านนอกให้เสร็จก่อน");
                                 eng.incrementMove();
                                 eng.shakeElement(eng.dragSrc.el);
                             }
