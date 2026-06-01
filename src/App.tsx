@@ -1230,44 +1230,15 @@ eng.simplifyList = (list) => {
         
         if (term.type === 'fraction') {
             let denVal = term.denominator.type === 'term' ? term.denominator.value : (term.denominator.type === 'group' && term.denominator.children.length === 1 && term.denominator.children[0].type === 'term' ? term.denominator.children[0].value : null);
-            if (denVal === '1') { let content = term.children; let newTerm = (content.length === 1 && content[0].type !== 'op') ?
-            content[0] : new eng.TermClass('group', null, content); list.splice(i, 1, newTerm); i--; continue; }
-
-            // --- NEW LOGIC & ANIMATION: ดึงเครื่องหมายลบออกจากตัวเศษอัตโนมัติพร้อมเสียงป๊อปสะดุดตา ---
-            if (term.children && term.children.length > 0) {
-                let num = term.children;
-                let hasLeadingNegative = false;
-                
-                if (num[0].type === 'op' && num[0].value === '-') hasLeadingNegative = true;
-                else if (num[0].type === 'term' && num[0].value.startsWith('-')) hasLeadingNegative = true;
-
-                if (hasLeadingNegative) {
-                    // 💥 บรรเลงเสียงเอฟเฟกต์ Pop ของเว็บบราวเซอร์ทันทีตอนเครื่องหมายเด้งแยกตัวประกอบ
-                    if (eng.playTone) eng.playTone('pop');
-
-                    // 1. นำ -1 ไปคูณกลับพจน์ในตัวเศษทั้งหมด 
-                    term.children = eng.multiplyTerms(num, -1);
-                    
-                    // 2. ฝังสถานะแอนิเมชันให้ลูกๆ ในเศษส่วนทุกตัวกระพริบเด้งตัวนูนขึ้นมา
-                    term.children.forEach(c => { c.animatePop = true; if(c.children) c.children.forEach(cc => cc.animatePop = true); });
-                    
-                    // 3. สร้างโหนดเครื่องหมายลบตัวใหม่ที่จะหลุดกระเด็นออกมาข้างหน้า และสั่งให้เล่นแอนิเมชันเด้งป๊อปด้วย
-                    let newMinusOp = new eng.TermClass('op', '-');
-                    newMinusOp.animatePop = true;
-
-                    if (i === 0) {
-                        list.splice(i, 0, newMinusOp);
-                        i++;
-                    } else if (i > 0 && list[i-1].type === 'op') {
-                        list[i-1].animatePop = true;
-                        if (list[i-1].value === '+') list[i-1].value = '-';
-                        else if (list[i-1].value === '-') list[i-1].value = '+';
-                    }
-                    
-                    eng.simplifyList(term.children); 
-                }
+            if (denVal === '1') { 
+                let content = term.children; 
+                let newTerm = (content.length === 1 && content[0].type !== 'op') ? content[0] : new eng.TermClass('group', null, content); 
+                list.splice(i, 1, newTerm); 
+                i--; 
+                continue; 
             }
-            // ----------------------------------------------------------------------------------
+            // 🛑 โค้ดดึงเครื่องหมายลบอัตโนมัติถูกหั่นทิ้งไปแล้ว
+            // ตอนนี้เศษส่วนจะแสดงผลตรงไปตรงมาตามโจทย์ตั้งต้นเป๊ะๆ
         }
     }
 };
