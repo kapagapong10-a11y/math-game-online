@@ -2151,11 +2151,23 @@ eng.handleFractionDivision = (targetCard) => {
                     </div>
 
                     <div className="flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white shadow-inner shrink-0 min-h-[60vh]">
-                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full flex-1 overflow-x-auto min-h-[40vh] overflow-y-hidden">
-                            <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
-                            <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-3 md:pr-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
-                            <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl">=</div>
-                            <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-3 md:pl-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                    <div className="relative w-full flex-1 flex">
+                            {/* ปุ่มเลื่อนซ้าย */}
+                            <button onClick={() => document.getElementById('engine-playground').scrollBy({left: -200, behavior: 'smooth'})} className="absolute left-1 md:left-2 top-1/2 transform -translate-y-1/2 z-[30] bg-white/90 text-blue-600 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-[0_3px_10px_rgba(0,0,0,0.15)] border-2 border-blue-200 backdrop-blur-sm active:scale-90 transition-all hover:bg-blue-50">
+                                <i className="fas fa-chevron-left text-lg md:text-xl"></i>
+                            </button>
+    
+                            <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full flex-1 overflow-x-auto overflow-y-hidden min-h-0 scroll-smooth custom-scrollbar">
+                                <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
+                                <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-3 md:pr-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                                <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl">=</div>
+                                <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-3 md:pl-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                            </div>
+    
+                            {/* ปุ่มเลื่อนขวา */}
+                            <button onClick={() => document.getElementById('engine-playground').scrollBy({left: 200, behavior: 'smooth'})} className="absolute right-1 md:right-2 top-1/2 transform -translate-y-1/2 z-[30] bg-white/90 text-blue-600 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-[0_3px_10px_rgba(0,0,0,0.15)] border-2 border-blue-200 backdrop-blur-sm active:scale-90 transition-all hover:bg-blue-50">
+                                <i className="fas fa-chevron-right text-lg md:text-xl"></i>
+                            </button>
                         </div>
                         <div className="shrink-0 flex justify-center mt-3 md:mt-4">
                             <div className="flex items-center gap-3 md:gap-5 bg-white/95 px-5 py-2 md:px-6 md:py-3 rounded-full shadow-lg border-2 border-gray-200 whitespace-nowrap">
@@ -2186,12 +2198,25 @@ eng.handleFractionDivision = (targetCard) => {
                     </div>
 
                     <div className="flex-1 flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white shadow-inner overflow-hidden">
-                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full flex-1 overflow-x-auto overflow-y-hidden min-h-0">
-                            <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
-                            <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-3 md:pr-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
-                            <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl">=</div>
-                            <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-3 md:pl-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                    <div className="relative w-full flex-1 flex">
+                        {/* ปุ่มเลื่อนซ้าย */}
+                        <button onClick={() => document.getElementById('engine-playground').scrollBy({left: -200, behavior: 'smooth'})} className="absolute left-1 md:left-2 top-1/2 transform -translate-y-1/2 z-[30] bg-white/90 text-blue-600 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-[0_3px_10px_rgba(0,0,0,0.15)] border-2 border-blue-200 backdrop-blur-sm active:scale-90 transition-all hover:bg-blue-50">
+                            <i className="fas fa-chevron-left text-lg md:text-xl"></i>
+                        </button>
+
+                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full flex-1 overflow-x-auto min-h-[40vh] overflow-y-hidden scroll-smooth custom-scrollbar">
+                                <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
+                                <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-3 md:pr-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                                <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl">=</div>
+                                <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-3 md:pl-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                            </div>
+    
+                            {/* ปุ่มเลื่อนขวา */}
+                            <button onClick={() => document.getElementById('engine-playground').scrollBy({left: 200, behavior: 'smooth'})} className="absolute right-1 md:right-2 top-1/2 transform -translate-y-1/2 z-[30] bg-white/90 text-blue-600 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-[0_3px_10px_rgba(0,0,0,0.15)] border-2 border-blue-200 backdrop-blur-sm active:scale-90 transition-all hover:bg-blue-50">
+                                <i className="fas fa-chevron-right text-lg md:text-xl"></i>
+                            </button>
                         </div>
+                        
                         <div className="shrink-0 flex justify-center mt-3 md:mt-4">
                             <div className="flex items-center gap-3 md:gap-5 bg-white/95 px-5 py-2 md:px-6 md:py-3 rounded-full shadow-lg border-2 border-gray-200 whitespace-nowrap">
                                 <button onClick={() => engineRef.current.undo()} className="text-gray-500 hover:text-blue-600 text-lg md:text-2xl active:scale-90 transition-transform bg-gray-100 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-inner border border-gray-200"><i className="fas fa-undo"></i></button>
