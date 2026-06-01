@@ -1339,11 +1339,28 @@ eng.handleFractionDivision = (targetCard) => {
             let nVal = parseInt(numValStr), dVal = parseInt(denValStr);
             if (isNaN(nVal) || isNaN(dVal) || dVal === 0) return;
             let common = eng.gcd(Math.abs(nVal), Math.abs(dVal));
-            if (common === 1 && Math.abs(dVal) !== 1) { eng.showPopup("ตัดทอนไม่ได้ครับ ไม่มีตัวหารร่วม"); eng.shakeElement(targetCard); return; }
 
             let mainList = (targetCard.dataset.side === 'lhs') ? eng.localGameState.lhs : eng.localGameState.rhs;
             let fractionTerm = findFractionTerm(mainList, parentFracId);
             if (!fractionTerm) return;
+
+            // 🚀 จัดการเครื่องหมายลบก่อน (ลบตัดลบ หรือดันลบขึ้นบน) โดยไม่สนว่า ห.ร.ม. จะเป็น 1 หรือไม่
+            if (nVal < 0 && dVal < 0) {
+                eng.playTone('combine');
+                fractionTerm.children = [{ type: 'term', value: Math.abs(nVal).toString(), id: eng.generateId() }];
+                fractionTerm.denominator = { type: 'term', value: Math.abs(dVal).toString(), id: eng.generateId() };
+                eng.saveState();
+                return;
+            } else if (dVal < 0 && nVal > 0) {
+                eng.playTone('combine');
+                fractionTerm.children = [{ type: 'term', value: (-nVal).toString(), id: eng.generateId() }];
+                fractionTerm.denominator = { type: 'term', value: Math.abs(dVal).toString(), id: eng.generateId() };
+                eng.saveState();
+                return;
+            }
+
+            // ถ้าเครื่องหมายปกติแล้ว ค่อยมาเช็คว่ามีตัวหารร่วมไหม
+            if (common === 1 && Math.abs(dVal) !== 1) { eng.showPopup("ตัดทอนไม่ได้ครับ ไม่มีตัวหารร่วม"); eng.shakeElement(targetCard); return; }
 
             let isTargetNumerator = targetCard.closest('.numerator-container') !== null;
             let isTargetDenominator = targetCard.closest('.denominator-container') !== null;
@@ -1863,7 +1880,8 @@ eng.handleFractionDivision = (targetCard) => {
                     if (numVal === null || isNaN(numVal)) return false;
                     
                     if (numVal % denVal === 0) return false;
-                    if (denVal < 0) return false;
+                    if (denVal < 0) return false; 
+                    if (numVal < 0 && denVal < 0) return false;
                     
                     let common = eng.gcd(Math.abs(numVal), Math.abs(denVal));
                     if (common > 1) return false;
