@@ -36,8 +36,9 @@ const db = getDatabase(app);
 export default function MathGameApp() {
     const [user, setUser] = useState(null);
     const [userData, setUserData] = useState(null);
-    const [view, setView] = useState('login'); 
+    const [view, setView] = useState('login');
     const [isLandscape, setIsLandscape] = useState(true);
+    const [isCheckingAuth, setIsCheckingAuth] = useState(true); // 🚀 เพิ่ม State โหลดดิ้งตอนเปิดแอป
     
     const [selectedMap, setSelectedMap] = useState(1);
     const [selectedLevel, setSelectedLevel] = useState(1);
@@ -91,28 +92,29 @@ export default function MathGameApp() {
         return () => window.removeEventListener('resize', checkOrientation);
     }, []);
 
-    // 2. จัดการ Login ให้โหลดข้อมูลโปรไฟล์ให้เสร็จก่อนค่อยเข้าเกม (แก้ชื่อ/ดาวหาย)
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            if (currentUser) {
-                setUser(currentUser);
-                const userRef = ref(db, `users/${currentUser.uid}`);
-                const snapshot = await get(userRef);
-                if (snapshot.exists()) { 
-                    setUserData(snapshot.val()); 
-                } else {
-                    const role = (currentUser.email === 'admin@math.com' || currentUser.email.includes('admin')) ? 'admin' : 'player';
-                    const newUserData = { email: currentUser.email, totalStars: 0, role: role, displayName: currentUser.email.split('@')[0] };
-                    await set(userRef, newUserData); 
-                    setUserData(newUserData);
-                }
-                setView('menu'); // โหลดข้อมูลเสร็จค่อยสลับหน้า
-            } else { 
-                setUser(null); setUserData(null); setView('login'); 
+// 2. จัดการ Login ให้โหลดข้อมูลโปรไฟล์ให้เสร็จก่อนค่อยเข้าเกม (แก้ชื่อ/ดาวหาย)
+useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        if (currentUser) {
+            setUser(currentUser);
+            const userRef = ref(db, `users/${currentUser.uid}`);
+            const snapshot = await get(userRef);
+            if (snapshot.exists()) {
+                setUserData(snapshot.val());
+            } else {
+                const role = (currentUser.email === 'admin@math.com' || currentUser.email.includes('admin')) ? 'admin' : 'player';
+                const newUserData = { email: currentUser.email, totalStars: 0, role: role, displayName: currentUser.email.split('@')[0] };
+                await set(userRef, newUserData);
+                setUserData(newUserData);
             }
-        });
-        return () => unsubscribe();
-    }, []);
+            setView('menu'); // โหลดข้อมูลเสร็จค่อยสลับหน้า
+        } else {
+            setUser(null); setUserData(null); setView('login');
+        }
+        setIsCheckingAuth(false); // 🚀 ปิดหน้าโหลดเมื่อตรวจสอบเสร็จสิ้น
+    });
+    return () => unsubscribe();
+}, []);
 
     // 3. โหลดข้อมูลอื่นๆ หลังจากล็อกอินแล้ว
     useEffect(() => {
@@ -146,15 +148,29 @@ export default function MathGameApp() {
         }
     };
 
-    if (!isLandscape) {
-        return (
-            <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-indigo-800 to-purple-900 text-center p-6 text-white font-['Kanit']">
-                <i className="fas fa-mobile-alt text-7xl md:text-9xl mb-4 md:mb-6 animate-bounce text-yellow-400"></i>
-                <h1 className="text-3xl md:text-5xl font-black mb-2 md:mb-4 drop-shadow-lg">หมุนจอหน่อยครับ!</h1>
-                <p className="text-lg md:text-2xl opacity-90 bg-black/30 px-6 py-2 rounded-full">ตะแคงโทรศัพท์เป็นแนวนอนเพื่อเข้าสู่เกม</p>
+if (!isLandscape) {
+    return (
+        <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-indigo-800 to-purple-900 text-center p-6 text-white font-['Kanit']">
+            <i className="fas fa-mobile-alt text-7xl md:text-9xl mb-4 md:mb-6 animate-bounce text-yellow-400"></i>
+            <h1 className="text-3xl md:text-5xl font-black mb-2 md:mb-4 drop-shadow-lg">หมุนจอหน่อยครับ!</h1>
+            <p className="text-lg md:text-2xl opacity-90 bg-black/30 px-6 py-2 rounded-full">ตะแคงโทรศัพท์เป็นแนวนอนเพื่อเข้าสู่เกม</p>
+        </div>
+    );
+}
+
+// 🚀 กรณี 1.2: แสดงหน้าจอโหลดดิ้งตอนเปิดแอป แทนที่จะกระพริบหน้า Login
+if (isCheckingAuth) {
+    return (
+        <div className="flex h-screen items-center justify-center p-2 bg-gradient-to-br from-blue-300 to-indigo-500 font-['Kanit'] relative overflow-hidden">
+            <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+            <div className="bg-white/95 backdrop-blur-md p-10 rounded-[2.5rem] shadow-[0_15px_40px_rgba(0,0,0,0.2)] border-4 border-white text-center flex flex-col items-center z-10 animate-[zoomInCenter_0.3s_ease-out]">
+                <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin mb-6"></div>
+                <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-2">สมาร์ทแมท AI</h1>
+                <p className="text-gray-500 font-bold animate-pulse text-sm md:text-base">กำลังตรวจสอบข้อมูลผู้เล่น...</p>
             </div>
-        );
-    }
+        </div>
+    );
+}
 
     return (
         <div className="min-h-screen bg-[#a8edea] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] font-['Kanit'] overflow-hidden relative selection:bg-blue-300">
@@ -195,16 +211,38 @@ function LoginScreen({ globalSettings }) {
     const [password, setPassword] = useState('');
     const [isLogin, setIsLogin] = useState(true);
     const [error, setError] = useState('');
-
+    const [isLoggingIn, setIsLoggingIn] = useState(false); // 🚀 State จับสถานะตอนกดปุ่มล็อคอิน
+    
     const bgStyle = globalSettings?.loginBgUrl ? { backgroundImage: `url(${globalSettings.loginBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {};
-
+    
     const handleSubmit = async (e) => {
-        e.preventDefault(); setError('');
+        e.preventDefault(); 
+        setError('');
+        setIsLoggingIn(true); // 🚀 เปิดหน้าโหลดดิ้งทันทีที่กดปุ่ม
+        
         try {
             if (isLogin) await signInWithEmailAndPassword(auth, email, password);
             else await createUserWithEmailAndPassword(auth, email, password);
-        } catch (err) { setError('ข้อมูลไม่ถูกต้อง หรือรหัสผ่านสั้นไปครับ'); }
+            // ถ้าล็อคอินผ่าน ระบบจะโหลดค้างไว้แบบนี้ลื่นๆ แล้ว onAuthStateChanged จะสลับหน้าให้เอง
+        } catch (err) { 
+            setError('ข้อมูลไม่ถูกต้อง หรือรหัสผ่านสั้นไปครับ'); 
+            setIsLoggingIn(false); // 🚀 ปิดหน้าโหลดดิ้ง กลับมาหน้าฟอร์มถ้าพิมพ์รหัสผิด
+        }
     };
+
+    // 🚀 กรณี 1.1: แสดงหน้าโหลดดิ้งแทนฟอร์มล็อคอิน ขณะกำลังประมวลผล
+    if (isLoggingIn) {
+        return (
+            <div className="flex h-screen items-center justify-center p-2 relative" style={bgStyle}>
+                <div className="absolute inset-0 bg-blue-900/30 backdrop-blur-sm"></div>
+                <div className="bg-white/95 backdrop-blur-md p-10 rounded-[2.5rem] shadow-[0_15px_40px_rgba(0,0,0,0.2)] border-4 border-white text-center flex flex-col items-center z-10 animate-[zoomInCenter_0.3s_ease-out]">
+                    <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin mb-6"></div>
+                    <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-2">สมาร์ทแมท AI</h1>
+                    <p className="text-gray-500 font-bold animate-pulse text-sm md:text-base">กำลังนำท่านเข้าสู่ระบบ...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen items-center justify-center p-2 bg-gradient-to-br from-blue-400/50 to-purple-500/50 relative" style={bgStyle}>
