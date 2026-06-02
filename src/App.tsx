@@ -2160,11 +2160,18 @@ eng.splitTerm = (term, list, idx) => {
                     </div>
 
                     <div className="flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white shadow-inner shrink-0 min-h-[60vh]">
-                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full flex-1 overflow-x-auto min-h-[40vh] overflow-y-hidden scroll-smooth custom-scrollbar">
-                            <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
-                            <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-3 md:pr-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
-                            <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl">=</div>
-                            <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-3 md:pl-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm relative w-full flex-1 overflow-x-auto min-h-[40vh] overflow-y-hidden scroll-smooth custom-scrollbar">
+                            {/* 🔥 สร้าง Track ด้านในที่สามารถยืดหดตามความยาวสมการได้ */}
+                            <div className="flex items-center min-w-full w-max h-full relative py-4">
+                                <div id="engine-lhs" className="flex items-center justify-end h-full pr-3 md:pr-6 gap-1.5 md:gap-2 z-10 flex-1 min-w-[45vw]"></div>
+                                
+                                <div className="relative shrink-0 flex items-center justify-center px-2">
+                                    <div className="w-[2px] bg-gray-200 h-[60vh] absolute top-1/2 transform -translate-y-1/2 z-0 rounded-full"></div>
+                                    <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl relative">=</div>
+                                </div>
+
+                                <div id="engine-rhs" className="flex items-center justify-start h-full pl-3 md:pl-6 gap-1.5 md:gap-2 z-10 flex-1 min-w-[45vw]"></div>
+                            </div>
                         </div>
                         <div className="shrink-0 flex justify-center mt-3 md:mt-4">
                             <div className="flex items-center gap-2 md:gap-4 bg-white/95 px-3 py-2 md:px-5 md:py-3 rounded-full shadow-lg border-2 border-gray-200 whitespace-nowrap">
@@ -2210,11 +2217,18 @@ eng.splitTerm = (term, list, idx) => {
                     </div>
 
                     <div className="flex-1 flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white shadow-inner overflow-hidden">
-                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm flex items-center justify-center p-2 md:p-8 relative w-full flex-1 overflow-x-auto overflow-y-hidden min-h-0 scroll-smooth custom-scrollbar">
-                            <div className="w-[2px] bg-gray-200 h-3/4 absolute left-1/2 transform -translate-x-1/2 z-0 rounded-full"></div>
-                            <div id="engine-lhs" className="flex-1 h-full flex items-center justify-end pr-3 md:pr-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
-                            <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl">=</div>
-                            <div id="engine-rhs" className="flex-1 h-full flex items-center justify-start pl-3 md:pl-10 gap-1.5 md:gap-2 z-10 w-1/2 overflow-visible"></div>
+                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm relative w-full flex-1 overflow-x-auto overflow-y-hidden min-h-0 scroll-smooth custom-scrollbar">
+                            {/* 🔥 สร้าง Track ด้านในที่สามารถยืดหดตามความยาวสมการได้ */}
+                            <div className="flex items-center min-w-full w-max h-full relative py-4">
+                                <div id="engine-lhs" className="flex items-center justify-end h-full pr-3 md:pr-6 gap-1.5 md:gap-2 z-10 flex-1 min-w-[45vw]"></div>
+                                
+                                <div className="relative shrink-0 flex items-center justify-center px-2">
+                                    <div className="w-[2px] bg-gray-200 h-[60vh] absolute top-1/2 transform -translate-y-1/2 z-0 rounded-full"></div>
+                                    <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl relative">=</div>
+                                </div>
+
+                                <div id="engine-rhs" className="flex items-center justify-start h-full pl-3 md:pl-6 gap-1.5 md:gap-2 z-10 flex-1 min-w-[45vw]"></div>
+                            </div>
                         </div>
                         
                         <div className="shrink-0 flex justify-center mt-3 md:mt-4">
