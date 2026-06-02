@@ -2114,8 +2114,7 @@ eng.splitTerm = (term, list, idx) => {
             }
         };
 
-        eng.checkWinCondition = () => {
-            // 🚀 FIX: ตรวจจับสมการที่มีเครื่องหมายนำหน้า (เช่น - [13/2] หรือ + x) ให้ถูกต้อง 100%
+eng.checkWinCondition = () => {
             const isSolved = (list) => {
                 let checkList = list;
                 if (list.length === 2 && list[0].type === 'op' && list[0].value === '+') checkList = [list[1]];
@@ -2123,58 +2122,102 @@ eng.splitTerm = (term, list, idx) => {
                 let val = checkList[0].value.replace(/\s+/g, '');
                 return /^(?:\+?1?)?[a-zA-Z]$/.test(val);
             };
-
             const extractNumFromList = (list) => {
                 if (list.length === 1 && list[0].type === 'term') return parseFloat(list[0].value);
                 if (list.length === 2 && list[0].type === 'op' && list[0].value === '-' && list[1].type === 'term') return -parseFloat(list[1].value);
                 if (list.length === 1 && list[0].type === 'group') return extractNumFromList(list[0].children);
                 return null;
             };
-
             const isNumericValue = (list) => {
                 let checkList = list;
-                // ถ้ามีลบหรือบวกอยู่หน้าสุด ให้มองข้ามไปก่อนเพื่อเช็คตัวเลขข้างใน
                 if (list.length === 2 && list[0].type === 'op' && (list[0].value === '+' || list[0].value === '-')) {
                     checkList = [list[1]];
                 }
                 if (checkList.length !== 1) return false;
-                
+
                 let t = checkList[0];
                 if (t.type === 'term') return !isNaN(parseFloat(t.value)) && !t.value.match(/[a-zA-Z]/);
-                
+
                 if (t.type === 'fraction') {
                     if (!t.denominator) return false;
-                    
                     let denList = t.denominator.type === 'group' ? t.denominator.children : [t.denominator];
                     let denVal = extractNumFromList(denList);
                     if (denVal === null || denVal === 0 || isNaN(denVal)) return false;
-
                     let numVal = extractNumFromList(t.children);
                     if (numVal === null || isNaN(numVal)) return false;
-                    
+
                     if (numVal % denVal === 0) return false;
-                    if (denVal < 0) return false; 
+                    if (denVal < 0) return false;
                     if (numVal < 0 && denVal < 0) return false;
-                    
+
                     let common = eng.gcd(Math.abs(numVal), Math.abs(denVal));
                     if (common > 1) return false;
-                    
+
                     return true;
                 }
                 return false;
             };
 
-            if ((isSolved(eng.localGameState.lhs) && isNumericValue(eng.localGameState.rhs)) || 
-                (isSolved(eng.localGameState.rhs) && isNumericValue(eng.localGameState.lhs))) {
-                
+            // 🚀 ฟังก์ชันตรวจหาตัวแปร (x) ในสมการ
+            const hasVar = (list) => {
+                for (let t of list) {
+                    if (t.type === 'term' && /[a-zA-Z]/.test(t.value)) return true;
+                    if (t.type === 'group' && hasVar(t.children)) return true;
+                    if (t.type === 'fraction') {
+                        if (hasVar(t.children)) return true;
+                        let denList = t.denominator.type === 'group' ? t.denominator.children : [t.denominator];
+                        if (hasVar(denList)) return true;
+                    }
+                }
+                return false;
+            };
+
+            // 🚀 ฟังก์ชันประเมินค่าตัวเลขแบบฉับไว
+            const evalList = (list) => {
+                if(!list || list.length === 0) return 0;
+                let expr = '';
+                for (let t of list) {
+                    if (t.type === 'term') expr += t.value;
+                    else if (t.type === 'op') expr += (t.value === '•' ? '*' : t.value);
+                    else if (t.type === 'group') expr += '(' + evalList(t.children) + ')';
+                    else if (t.type === 'fraction') {
+                        let denList = t.denominator.type === 'group' ? t.denominator.children : [t.denominator];
+                        expr += '((' + evalList(t.children) + ')/(' + evalList(denList) + '))';
+                    }
+                }
+                if (expr.trim() === '') return 0;
+                try { return new Function('return ' + expr)(); } catch(e) { return NaN; }
+            };
+
+            let isStandardWin = (isSolved(eng.localGameState.lhs) && isNumericValue(eng.localGameState.rhs)) ||
+                                (isSolved(eng.localGameState.rhs) && isNumericValue(eng.localGameState.lhs));
+
+            let isNoSolutionWin = false;
+            let isInfiniteWin = false;
+            let lhsHasVar = hasVar(eng.localGameState.lhs);
+            let rhsHasVar = hasVar(eng.localGameState.rhs);
+
+            // ถ้าไม่มีตัวแปรเหลือเลยทั้งสองฝั่ง แปลว่าตัวแปรถูกตัดทอนหายไปหมดแล้ว
+            if (!lhsHasVar && !rhsHasVar) {
+                let lVal = evalList(eng.localGameState.lhs);
+                let rVal = evalList(eng.localGameState.rhs);
+                if (!isNaN(lVal) && !isNaN(rVal)) {
+                    if (Math.abs(lVal - rVal) > 0.0001) isNoSolutionWin = true; // เช่น 0 = 9
+                    else isInfiniteWin = true; // เช่น 0 = 0
+                }
+            }
+
+            if (isStandardWin || isNoSolutionWin || isInfiniteWin) {
                 let lHtml = document.getElementById('engine-lhs').innerHTML;
                 let rHtml = document.getElementById('engine-rhs').innerHTML;
-                setFinalAnswer({ lhs: lHtml, rhs: rHtml });
+                let winType = isNoSolutionWin ? 'no_solution' : (isInfiniteWin ? 'infinite' : 'standard');
                 
+                setFinalAnswer({ lhs: lHtml, rhs: rHtml, type: winType });
+
                 eng.playTone('win');
                 confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#4ade80', '#3b82f6', '#fbbf24', '#f87171'] });
                 setGameState('won');
-                
+
                 if (!isSandbox) {
                     let calcStars = (eng.internalMoveCount <= levelData?.parMoves) ? 5 : (eng.internalMoveCount === levelData?.parMoves+1 ? 4 : (eng.internalMoveCount === levelData?.parMoves+2 ? 3 : (eng.internalMoveCount === levelData?.parMoves+3 ? 2 : 1)));
                     if (calcStars < 1) calcStars = 1;
@@ -2370,9 +2413,13 @@ eng.splitTerm = (term, list, idx) => {
         {gameState === 'won' && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-[100] animate-[zoomInCenter_0.4s_ease-out] p-4">
                     <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-8 border-green-400 text-center max-w-2xl w-full">
-                        <h2 className="text-4xl md:text-6xl font-black text-green-500 mb-2 drop-shadow-md">ยอดเยี่ยม!</h2>
-                        <p className="text-gray-500 text-base md:text-xl font-bold mb-4">คุณแก้สมการสำเร็จแล้ว</p>
-                        
+                        <h2 className={`text-4xl md:text-5xl font-black mb-2 drop-shadow-md ${finalAnswer.type === 'no_solution' ? 'text-red-500' : (finalAnswer.type === 'infinite' ? 'text-purple-500' : 'text-green-500')}`}>
+                            {finalAnswer.type === 'no_solution' ? 'สมการไม่มีคำตอบ!' : (finalAnswer.type === 'infinite' ? 'สมการมีคำตอบมากมาย!' : 'ยอดเยี่ยม!')}
+                        </h2>
+                        <p className="text-gray-500 text-base md:text-xl font-bold mb-4">
+                            {finalAnswer.type === 'no_solution' ? 'เพราะตัวแปรหายไปหมดและสมการไม่เป็นจริง' : (finalAnswer.type === 'infinite' ? 'เพราะตัวแปรหายไปหมดและสมการเป็นจริงเสมอ' : 'คุณแก้สมการสำเร็จแล้ว')}
+                        </p>
+                            
                         <div className="bg-gradient-to-r from-blue-50 to-purple-50 py-3 px-6 md:py-4 md:px-8 rounded-xl md:rounded-[2rem] border-2 border-blue-200 mb-4 md:mb-8 flex items-center justify-center gap-3 shadow-inner overflow-hidden">
                             <div dangerouslySetInnerHTML={{ __html: finalAnswer.lhs }} className="flex items-center scale-[0.7] md:scale-100 origin-right pointer-events-none" />
                             <span className="text-3xl md:text-5xl font-black text-gray-400">=</span>
