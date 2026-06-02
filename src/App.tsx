@@ -1739,6 +1739,45 @@ eng.handleFractionDivision = (targetCard) => {
         };
 
         eng.tryCombine = (targetWrapper) => {
+            // 🚀 1. ระบบด่านตรวจ "เลนส์รวมแสงและแม่เหล็ก" (Smart Target Resolver)
+        // หน้าที่: จัดการปัญหาเมาส์ลั่นไปโดนเครื่องหมาย, ไส้ในวงเล็บ, หรือช่องว่างของเศษส่วน
+        
+        // ก. กรณีเมาส์ลั่นโดน "เครื่องหมาย (+, -, •)" -> ใช้แม่เหล็กดูดไปหาพจน์ที่อยู่ติดกัน
+        if (targetWrapper.classList && targetWrapper.classList.contains('is-operator')) {
+            let opIdx = parseInt(targetWrapper.dataset.childIdx !== undefined ? targetWrapper.dataset.childIdx : targetWrapper.dataset.idx);
+            let newIdx = eng.dragSrc.idx < opIdx ? opIdx + 1 : opIdx - 1; // ดูดไปตามทิศทางการลาก (ซ้าย/ขวา)
+            let queryStr = targetWrapper.dataset.parentFracId ? `[data-parent-frac-id="${targetWrapper.dataset.parentFracId}"]` : `[data-side="${targetWrapper.dataset.side}"]`;
+            let newTarget = document.querySelector(`${queryStr}[data-child-idx="${newIdx}"]`) || document.querySelector(`${queryStr}[data-idx="${newIdx}"]`);
+            if (newTarget) targetWrapper = newTarget;
+        }
+        
+        // ข. กรณีเมาส์ลั่นโดน "ไส้ใน" ของวงเล็บ -> รวบเป้าหมายกลับมาเป็นกล่องวงเล็บใหญ่
+        let currentEl = targetWrapper;
+        while (currentEl && currentEl !== document.body) {
+            if (currentEl.classList && currentEl.classList.contains('term-container')) {
+                let isGroup = Array.from(currentEl.children).some(c => c.classList && c.classList.contains('group-bracket'));
+                if (isGroup) { targetWrapper = currentEl; break; }
+            }
+            currentEl = currentEl.parentElement;
+        }
+
+        // ค. กรณีเมาส์ลั่นโดน "ช่องว่าง/พื้นหลัง" ของเศษส่วน (Dead Zone)
+        if (eng.dragSrc.parentFracId && targetWrapper.querySelector && targetWrapper.querySelector('.fraction-group')) {
+            let rootSide = targetWrapper.dataset.side;
+            let rootList = rootSide === 'lhs' ? eng.lhs : eng.rhs;
+            let targetIdx = parseInt(targetWrapper.dataset.idx);
+            let targetRootTerm = rootList[targetIdx];
+
+            // ถ้าลากในบ้านตัวเองแต่พลาดเป้าหมาย (เป้าหมายกลายเป็นกล่องแม่)
+            if (targetRootTerm && targetRootTerm.id === eng.dragSrc.parentFracId) {
+                // ยกเลิกการลากอย่างเงียบๆ แล้วสั่นเตือน ป้องกันการเด้ง Error ข้ามฝั่งแบบมั่วๆ
+                if (eng.shakeElement) {
+                    let srcQuery = `[data-parent-frac-id="${eng.dragSrc.parentFracId}"][data-child-idx="${eng.dragSrc.idx}"]`;
+                    eng.shakeElement(document.querySelector(srcQuery) || document.body);
+                }
+                return;
+            }
+        }
             // 🚀 1. เลนส์รวมแสง (Auto-Focus Radar): ป้องกันการวางเป้าหมายพลาด (Index Mismatch)
         // ดักจับกรณีผู้เล่นลากตัวเลขไปปล่อยโดน "ไส้ใน" ของวงเล็บ
         let currentEl = targetWrapper;
