@@ -1778,58 +1778,6 @@ eng.handleFractionDivision = (targetCard) => {
                 return;
             }
         }
-            // 🚀 1. เลนส์รวมแสง (Auto-Focus Radar): ป้องกันการวางเป้าหมายพลาด (Index Mismatch)
-        // ดักจับกรณีผู้เล่นลากตัวเลขไปปล่อยโดน "ไส้ใน" ของวงเล็บ
-        let currentEl = targetWrapper;
-        while (currentEl && currentEl !== document.body) {
-            // ค้นหากล่องบรรจุ (Container) ตามลำดับชั้น
-            if (currentEl.classList && currentEl.classList.contains('term-container')) {
-                // ตรวจสอบว่ากล่องนี้คือวงเล็บใช่หรือไม่ (ดูว่ามี .group-bracket เป็นลูกสายตรงไหม)
-                let isGroup = Array.from(currentEl.children).some(c => c.classList && c.classList.contains('group-bracket'));
-                if (isGroup) {
-                    // รวบเป้าหมายให้กลายเป็นกล่องวงเล็บใหญ่เสมอ
-                    targetWrapper = currentEl;
-                    break;
-                }
-            }
-            currentEl = currentEl.parentElement;
-        }
-        
-            // 🚀 ระบบเรดาร์ดักจับและปัดเป้าหมาย (Auto-Redirect) สำหรับวงเล็บซ้อน
-        let parentGroup = targetWrapper.closest('.term-container');
-        if (parentGroup && parentGroup !== targetWrapper && parentGroup.querySelector('.group-bracket')) {
-            let side = targetWrapper.dataset.side;
-            let rootList = side === 'lhs' ? eng.lhs : eng.rhs;
-            let currentList = rootList;
-            
-            // 1. ค้นหารายชื่อเศษส่วนที่ถูกต้อง
-            if (targetWrapper.dataset.parentFracId) {
-                let frac = eng.findFractionById(rootList, targetWrapper.dataset.parentFracId);
-                if (frac) currentList = targetWrapper.dataset.context === 'denominator' ? frac.denominator.children : frac.children;
-            }
-            
-            // 2. หากล่องวงเล็บในรายชื่อ
-            let groupIdx = parseInt(parentGroup.dataset.childIdx !== undefined ? parentGroup.dataset.childIdx : parentGroup.dataset.idx);
-            let groupObj = currentList[groupIdx];
-            
-            // 3. ถ้านักเรียนลากตัวเลขจากข้างนอกวงเล็บ ให้ปัดเป้าหมายไปกระแทกกล่องวงเล็บแทน
-            if (groupObj && groupObj.type === 'group' && eng.dragSrc.list !== groupObj.children) {
-                targetWrapper = parentGroup;
-            }
-        }
-            if (!eng.dragSrc || !eng.dragSrc.el || !targetWrapper) return;
-            let list = eng.dragSrc.list;
-            let targetIdx = parseInt(targetWrapper.dataset.idx);
-            if (isNaN(targetIdx)) targetIdx = parseInt(targetWrapper.dataset.childIdx);
-            if (isNaN(targetIdx)) {
-                let parentWrapper = targetWrapper.closest('.term-container');
-                if (parentWrapper) targetIdx = parseInt(parentWrapper.dataset.idx);
-            }
-            if (isNaN(targetIdx) || targetIdx === eng.dragSrc.idx) return;
-
-            let srcTerm = eng.dragSrc.term, targetTerm = list[targetIdx];
-            if (!targetTerm) return;
-            let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
 
             // 🎯 ฟีเจอร์ใหม่: ลากเครื่องหมาย + หรือ - ไปใส่ วงเล็บ หรือ เศษส่วน เพื่อกระจายและสลายร่าง
     if (srcTerm.type === 'op' && (srcTerm.value === '+' || srcTerm.value === '-') && (targetTerm.type === 'group' || targetTerm.type === 'fraction')) {
