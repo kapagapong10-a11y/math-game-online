@@ -1746,11 +1746,13 @@ eng.tryCombine = (targetWrapper) => {
         if (!exactNode) return; // ลากลงพื้นว่าง ให้ยกเลิกเงียบๆ
 
         let side = exactNode.dataset.side || eng.dragSrc.side;
-        let list = side === 'lhs' ? eng.lhs : eng.rhs;
+        // 🛠️ แก้ไขที่ 1: เรียกใช้ State ให้ถูกต้อง
+        let list = side === 'lhs' ? eng.localGameState.lhs : eng.localGameState.rhs;
         
         // 1.1 แกะรอยเป้าหมายที่ซ่อนอยู่ในเศษส่วน
         if (exactNode.dataset.parentFracId) {
-            let frac = eng.findFractionById(list, exactNode.dataset.parentFracId);
+            // 🛠️ แก้ไขที่ 2: เรียกชื่อฟังก์ชันค้นหาให้ตรงกับระบบ
+            let frac = findFractionTerm(list, exactNode.dataset.parentFracId);
             if (frac) list = exactNode.dataset.context === 'denominator' ? frac.denominator.children : frac.children;
         }
 
@@ -1769,7 +1771,8 @@ eng.tryCombine = (targetWrapper) => {
         }
 
         // 1.3 ดึงข้อมูลต้นทาง (Source) ให้แม่นยำ
-        let srcList = eng.dragSrc.list || (eng.dragSrc.side === 'lhs' ? eng.lhs : eng.rhs);
+        // 🛠️ แก้ไขที่ 3: เรียกใช้ State ให้ถูกต้อง
+        let srcList = eng.dragSrc.list || (eng.dragSrc.side === 'lhs' ? eng.localGameState.lhs : eng.localGameState.rhs);
         let srcIdx = eng.dragSrc.idx;
         let srcTerm = srcList[srcIdx];
 
@@ -1795,12 +1798,14 @@ eng.tryCombine = (targetWrapper) => {
             let mVal = srcTerm.value || '1';
             let newSection = [];
             
-            // 2.1 สร้างพจน์ใหม่ (นำตัวเลขไปแปะหน้าไส้ในทุกตัว)
+            // 2.1 สร้างพจน์ใหม่ (นำตัวเลขไปแปะหน้าไส้ในทุกตัว ไม่ว่าจะเป็น ตัวเลข ตัวแปร หรือเศษส่วน)
             targetTerm.children.forEach(child => {
-                if (child.type === 'term') {
-                    newSection.push(new eng.TermClass('term', mVal), new eng.TermClass('op', '•'), child);
+                if (child.type !== 'op') {
+                    // 🛠️ แก้ไขที่ 4: Copy ข้อมูลอย่างปลอดภัย ป้องกัน Reference ชนกัน
+                    let safeChild = JSON.parse(JSON.stringify(child));
+                    newSection.push(new eng.TermClass('term', mVal), new eng.TermClass('op', '•'), safeChild);
                 } else {
-                    newSection.push(child);
+                    newSection.push(JSON.parse(JSON.stringify(child)));
                 }
             });
 
@@ -1813,7 +1818,6 @@ eng.tryCombine = (targetWrapper) => {
                 if (i < minChangeIdx || i > maxChangeIdx) {
                     finalList.push(srcList[i]);
                 } else if (i === targetIdx) {
-                    // วางกลุ่มที่คูณเสร็จแล้ว ลงไปแทนที่วงเล็บเดิม
                     finalList.push(new eng.TermClass('group', null, newSection));
                 }
             }
@@ -1822,22 +1826,18 @@ eng.tryCombine = (targetWrapper) => {
             srcList.length = 0;
             srcList.push(...finalList);
 
-            // ส่งต่อให้แม่บ้านเคลียร์เครื่องหมาย + อัปเดตหน้าจอ
             eng.simplifyList(srcList);
             eng.incrementMove();
             eng.commitState();
             if (eng.playTone) eng.playTone('pop');
-            return; // 🛑 จบการทำงานตรงนี้เลย ไม่ต้องลงไปหาโค้ดส่วนล่าง
+            return; 
         }
 
         // ==========================================
         // 🚀 STEP 3: NATIVE CORE PASS-THROUGH
-        // หากไม่ใช่การคูณกระจาย ให้ส่งเป้าหมายที่ถูกจัดระเบียบโครงสร้างแล้ว ไปให้โค้ดเก่าทำหน้าที่ต่อ (เช่น บวกเศษส่วน)
         // ==========================================
         targetWrapper = exactNode;
         let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
-        
-        // --- โค้ดเดิมของระบบ (เช่น if (targetTerm.type === 'term'...) จะเริ่มต้นต่อจากจุดนี้ ---
             
             // 🎯 ฟีเจอร์ใหม่: ลากเครื่องหมาย + หรือ - ไปใส่ วงเล็บ หรือ เศษส่วน เพื่อกระจายและสลายร่าง
     if (srcTerm.type === 'op' && (srcTerm.value === '+' || srcTerm.value === '-') && (targetTerm.type === 'group' || targetTerm.type === 'fraction')) {
