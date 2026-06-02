@@ -39,6 +39,7 @@ export default function MathGameApp() {
     const [view, setView] = useState('login');
     const [isLandscape, setIsLandscape] = useState(true);
     const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+    const [showProfileMenu, setShowProfileMenu] = useState(false); // 🚀 เพิ่ม State สำหรับเปิด-ปิดเมนูโปรไฟล์
     const [appProgress, setAppProgress] = useState(0); // 🚀 เพิ่ม State สำหรับวิ่ง %
     
     // 🚀 ให้ % วิ่งขึ้นอัตโนมัติระหว่างที่รอ Firebase ตรวจสอบ
@@ -189,21 +190,28 @@ if (isCheckingAuth) {
 
     return (
         <div className="min-h-screen bg-[#a8edea] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] font-['Kanit'] overflow-hidden relative selection:bg-blue-300">
-            <button onClick={() => setIsMuted(!isMuted)} className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[9999] bg-white/90 backdrop-blur-md w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center shadow-[0_4px_0_#d1d5db] border-2 border-gray-200 text-gray-700 hover:text-blue-500 hover:scale-110 active:translate-y-[4px] active:shadow-none transition-all">
+        <button onClick={() => setIsMuted(!isMuted)} className="fixed bottom-4 left-4 md:bottom-8 md:left-8 z-[9999] bg-white/90 backdrop-blur-md w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center shadow-[0_4px_0_#d1d5db] border-2 border-gray-200 text-gray-700 hover:text-blue-500 hover:scale-110 active:translate-y-[4px] active:shadow-none transition-all">
                 <i className={`fas ${isMuted ? 'fa-volume-mute text-red-500' : 'fa-volume-up text-blue-500'} text-xl md:text-2xl`}></i>
             </button>
-
             {user && view !== 'play' && view !== 'sandbox' && view !== 'profile' && (
-                <div className="absolute top-4 right-4 md:top-6 md:right-6 flex items-center gap-1.5 md:gap-3 bg-white/90 backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-full shadow-lg border-2 border-white/80 z-[100] transform transition hover:scale-105 origin-top-right scale-90 md:scale-100">
-                    <div className="text-sm md:text-base font-black text-gray-800 flex items-center bg-yellow-100 px-3 py-1 rounded-full shadow-inner">
-                        <i className="fas fa-star text-yellow-500 mr-1.5 drop-shadow-sm"></i> {userData?.totalStars || 0}
+                <div className="absolute top-4 right-4 md:top-6 md:right-6 flex flex-col items-end z-[100]">
+                    {/* ปุ่มรูปคนสำหรับกดเปิด/ปิดเมนู */}
+                    <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="bg-white/90 backdrop-blur-md w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-[0_4px_0_#d1d5db] border-2 border-white/80 transform transition active:translate-y-[4px] active:shadow-none hover:scale-105 text-blue-600 z-[101]">
+                        <i className={`fas ${showProfileMenu ? 'fa-times text-red-500' : 'fa-user-astronaut'} text-xl md:text-2xl`}></i>
+                    </button>
+                    
+                    {/* ตัวแถบเมนูที่จะขยายลงมา */}
+                    <div className={`mt-2 flex items-center gap-1.5 md:gap-3 bg-white/90 backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-full shadow-lg border-2 border-white/80 transform transition-all duration-300 origin-top-right ${showProfileMenu ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}`}>
+                        <div className="text-sm md:text-base font-black text-gray-800 flex items-center bg-yellow-100 px-3 py-1 rounded-full shadow-inner">
+                            <i className="fas fa-star text-yellow-500 mr-1.5 drop-shadow-sm"></i> {userData?.totalStars || 0}
+                        </div>
+                        <button onClick={() => setView('profile')} className="text-xs md:text-sm text-gray-700 hover:text-blue-600 font-bold flex items-center pl-2 md:pl-3 border-l-2 border-gray-200 transition-colors cursor-pointer group">
+                            <i className="fas fa-user-astronaut text-blue-500 mr-1.5 text-lg"></i> {userData?.displayName} <i className="fas fa-cog ml-1.5 text-gray-400 group-hover:animate-spin"></i>
+                        </button>
+                        <button onClick={handleSignOut} className="text-white text-xs md:text-sm ml-1 bg-red-500 hover:bg-red-600 px-2.5 py-1.5 rounded-full shadow-[0_3px_0_#b91c1c] active:translate-y-[3px] active:shadow-none transition-all">
+                            <i className="fas fa-sign-out-alt"></i>
+                        </button>
                     </div>
-                    <button onClick={() => setView('profile')} className="text-xs md:text-sm text-gray-700 hover:text-blue-600 font-bold flex items-center pl-2 md:pl-3 border-l-2 border-gray-200 transition-colors cursor-pointer group">
-                        <i className="fas fa-user-astronaut text-blue-500 mr-1.5 text-lg"></i> {userData?.displayName} <i className="fas fa-cog ml-1.5 text-gray-400 group-hover:animate-spin"></i>
-                    </button>
-                    <button onClick={handleSignOut} className="text-white text-xs md:text-sm ml-1 bg-red-500 hover:bg-red-600 px-2.5 py-1.5 rounded-full shadow-[0_3px_0_#b91c1c] active:translate-y-[3px] active:shadow-none transition-all">
-                        <i className="fas fa-sign-out-alt"></i>
-                    </button>
                 </div>
             )}
 
