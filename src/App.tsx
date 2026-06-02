@@ -1948,48 +1948,45 @@ eng.handleFractionDivision = (targetCard) => {
         
         eng.splitFraction = (term, list, idx) => { let nt = []; term.children.forEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.incrementMove(); eng.commitState(); eng.playTone('pop'); };
         
-       eng.splitTerm = (term, list, idx) => { 
-            // ค้นหาตัวเลขและตัวแปร เช่น 3x, -x, x
-            let m = term.value.match(/^(-?\d*)([a-zA-Z]+)$/); 
-            if(m) { 
-                let coefStr = m[1];
-                if (coefStr === '-') coefStr = '-1';
-                else if (coefStr === '' || coefStr === '+') coefStr = '1';
-                let coef = parseInt(coefStr);
-
-                // เช็คว่ามีเครื่องหมาย "ลบ" ยืนแยกอยู่ข้างหน้าหรือไม่ (แบบที่ 1)
-                let isFirstNeg = (idx === 1 && list[0].type === 'op' && list[0].value === '-');
-                let hasMinusOp = (idx > 0 && list[idx-1].type === 'op' && list[idx-1].value === '-');
-
-                if (isFirstNeg) {
-                    coef = -coef; // ดูดลบเข้ามาเป็นตัวเลข
-                    list.splice(0, 2, 
-                        new eng.TermClass('term', coef.toString()), 
-                        new eng.TermClass('op', '•'), 
-                        new eng.TermClass('term', m[2])
-                    );
-                } else if (hasMinusOp) {
-                    coef = -coef; // ดูดลบเข้ามาเป็นตัวเลข
-                    list.splice(idx-1, 2, 
-                        new eng.TermClass('op', '+'), 
-                        new eng.TermClass('term', coef.toString()), 
-                        new eng.TermClass('op', '•'), 
-                        new eng.TermClass('term', m[2])
-                    );
-                } else {
-                    // กรณีเครื่องหมายลบฝังอยู่ในตัวมันเองอยู่แล้ว (แบบที่ 2)
-                    list.splice(idx, 1, 
-                        new eng.TermClass('term', coef.toString()), 
-                        new eng.TermClass('op', '•'), 
-                        new eng.TermClass('term', m[2])
-                    ); 
-                }
-
-                eng.incrementMove(); 
-                eng.commitState(); 
-                eng.playTone('pop'); 
-            }
-        };
+eng.splitTerm = (term, list, idx) => {
+    if (!term || term.type !== 'term' || !term.value) return;
+    
+    // 🚀 อัปเกรด Regex ให้รองรับกรณีที่ไม่มีตัวเลข (เช่น -x)
+    let match = term.value.match(/^(-?\d*)([a-zA-Z]+)$/);
+    if (match) {
+        let numPart = match[1];
+        let varPart = match[2];
+        
+        // ถ้าเป็น x เฉยๆ (ค่าว่าง) ไม่ต้องแยก 1 ออกมาให้รกกระดาน
+        if (numPart === '' && term.value === varPart) {
+            eng.shakeElement(document.querySelector(`[data-idx="${idx}"]`));
+            return;
+        }
+        
+        // 🌟 ถอดรหัส -x ให้กลายเป็น -1
+        if (numPart === '-') {
+            numPart = '-1';
+        } else if (numPart === '') {
+            numPart = '1';
+        }
+        
+        // สร้างการ์ด 3 ใบใหม่: ตัวเลข -> เครื่องหมายคูณ -> ตัวแปร
+        let numTerm = new eng.TermClass('term', numPart);
+        let opTerm = new eng.TermClass('op', '•');
+        let varTerm = new eng.TermClass('term', varPart);
+        
+        // สลับเอาการ์ด 3 ใบนี้ ไปวางแทนที่การ์ดใบเดิม
+        list.splice(idx, 1, numTerm, opTerm, varTerm);
+        
+        eng.incrementMove();
+        eng.commitState();
+        if (eng.playTone) eng.playTone('pop');
+    } else {
+        // ถ้าไม่ใช่ตัวแปรที่แยกได้ ให้สั่นเตือน
+        let el = document.querySelector(`[data-idx="${idx}"]`);
+        if (el) eng.shakeElement(el);
+    }
+};
         
         // 🚀 NEW: อัปเกรดระบบรวมร่าง ให้คูณตัวแปรได้แม่นยำขึ้น
         eng.combineSplitTerm = (term, list, idx) => { 
