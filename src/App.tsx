@@ -1738,107 +1738,60 @@ eng.handleFractionDivision = (targetCard) => {
             eng.commitState();
         };
 
-eng.tryCombine = (targetWrapper) => {
-        // ==========================================
-        // 🚀 STEP 1: AST RESOLVER (แกะรอยและตบเป้าหมายให้เข้าโครงสร้างคณิตศาสตร์)
-        // ==========================================
-        let exactNode = targetWrapper.closest('[data-idx], [data-child-idx], .term-container');
-        if (!exactNode) return; // ลากลงพื้นว่าง ให้ยกเลิกเงียบๆ
-
-        let side = exactNode.dataset.side || eng.dragSrc.side;
-        // 🛠️ แก้ไขที่ 1: เรียกใช้ State ให้ถูกต้อง
-        let list = side === 'lhs' ? eng.localGameState.lhs : eng.localGameState.rhs;
-        
-        // 1.1 แกะรอยเป้าหมายที่ซ่อนอยู่ในเศษส่วน
-        if (exactNode.dataset.parentFracId) {
-            // 🛠️ แก้ไขที่ 2: เรียกชื่อฟังก์ชันค้นหาให้ตรงกับระบบ
-            let frac = findFractionTerm(list, exactNode.dataset.parentFracId);
-            if (frac) list = exactNode.dataset.context === 'denominator' ? frac.denominator.children : frac.children;
-        }
-
-        let targetIdx = parseInt(exactNode.dataset.childIdx !== undefined ? exactNode.dataset.childIdx : exactNode.dataset.idx);
-        let targetTerm = list[targetIdx];
-
-        // 1.2 แกะรอยไส้ในวงเล็บ -> ถ้าลากโดนไส้ใน ให้รวบเป้าหมายขึ้นมาที่ "กล่องวงเล็บแม่" ทันที
-        let parentGroupNode = exactNode.closest('.term-container');
-        if (parentGroupNode && parentGroupNode.querySelector('.group-bracket') && targetTerm && targetTerm.type !== 'group') {
-            let pIdx = parseInt(parentGroupNode.dataset.childIdx !== undefined ? parentGroupNode.dataset.childIdx : parentGroupNode.dataset.idx);
-            if (list[pIdx] && list[pIdx].type === 'group') {
-                exactNode = parentGroupNode;
-                targetIdx = pIdx;
-                targetTerm = list[targetIdx];
-            }
-        }
-
-        // 1.3 ดึงข้อมูลต้นทาง (Source) ให้แม่นยำ
-        // 🛠️ แก้ไขที่ 3: เรียกใช้ State ให้ถูกต้อง
-        let srcList = eng.dragSrc.list || (eng.dragSrc.side === 'lhs' ? eng.localGameState.lhs : eng.localGameState.rhs);
-        let srcIdx = eng.dragSrc.idx;
-        let srcTerm = srcList[srcIdx];
-
-        // ==========================================
-        // 🚀 STEP 2: MATHEMATICAL DISTRIBUTION ENGINE (คูณกระจายระดับ Data)
-        // ==========================================
-        let isMultiplier = false;
-        let opIdx = -1;
-        
-        // เช็คว่าต้นทางเป็น "ตัวเลขที่ติดเครื่องหมายคูณ" หรือไม่
-        if (srcIdx > 0 && srcList[srcIdx - 1].value === '•') { isMultiplier = true; opIdx = srcIdx - 1; }
-        else if (srcIdx < srcList.length - 1 && srcList[srcIdx + 1].value === '•') { isMultiplier = true; opIdx = srcIdx + 1; }
-        else if (targetIdx > 0 && list[targetIdx - 1].value === '•' && srcIdx === targetIdx - 2) { isMultiplier = true; opIdx = targetIdx - 1; }
-
-        // ถ้ากฎเข้าเงื่อนไข: นำ "ตัวคูณ" เข้าชน "กล่องวงเล็บ"
-        if (isMultiplier && targetTerm && targetTerm.type === 'group') {
-            if (srcList !== list) {
-                eng.showPopup("ต้องคูณกระจายในระดับชั้นเดียวกันก่อนครับ");
-                if (eng.shakeElement) eng.shakeElement(exactNode);
-                return;
-            }
-
-            let mVal = srcTerm.value || '1';
-            let newSection = [];
-            
-            // 2.1 สร้างพจน์ใหม่ (นำตัวเลขไปแปะหน้าไส้ในทุกตัว ไม่ว่าจะเป็น ตัวเลข ตัวแปร หรือเศษส่วน)
-            targetTerm.children.forEach(child => {
-                if (child.type !== 'op') {
-                    // 🛠️ แก้ไขที่ 4: Copy ข้อมูลอย่างปลอดภัย ป้องกัน Reference ชนกัน
-                    let safeChild = JSON.parse(JSON.stringify(child));
-                    newSection.push(new eng.TermClass('term', mVal), new eng.TermClass('op', '•'), safeChild);
-                } else {
-                    newSection.push(JSON.parse(JSON.stringify(child)));
-                }
-            });
-
-            // 2.2 จัดการ Array: ลบตัวคูณ เครื่องหมายคูณ และวงเล็บเก่าทิ้ง
-            let minChangeIdx = Math.min(srcIdx, opIdx, targetIdx);
-            let maxChangeIdx = Math.max(srcIdx, opIdx, targetIdx);
-            let finalList = [];
-            
-            for(let i = 0; i < srcList.length; i++) {
-                if (i < minChangeIdx || i > maxChangeIdx) {
-                    finalList.push(srcList[i]);
-                } else if (i === targetIdx) {
-                    finalList.push(new eng.TermClass('group', null, newSection));
+        eng.tryCombine = (targetWrapper) => {
+            // 🚀 1. เลนส์รวมแสง (Auto-Focus Radar): ป้องกันการวางเป้าหมายพลาด (Index Mismatch)
+        // ดักจับกรณีผู้เล่นลากตัวเลขไปปล่อยโดน "ไส้ใน" ของวงเล็บ
+        let currentEl = targetWrapper;
+        while (currentEl && currentEl !== document.body) {
+            // ค้นหากล่องบรรจุ (Container) ตามลำดับชั้น
+            if (currentEl.classList && currentEl.classList.contains('term-container')) {
+                // ตรวจสอบว่ากล่องนี้คือวงเล็บใช่หรือไม่ (ดูว่ามี .group-bracket เป็นลูกสายตรงไหม)
+                let isGroup = Array.from(currentEl.children).some(c => c.classList && c.classList.contains('group-bracket'));
+                if (isGroup) {
+                    // รวบเป้าหมายให้กลายเป็นกล่องวงเล็บใหญ่เสมอ
+                    targetWrapper = currentEl;
+                    break;
                 }
             }
-            
-            // 2.3 อัปเดตข้อมูลเข้าสู่กระดานหลัก
-            srcList.length = 0;
-            srcList.push(...finalList);
-
-            eng.simplifyList(srcList);
-            eng.incrementMove();
-            eng.commitState();
-            if (eng.playTone) eng.playTone('pop');
-            return; 
+            currentEl = currentEl.parentElement;
         }
-
-        // ==========================================
-        // 🚀 STEP 3: NATIVE CORE PASS-THROUGH
-        // ==========================================
-        targetWrapper = exactNode;
-        let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
+        
+            // 🚀 ระบบเรดาร์ดักจับและปัดเป้าหมาย (Auto-Redirect) สำหรับวงเล็บซ้อน
+        let parentGroup = targetWrapper.closest('.term-container');
+        if (parentGroup && parentGroup !== targetWrapper && parentGroup.querySelector('.group-bracket')) {
+            let side = targetWrapper.dataset.side;
+            let rootList = side === 'lhs' ? eng.lhs : eng.rhs;
+            let currentList = rootList;
             
+            // 1. ค้นหารายชื่อเศษส่วนที่ถูกต้อง
+            if (targetWrapper.dataset.parentFracId) {
+                let frac = eng.findFractionById(rootList, targetWrapper.dataset.parentFracId);
+                if (frac) currentList = targetWrapper.dataset.context === 'denominator' ? frac.denominator.children : frac.children;
+            }
+            
+            // 2. หากล่องวงเล็บในรายชื่อ
+            let groupIdx = parseInt(parentGroup.dataset.childIdx !== undefined ? parentGroup.dataset.childIdx : parentGroup.dataset.idx);
+            let groupObj = currentList[groupIdx];
+            
+            // 3. ถ้านักเรียนลากตัวเลขจากข้างนอกวงเล็บ ให้ปัดเป้าหมายไปกระแทกกล่องวงเล็บแทน
+            if (groupObj && groupObj.type === 'group' && eng.dragSrc.list !== groupObj.children) {
+                targetWrapper = parentGroup;
+            }
+        }
+            if (!eng.dragSrc || !eng.dragSrc.el || !targetWrapper) return;
+            let list = eng.dragSrc.list;
+            let targetIdx = parseInt(targetWrapper.dataset.idx);
+            if (isNaN(targetIdx)) targetIdx = parseInt(targetWrapper.dataset.childIdx);
+            if (isNaN(targetIdx)) {
+                let parentWrapper = targetWrapper.closest('.term-container');
+                if (parentWrapper) targetIdx = parseInt(parentWrapper.dataset.idx);
+            }
+            if (isNaN(targetIdx) || targetIdx === eng.dragSrc.idx) return;
+
+            let srcTerm = eng.dragSrc.term, targetTerm = list[targetIdx];
+            if (!targetTerm) return;
+            let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
+
             // 🎯 ฟีเจอร์ใหม่: ลากเครื่องหมาย + หรือ - ไปใส่ วงเล็บ หรือ เศษส่วน เพื่อกระจายและสลายร่าง
     if (srcTerm.type === 'op' && (srcTerm.value === '+' || srcTerm.value === '-') && (targetTerm.type === 'group' || targetTerm.type === 'fraction')) {
         if (max - min === 1 && eng.dragSrc.idx < targetIdx) { // ลากจากซ้ายไปขวา และอยู่ติดกัน
