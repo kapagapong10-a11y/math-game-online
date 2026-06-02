@@ -1376,17 +1376,28 @@ eng.createTermElement = (term, side, list, idx, depth) => {
 eng.createChildTermElement = (child, list, childIdx, parentId, context, side, parentFracTerm, mainList, mainIdx, depth) => {
     let el;
     if (child.type === 'group') {
-        el = document.createElement('div'); el.className = 'term-container inline-flex items-center mx-1';
-        let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}']; let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
-        el.appendChild(lB); child.children.forEach((gc, i) => el.appendChild(eng.createChildTermElement(gc, child.children, i, parentId, context, side, parentFracTerm, mainList, mainIdx, depth + 1))); el.appendChild(rB);
+        el = document.createElement('div'); 
+        el.className = 'term-container inline-flex items-center mx-1';
+        
+        // 🚀 จุดที่เพิ่มเข้ามาเพื่อแก้บั๊ก: แปะป้าย ID เศษส่วนให้กล่องวงเล็บ เพื่อไม่ให้ระบบคิดว่าเป็นคนนอก
+        if (parentId) el.dataset.parentFracId = parentId;
+        if (list) el.dataset.childIdx = childIdx;
+        
+        let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}']; 
+        let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; 
+        let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
+        
+        el.appendChild(lB); 
+        child.children.forEach((gc, i) => el.appendChild(eng.createChildTermElement(gc, child.children, i, parentId, context, side, parentFracTerm, mainList, mainIdx, depth + 1))); 
+        el.appendChild(rB);
+        
         if(list) eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context);
     } else {
         el = child.type === 'op' ? document.createElement('span') : document.createElement('div');
         if (parentId) el.dataset.parentFracId = parentId;
-        if(child.type === 'op') {
+        if (child.type === 'op') {
             el.className = 'term-card is-operator mx-1'; el.innerText = child.value;
-            if(child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); }); }
-            // ✨ โค้ดใหม่: ทำให้ + และ - ในเศษส่วนลากได้เช่นกัน
+            if (child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); }); }
             else if ((child.value === '+' || child.value === '-') && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { 
                 el.style.cursor = 'grab'; el.style.fontWeight = 'bold';
                 el.style.color = child.value === '-' ? '#e53e3e' : '#38a169';
@@ -1395,9 +1406,12 @@ eng.createChildTermElement = (child, list, childIdx, parentId, context, side, pa
         } else {
             el.className = (child.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number') + ' px-1 py-1 min-w-[20px] ' + context + '-term';
             el.innerText = child.value; el.dataset.parentFracId = parentId;
-            if(list) el.dataset.childIdx = childIdx;
-            if (context === 'denominator' && !list) { el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, null, mainList, mainIdx, 'denominator', null, null, null, context); }
-            else if(list) { makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); }); eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); }
+            if (list) el.dataset.childIdx = childIdx;
+            if (context === 'denominator' && !list) { 
+                el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, null, mainList, mainIdx, 'denominator', null, null, null, context); 
+            } else if (list) { 
+                makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); }); eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); 
+            }
         }
     }
     if (el && list) el.dataset.side = side;
