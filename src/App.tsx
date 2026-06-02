@@ -362,58 +362,34 @@ function ProfileSettings({ setView, user, userData }) {
     );
 }
 
-// ==========================================
-// หน้าแรกแบบใหม่ พร้อมปุ่มสไตล์แฟนตาซีสุดเท่
-// ==========================================
+// ออกแบบหน้าแรกใหม่: ย่อขนาดและเลื่อนเมนูลงด้านล่างมุมขวา
 function MainMenu({ setView, isAdmin, globalSettings }) {
     const bgStyle = globalSettings?.mainMenuBgUrl ? { backgroundImage: `url(${globalSettings.mainMenuBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {};
-
+    
     return (
-        <div className="flex h-screen w-full items-end justify-center md:justify-end p-6 md:p-12 pb-10 md:pb-16 relative overflow-hidden bg-gradient-to-b from-blue-900 to-indigo-900" style={bgStyle}>
-            
-            {/* ขยายกล่องปุ่มให้ใหญ่ขึ้นเพื่อให้ตัวอักษรอังกฤษดูอลังการ */}
-            <div className="flex flex-col gap-4 w-full max-w-[240px] md:max-w-[300px] z-10 mt-auto drop-shadow-2xl">
-                <MenuButton 
-                    icon="fa-map-marked-alt" text="ADVENTURE" 
-                    color="from-blue-500 to-indigo-700" shadowColor="#1e3a8a" glowColor="rgba(59,130,246,0.6)" 
-                    onClick={() => setView('mapSelect')} 
-                />
-                <MenuButton 
-                    icon="fa-flask" text="CUSTOM" 
-                    color="from-purple-500 to-pink-700" shadowColor="#701a75" glowColor="rgba(217,70,239,0.6)" 
-                    onClick={() => setView('sandbox')} 
-                />
-                <MenuButton 
-                    icon="fa-trophy" text="RANK" 
-                    color="from-yellow-400 to-orange-500" shadowColor="#9a3412" glowColor="rgba(250,204,21,0.6)" 
-                    onClick={() => setView('leaderboard')} 
-                />
-                {isAdmin && (
-                    <MenuButton 
-                        icon="fa-cog" text="SETTINGS" 
-                        color="from-gray-500 to-gray-700" shadowColor="#374151" glowColor="rgba(156,163,175,0.6)" 
-                        onClick={() => setView('admin')} 
-                    />
-                )}
+        <div className="flex h-screen w-full items-end justify-end p-6 md:p-10 pb-8 md:pb-12 relative overflow-hidden bg-gradient-to-b from-blue-300 to-blue-500" style={bgStyle}>
+            {/* เลื่อนลงล่างสุด และลดขนาดความกว้างปุ่มลง (max-w-[160px]) */}
+            <div className="flex flex-col gap-2.5 w-full max-w-[160px] md:max-w-[220px] z-10 mt-auto">
+                <MenuButton icon="fa-map-marked-alt" text="ลุยด่าน (Play)" color="from-green-400 to-green-600" shadowColor="#166534" imgUrl={globalSettings?.btnPlay} onClick={() => setView('mapSelect')} />
+                <MenuButton icon="fa-flask" text="ฝึกฝน (Sandbox)" color="from-orange-400 to-orange-600" shadowColor="#9a3412" imgUrl={globalSettings?.btnSandbox} onClick={() => setView('sandbox')} />
+                <MenuButton icon="fa-trophy" text="ตารางอันดับ" color="from-yellow-300 to-yellow-500" shadowColor="#a16207" textColor="text-yellow-900" imgUrl={globalSettings?.btnRank} onClick={() => setView('leaderboard')} />
+                {isAdmin && <MenuButton icon="fa-cogs" text="ตั้งค่าเกม" color="from-gray-600 to-gray-800" shadowColor="#374151" imgUrl={globalSettings?.btnAdmin} onClick={() => setView('admin')} />}
             </div>
         </div>
     );
 }
 
-// 🎨 Component ปุ่มกดที่ถูกอัปเกรดใหม่ 
-function MenuButton({ icon, text, color, shadowColor, glowColor, onClick }) {
+function MenuButton({ icon, text, color, shadowColor, textColor = "text-white", onClick, imgUrl }) {
+    if (imgUrl) {
+        return (
+            <button onClick={onClick} className="w-full transform transition-transform hover:scale-105 active:scale-95 origin-bottom-right focus:outline-none filter drop-shadow-xl hover:brightness-110">
+                <img src={imgUrl} alt={text} className="w-full h-auto object-contain rounded-[1rem] md:rounded-2xl" />
+            </button>
+        );
+    }
     return (
-        <button 
-            onClick={onClick} 
-            className={`relative w-full bg-gradient-to-b ${color} text-white font-black py-4 md:py-5 px-4 rounded-[1.5rem] md:rounded-[2rem] border-2 border-white/50 transform transition-all hover:scale-105 active:scale-95 active:translate-y-[6px] active:shadow-none flex items-center justify-center gap-3 overflow-hidden group`}
-            // ใส่เอฟเฟกต์แสงเรืองแสง (Glow) และเงาด้านล่างให้ดูมีมิติ
-            style={{ boxShadow: `0 6px 0 ${shadowColor}, 0 0 25px ${glowColor}` }}
-        >
-            {/* เอฟเฟกต์ความเงาด้านบนปุ่ม (Glossy reflection) เหมือนหินเวทมนตร์ */}
-            <div className="absolute top-0 left-0 w-full h-1/3 bg-white/20 rounded-b-full pointer-events-none"></div>
-            
-            <i className={`fas ${icon} text-2xl md:text-3xl drop-shadow-[0_3px_3px_rgba(0,0,0,0.6)]`}></i> 
-            <span className="tracking-widest text-xl md:text-2xl drop-shadow-[0_3px_3px_rgba(0,0,0,0.6)]">{text}</span>
+        <button onClick={onClick} className={`w-full bg-gradient-to-b ${color} ${textColor} font-black py-2.5 md:py-3.5 px-3 rounded-[1.25rem] md:rounded-[1.5rem] shadow-[0_5px_0_${shadowColor}] transform transition-all active:translate-y-[5px] active:shadow-none text-sm md:text-lg flex items-center justify-center gap-2 border-2 border-white/30 hover:brightness-110`}>
+            <i className={`fas ${icon} text-lg md:text-2xl drop-shadow-sm`}></i> <span className="tracking-wide drop-shadow-sm">{text}</span>
         </button>
     );
 }
