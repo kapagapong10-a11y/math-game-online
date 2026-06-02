@@ -1035,8 +1035,8 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
 
 const engineCSS = `
 .term-container { display: inline-flex; align-items: center; margin: 0 2px; transition: all 0.2s; }
-.term-card { display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; color: #4a5568; font-family: 'Fredoka', sans-serif; font-weight: 600;
-border-radius: 12px; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.08); border: 2px solid #e2e8f0; position: relative; user-select: none; }
+.term-card { display: flex; flex-direction: row; align-items: center; justify-content: center; background: white; color: #4a5568; font-family: 'Fredoka', sans-serif; font-weight: 600;
+border-radius: 12px; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.08); border: 2px solid #e2e8f0; position: relative; user-select: none; white-space: nowrap; }
 .term-card.is-variable { background: #4FACFE; color: white; border-color: #00f2fe; }
 .term-card.is-number { background: linear-gradient(to top, #fbc2eb 0%, #a6c1ee 100%); color: white; border-color: #fff; }
 .term-card.is-operator { background: transparent; box-shadow: none; border: none; color: #718096; padding: 0 4px; min-width: auto; cursor: default; }
