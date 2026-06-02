@@ -1739,60 +1739,41 @@ eng.handleFractionDivision = (targetCard) => {
         };
 
         eng.tryCombine = (targetWrapper) => {
-// 🚀 1. ระบบด่านตรวจ "เลนส์รวมแสงและแม่เหล็ก" (Smart Target Resolver V2)
-        // คลุมทุกกรณี: ลากพลาดโดนเครื่องหมาย, โดนไส้ในเศษส่วน, โดนวงเล็บ ฯลฯ
+// 🚀 THE STRUCTURAL AST RESOLVER (รากฐานใหม่: วิเคราะห์เป้าหมายตามโครงสร้างคณิตศาสตร์)
         
-        // ก. กรณีลากไปปล่อยโดน "เครื่องหมาย (+, -, •)" -> แม่เหล็กดูดไปหาพจน์ที่อยู่ติดกัน
-        if (targetWrapper.classList && targetWrapper.classList.contains('is-operator')) {
-            let opIdx = parseInt(targetWrapper.dataset.childIdx !== undefined ? targetWrapper.dataset.childIdx : targetWrapper.dataset.idx);
-            let newIdx = eng.dragSrc.idx < opIdx ? opIdx + 1 : opIdx - 1; // ดูดตามทิศทางซ้าย/ขวา
+        // 1. หาโหนดที่ใกล้ที่สุดที่มีป้ายทะเบียนตัวตน (ไม่เอาพื้นหลังเปล่าๆ)
+        let exactNode = targetWrapper.closest('[data-idx], [data-child-idx], .term-container');
+        if (!exactNode) return; // ถ้าลากลงที่ว่าง ให้ยกเลิกเงียบๆ ไม่ต้องกระเด็นข้ามฝั่ง
+
+        // 2. Level Matching (ลากของระดับไหน เป้าหมายต้องถูกดึงไประดับนั้น)
+        if (eng.dragSrc.type === 'fraction' && !eng.dragSrc.parentFracId) {
+            // ก. ถ้ายก "เศษส่วนยานแม่" มา เป้าหมายต้องถูกดันให้เป็น "ยานแม่" เสมอ! (ห้ามเป็นไส้ใน)
+            if (exactNode.dataset.parentFracId) {
+                let side = exactNode.dataset.side;
+                let rootIdx = (side === 'lhs' ? eng.lhs : eng.rhs).findIndex(t => t.id === exactNode.dataset.parentFracId);
+                let rootNode = document.querySelector(`[data-side="${side}"][data-idx="${rootIdx}"]:not([data-parent-frac-id])`);
+                if (rootNode) exactNode = rootNode;
+            }
+        } else {
+            // ข. ถ้าลาก "ไส้ใน" ไปหา "วงเล็บ" ให้รวบเป้าหมายเป็นกล่องวงเล็บใหญ่ (เพื่อรองรับการคูณกระจาย)
+            let groupContainer = exactNode.closest('.term-container');
+            if (groupContainer && groupContainer.querySelector('.group-bracket')) {
+                exactNode = groupContainer;
+            }
+        }
+
+        // 3. Operator Magnet (แม่เหล็กดูดข้ามเครื่องหมาย +, -)
+        if (exactNode.classList.contains('is-operator')) {
+            let opIdx = parseInt(exactNode.dataset.childIdx !== undefined ? exactNode.dataset.childIdx : exactNode.dataset.idx);
+            let newIdx = eng.dragSrc.idx < opIdx ? opIdx + 1 : opIdx - 1; // ดูดไปหาพจน์ข้างเคียง
+            let queryStr = exactNode.dataset.parentFracId ? `[data-parent-frac-id="${exactNode.dataset.parentFracId}"]` : `[data-side="${exactNode.dataset.side}"]:not([data-parent-frac-id])`;
+            let neighbor = document.querySelector(`${queryStr}[data-child-idx="${newIdx}"]`) || document.querySelector(`${queryStr}[data-idx="${newIdx}"]`);
+            if (neighbor) exactNode = neighbor;
+        }
+
+        // 4. เซ็ตเป้าหมายที่ถูกจัดระเบียบโครงสร้างแล้ว กลับเข้าสู่ระบบแกนกลาง
+        targetWrapper = exactNode;
             
-            // ค้นหาเป้าหมายใหม่ ให้แม่นยำแยกระหว่างกระดานหลักกับในเศษส่วน
-            let exactQuery = targetWrapper.dataset.parentFracId 
-                ? `[data-parent-frac-id="${targetWrapper.dataset.parentFracId}"]` 
-                : `[data-side="${targetWrapper.dataset.side}"]:not([data-parent-frac-id])`;
-                
-            let newTarget = document.querySelector(`${exactQuery}[data-child-idx="${newIdx}"]`) || document.querySelector(`${exactQuery}[data-idx="${newIdx}"]`);
-            if (newTarget) targetWrapper = newTarget;
-        }
-
-        // ข. 🌟 (จุดที่เพิ่มใหม่) กรณีลาก "เศษส่วน/ก้อนหลัก" ไปปล่อยโดน "ไส้ในเศษส่วน" -> ปัดเป้าหมายเป็นเศษส่วนก้อนแม่
-        if (!eng.dragSrc.parentFracId && targetWrapper.dataset && targetWrapper.dataset.parentFracId) {
-            let side = targetWrapper.dataset.side;
-            let rootList = side === 'lhs' ? eng.lhs : eng.rhs;
-            // หา Index ของเศษส่วนก้อนแม่บนกระดานหลัก
-            let fracIdx = rootList.findIndex(t => t.id === targetWrapper.dataset.parentFracId);
-            if (fracIdx !== -1) {
-                let fracEl = document.querySelector(`[data-side="${side}"][data-idx="${fracIdx}"]:not([data-parent-frac-id])`);
-                if (fracEl) targetWrapper = fracEl; // เปลี่ยนเป้าหมายเป็นกล่องเศษส่วนตัวแม่
-            }
-        }
-        
-        // ค. กรณีเมาส์ลั่นโดน "ไส้ใน" ของวงเล็บ -> รวบเป้าหมายกลับมาเป็นกล่องวงเล็บใหญ่
-        let currentEl = targetWrapper;
-        while (currentEl && currentEl !== document.body && currentEl !== document) {
-            if (currentEl.classList && currentEl.classList.contains('term-container')) {
-                let isGroup = Array.from(currentEl.children).some(c => c.classList && c.classList.contains('group-bracket'));
-                if (isGroup) { targetWrapper = currentEl; break; }
-            }
-            currentEl = currentEl.parentElement;
-        }
-
-        // ง. กรณีเมาส์ลั่นโดน "ช่องว่าง/พื้นหลัง" ของเศษส่วนตัวเอง (Dead Zone ป้องกัน Error ข้ามฝั่ง)
-        if (eng.dragSrc.parentFracId && targetWrapper.querySelector && targetWrapper.querySelector('.fraction-group')) {
-            let rootSide = targetWrapper.dataset.side;
-            let rootList = rootSide === 'lhs' ? eng.lhs : eng.rhs;
-            let targetIdx = parseInt(targetWrapper.dataset.idx);
-            let targetRootTerm = rootList[targetIdx];
-            if (targetRootTerm && targetRootTerm.id === eng.dragSrc.parentFracId) {
-                if (eng.shakeElement) {
-                    let srcQuery = `[data-parent-frac-id="${eng.dragSrc.parentFracId}"][data-child-idx="${eng.dragSrc.idx}"]`;
-                    eng.shakeElement(document.querySelector(srcQuery) || document.body);
-                }
-                return; // ยกเลิกการรวมร่างแบบเงียบๆ
-            }
-        }
-
             // 🎯 ฟีเจอร์ใหม่: ลากเครื่องหมาย + หรือ - ไปใส่ วงเล็บ หรือ เศษส่วน เพื่อกระจายและสลายร่าง
     if (srcTerm.type === 'op' && (srcTerm.value === '+' || srcTerm.value === '-') && (targetTerm.type === 'group' || targetTerm.type === 'fraction')) {
         if (max - min === 1 && eng.dragSrc.idx < targetIdx) { // ลากจากซ้ายไปขวา และอยู่ติดกัน
