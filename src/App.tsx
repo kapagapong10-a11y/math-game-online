@@ -1888,7 +1888,10 @@ eng.tryCombine = (targetWrapper) => {
                             let srcSign = (eng.dragSrc.idx > 0 && list[eng.dragSrc.idx-1].type === 'op' && list[eng.dragSrc.idx-1].value === '-') ? -1 : 1;
                             let targetSign = (targetIdx > 0 && list[targetIdx-1].type === 'op' && list[targetIdx-1].value === '-') ? -1 : 1;
                             let resCoef = (p1.c * srcSign) + (p2.c * targetSign);
-                            let finalTermVal = Math.abs(resCoef) + (p1.v || '');
+                            
+                            // 🔥 แก้ไข: ถ้าสัมประสิทธิ์หักล้างกันเหลือ 0 ให้ทิ้งตัวแปรไปเลย กลายเป็นเลข 0 เพียวๆ
+                            let finalTermVal = resCoef === 0 ? "0" : (Math.abs(resCoef) + (p1.v || ''));
+                            
                             list[targetIdx].value = finalTermVal.toString();
                             if (targetIdx > 0 && list[targetIdx-1].type === 'op') list[targetIdx-1].value = resCoef < 0 ? '-' : '+';
                             else if (targetIdx === 0 && resCoef < 0) list[targetIdx].value = '-' + finalTermVal.toString();
