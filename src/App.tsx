@@ -1744,38 +1744,40 @@ eng.handleFractionDivision = (targetCard) => {
         };
 
 eng.tryCombine = (targetWrapper) => {
+            if (!eng.dragSrc || !eng.dragSrc.el || !targetWrapper) return;
+
+            let potentialGroupWrapper = null;
             let currentEl = targetWrapper;
             while (currentEl && currentEl !== document.body) {
                 if (currentEl.classList && currentEl.classList.contains('term-container')) {
                     let isGroup = Array.from(currentEl.children).some(c => c.classList && c.classList.contains('group-bracket'));
                     if (isGroup) {
-                        targetWrapper = currentEl;
+                        potentialGroupWrapper = currentEl;
                         break;
                     }
                 }
                 currentEl = currentEl.parentElement;
             }
 
-            let parentGroup = targetWrapper.closest('.term-container');
-            if (parentGroup && parentGroup !== targetWrapper && parentGroup.querySelector('.group-bracket')) {
-                let side = targetWrapper.dataset.side || (eng.dragSrc ? eng.dragSrc.side : 'lhs');
+            if (potentialGroupWrapper) {
+                let side = potentialGroupWrapper.dataset.side || eng.dragSrc.side || 'lhs';
                 let rootList = side === 'lhs' ? eng.localGameState.lhs : eng.localGameState.rhs;
                 let currentList = rootList;
 
-                if (targetWrapper.dataset.parentFracId) {
-                    let frac = findFractionTerm(rootList, targetWrapper.dataset.parentFracId);
-                    if (frac) currentList = targetWrapper.dataset.context === 'denominator' ? (frac.denominator.type === 'group' ? frac.denominator.children : [frac.denominator]) : frac.children;
+                if (potentialGroupWrapper.dataset.parentFracId) {
+                    let frac = findFractionTerm(rootList, potentialGroupWrapper.dataset.parentFracId);
+                    if (frac) currentList = potentialGroupWrapper.dataset.context === 'denominator' ? (frac.denominator.type === 'group' ? frac.denominator.children : [frac.denominator]) : frac.children;
                 }
 
-                let groupIdx = parseInt(parentGroup.dataset.childIdx !== undefined ? parentGroup.dataset.childIdx : parentGroup.dataset.idx);
+                let groupIdx = parseInt(potentialGroupWrapper.dataset.childIdx !== undefined ? potentialGroupWrapper.dataset.childIdx : potentialGroupWrapper.dataset.idx);
                 let groupObj = currentList[groupIdx];
 
+                // 🔥 ข้อยกเว้น: ถ้าไม่ได้อยู่ในวงเล็บเดียวกัน (คนละ List) ถึงจะปัดเป้าหมายไปที่วงเล็บใหญ่
                 if (groupObj && groupObj.type === 'group' && eng.dragSrc.list !== groupObj.children) {
-                    targetWrapper = parentGroup;
+                    targetWrapper = potentialGroupWrapper;
                 }
             }
 
-            if (!eng.dragSrc || !eng.dragSrc.el || !targetWrapper) return;
             let list = eng.dragSrc.list;
             let targetIdx = parseInt(targetWrapper.dataset.idx);
             if (isNaN(targetIdx)) targetIdx = parseInt(targetWrapper.dataset.childIdx);
