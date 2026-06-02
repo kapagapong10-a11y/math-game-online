@@ -1377,7 +1377,6 @@ eng.createChildTermElement = (child, list, childIdx, parentId, context, side, pa
     let el;
     if (child.type === 'group') {
         el = document.createElement('div');
-        // 🚀 แก้ไข 1: เพิ่มคลาส context (เช่น numerator-term) ให้กล่องวงเล็บ เพื่อไม่ให้โดนเด้งบล็อก
         el.className = 'term-container inline-flex items-center mx-1 ' + (context ? context + '-term' : '');
         
         if (parentId) el.dataset.parentFracId = parentId;
@@ -1391,16 +1390,18 @@ eng.createChildTermElement = (child, list, childIdx, parentId, context, side, pa
         child.children.forEach((gc, i) => el.appendChild(eng.createChildTermElement(gc, child.children, i, parentId, context, side, parentFracTerm, mainList, mainIdx, depth + 1))); 
         el.appendChild(rB);
         
-        // 🚀 แก้ไข 2: ส่งค่า side เข้าไปแทน null เพื่อให้ระบบรู้ฝั่งที่แน่ชัด
         if(list) eng.setupDrag(el, child, side, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context);
     } else {
         el = child.type === 'op' ? document.createElement('span') : document.createElement('div');
         if (parentId) el.dataset.parentFracId = parentId;
         
         if (child.type === 'op') {
-            // 🚀 แก้ไข 3: เพิ่มคลาส context ให้เครื่องหมายเช่นกัน
             el.className = 'term-card is-operator mx-1 ' + (context ? context + '-term' : ''); 
             el.innerText = child.value;
+            
+            // 🚀 จุดที่แก้ไข: บังคับให้เครื่องหมายทุกตัวต้องมีป้ายตำแหน่ง (childIdx) เพื่อไม่ให้ระบบหลงทาง
+            if (list) el.dataset.childIdx = childIdx; 
+
             if (child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); }); }
             else if ((child.value === '+' || child.value === '-') && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { 
                 el.style.cursor = 'grab'; el.style.fontWeight = 'bold';
@@ -1416,7 +1417,6 @@ eng.createChildTermElement = (child, list, childIdx, parentId, context, side, pa
                 el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, side, mainList, mainIdx, 'denominator', null, null, null, context); 
             } else if (list) { 
                 makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); }); 
-                // 🚀 ส่งค่า side ตรงนี้ด้วยเช่นกัน
                 eng.setupDrag(el, child, side, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); 
             }
         }
