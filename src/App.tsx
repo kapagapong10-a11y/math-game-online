@@ -1901,13 +1901,43 @@ eng.tryCombine = (targetWrapper) => {
                 }
             }
 
-            if ((srcTerm.type === 'term' && targetTerm.type === 'group') || (srcTerm.type === 'group' && targetTerm.type === 'term')) {
+                if ((srcTerm.type === 'term' && targetTerm.type === 'group') || (srcTerm.type === 'group' && targetTerm.type === 'term')) {
                 let numberTerm = srcTerm.type === 'term' ? srcTerm : targetTerm;
                 let groupTerm = srcTerm.type === 'group' ? srcTerm : targetTerm;
                 if (max - min === 2 && list[min+1].value === '•' && !isNaN(numberTerm.value)) {
+                    // ป้องกันการข้ามหน้าข้ามตาตัวคูณที่ซ้อนกันอยู่ (เช่น x • 3 • (y+1))
+                    let leftBound = min > 0 && list[min-1].type === 'op' && list[min-1].value === '•';
+                    let rightBound = max < list.length - 1 && list[max+1].type === 'op' && list[max+1].value === '•';
+                    if (leftBound || rightBound) {
+                        eng.showPopup("ติดตัวคูณซ้อนกันอยู่ครับ ต้องคูณให้เสร็จทีละคู่"); 
+                        eng.shakeElement(targetWrapper); return; 
+                    }
+
                     let factor = parseInt(numberTerm.value);
+                    let precedingSign = '+'; 
+                    let replaceIdx = min; 
+                    let replaceCount = 3;
+
+                    // เช็คว่ามีเครื่องหมายบวกหรือลบนำหน้าก้อนนี้อยู่หรือไม่
+                    if (min > 0 && list[min-1].type === 'op' && (list[min-1].value === '+' || list[min-1].value === '-')) {
+                        precedingSign = list[min-1].value;
+                        replaceIdx = min - 1;
+                        replaceCount = 4; // รวบเครื่องหมายเดิมทิ้งไปด้วย
+                    }
+
+                    // ถ้าข้างหน้าติดลบ ให้ดูดลบเข้าไปในตัวคูณเลย
+                    if (precedingSign === '-') {
+                        factor = -factor;
+                    }
+
                     let newTerms = eng.multiplyTerms(groupTerm.children, factor);
-                    list.splice(min, 3, ...newTerms);
+                    let insertion = [];
+                    
+                    // เชื่อมกลับเข้าสมการด้วยเครื่องหมายบวกเสมอ (เพราะลบถูกจัดการเข้าไปใน newTerms หมดแล้ว)
+                    if (replaceIdx > 0) insertion.push(new eng.TermClass('op', '+'));
+                    insertion.push(...newTerms);
+
+                    list.splice(replaceIdx, replaceCount, ...insertion);
                     eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
                 }
             }
