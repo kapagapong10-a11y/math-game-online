@@ -1739,6 +1739,23 @@ eng.handleFractionDivision = (targetCard) => {
         };
 
         eng.tryCombine = (targetWrapper) => {
+            // 🚀 1. เลนส์รวมแสง (Auto-Focus Radar): ป้องกันการวางเป้าหมายพลาด (Index Mismatch)
+        // ดักจับกรณีผู้เล่นลากตัวเลขไปปล่อยโดน "ไส้ใน" ของวงเล็บ
+        let currentEl = targetWrapper;
+        while (currentEl && currentEl !== document.body) {
+            // ค้นหากล่องบรรจุ (Container) ตามลำดับชั้น
+            if (currentEl.classList && currentEl.classList.contains('term-container')) {
+                // ตรวจสอบว่ากล่องนี้คือวงเล็บใช่หรือไม่ (ดูว่ามี .group-bracket เป็นลูกสายตรงไหม)
+                let isGroup = Array.from(currentEl.children).some(c => c.classList && c.classList.contains('group-bracket'));
+                if (isGroup) {
+                    // รวบเป้าหมายให้กลายเป็นกล่องวงเล็บใหญ่เสมอ
+                    targetWrapper = currentEl;
+                    break;
+                }
+            }
+            currentEl = currentEl.parentElement;
+        }
+        
             // 🚀 ระบบเรดาร์ดักจับและปัดเป้าหมาย (Auto-Redirect) สำหรับวงเล็บซ้อน
         let parentGroup = targetWrapper.closest('.term-container');
         if (parentGroup && parentGroup !== targetWrapper && parentGroup.querySelector('.group-bracket')) {
