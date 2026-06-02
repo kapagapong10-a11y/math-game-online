@@ -1738,41 +1738,106 @@ eng.handleFractionDivision = (targetCard) => {
             eng.commitState();
         };
 
-        eng.tryCombine = (targetWrapper) => {
-// 🚀 THE STRUCTURAL AST RESOLVER (รากฐานใหม่: วิเคราะห์เป้าหมายตามโครงสร้างคณิตศาสตร์)
-        
-        // 1. หาโหนดที่ใกล้ที่สุดที่มีป้ายทะเบียนตัวตน (ไม่เอาพื้นหลังเปล่าๆ)
+eng.tryCombine = (targetWrapper) => {
+        // ==========================================
+        // 🚀 STEP 1: AST RESOLVER (แกะรอยและตบเป้าหมายให้เข้าโครงสร้างคณิตศาสตร์)
+        // ==========================================
         let exactNode = targetWrapper.closest('[data-idx], [data-child-idx], .term-container');
-        if (!exactNode) return; // ถ้าลากลงที่ว่าง ให้ยกเลิกเงียบๆ ไม่ต้องกระเด็นข้ามฝั่ง
+        if (!exactNode) return; // ลากลงพื้นว่าง ให้ยกเลิกเงียบๆ
 
-        // 2. Level Matching (ลากของระดับไหน เป้าหมายต้องถูกดึงไประดับนั้น)
-        if (eng.dragSrc.type === 'fraction' && !eng.dragSrc.parentFracId) {
-            // ก. ถ้ายก "เศษส่วนยานแม่" มา เป้าหมายต้องถูกดันให้เป็น "ยานแม่" เสมอ! (ห้ามเป็นไส้ใน)
-            if (exactNode.dataset.parentFracId) {
-                let side = exactNode.dataset.side;
-                let rootIdx = (side === 'lhs' ? eng.lhs : eng.rhs).findIndex(t => t.id === exactNode.dataset.parentFracId);
-                let rootNode = document.querySelector(`[data-side="${side}"][data-idx="${rootIdx}"]:not([data-parent-frac-id])`);
-                if (rootNode) exactNode = rootNode;
-            }
-        } else {
-            // ข. ถ้าลาก "ไส้ใน" ไปหา "วงเล็บ" ให้รวบเป้าหมายเป็นกล่องวงเล็บใหญ่ (เพื่อรองรับการคูณกระจาย)
-            let groupContainer = exactNode.closest('.term-container');
-            if (groupContainer && groupContainer.querySelector('.group-bracket')) {
-                exactNode = groupContainer;
+        let side = exactNode.dataset.side || eng.dragSrc.side;
+        let list = side === 'lhs' ? eng.lhs : eng.rhs;
+        
+        // 1.1 แกะรอยเป้าหมายที่ซ่อนอยู่ในเศษส่วน
+        if (exactNode.dataset.parentFracId) {
+            let frac = eng.findFractionById(list, exactNode.dataset.parentFracId);
+            if (frac) list = exactNode.dataset.context === 'denominator' ? frac.denominator.children : frac.children;
+        }
+
+        let targetIdx = parseInt(exactNode.dataset.childIdx !== undefined ? exactNode.dataset.childIdx : exactNode.dataset.idx);
+        let targetTerm = list[targetIdx];
+
+        // 1.2 แกะรอยไส้ในวงเล็บ -> ถ้าลากโดนไส้ใน ให้รวบเป้าหมายขึ้นมาที่ "กล่องวงเล็บแม่" ทันที
+        let parentGroupNode = exactNode.closest('.term-container');
+        if (parentGroupNode && parentGroupNode.querySelector('.group-bracket') && targetTerm && targetTerm.type !== 'group') {
+            let pIdx = parseInt(parentGroupNode.dataset.childIdx !== undefined ? parentGroupNode.dataset.childIdx : parentGroupNode.dataset.idx);
+            if (list[pIdx] && list[pIdx].type === 'group') {
+                exactNode = parentGroupNode;
+                targetIdx = pIdx;
+                targetTerm = list[targetIdx];
             }
         }
 
-        // 3. Operator Magnet (แม่เหล็กดูดข้ามเครื่องหมาย +, -)
-        if (exactNode.classList.contains('is-operator')) {
-            let opIdx = parseInt(exactNode.dataset.childIdx !== undefined ? exactNode.dataset.childIdx : exactNode.dataset.idx);
-            let newIdx = eng.dragSrc.idx < opIdx ? opIdx + 1 : opIdx - 1; // ดูดไปหาพจน์ข้างเคียง
-            let queryStr = exactNode.dataset.parentFracId ? `[data-parent-frac-id="${exactNode.dataset.parentFracId}"]` : `[data-side="${exactNode.dataset.side}"]:not([data-parent-frac-id])`;
-            let neighbor = document.querySelector(`${queryStr}[data-child-idx="${newIdx}"]`) || document.querySelector(`${queryStr}[data-idx="${newIdx}"]`);
-            if (neighbor) exactNode = neighbor;
+        // 1.3 ดึงข้อมูลต้นทาง (Source) ให้แม่นยำ
+        let srcList = eng.dragSrc.list || (eng.dragSrc.side === 'lhs' ? eng.lhs : eng.rhs);
+        let srcIdx = eng.dragSrc.idx;
+        let srcTerm = srcList[srcIdx];
+
+        // ==========================================
+        // 🚀 STEP 2: MATHEMATICAL DISTRIBUTION ENGINE (คูณกระจายระดับ Data)
+        // ==========================================
+        let isMultiplier = false;
+        let opIdx = -1;
+        
+        // เช็คว่าต้นทางเป็น "ตัวเลขที่ติดเครื่องหมายคูณ" หรือไม่
+        if (srcIdx > 0 && srcList[srcIdx - 1].value === '•') { isMultiplier = true; opIdx = srcIdx - 1; }
+        else if (srcIdx < srcList.length - 1 && srcList[srcIdx + 1].value === '•') { isMultiplier = true; opIdx = srcIdx + 1; }
+        else if (targetIdx > 0 && list[targetIdx - 1].value === '•' && srcIdx === targetIdx - 2) { isMultiplier = true; opIdx = targetIdx - 1; }
+
+        // ถ้ากฎเข้าเงื่อนไข: นำ "ตัวคูณ" เข้าชน "กล่องวงเล็บ"
+        if (isMultiplier && targetTerm && targetTerm.type === 'group') {
+            if (srcList !== list) {
+                eng.showPopup("ต้องคูณกระจายในระดับชั้นเดียวกันก่อนครับ");
+                if (eng.shakeElement) eng.shakeElement(exactNode);
+                return;
+            }
+
+            let mVal = srcTerm.value || '1';
+            let newSection = [];
+            
+            // 2.1 สร้างพจน์ใหม่ (นำตัวเลขไปแปะหน้าไส้ในทุกตัว)
+            targetTerm.children.forEach(child => {
+                if (child.type === 'term') {
+                    newSection.push(new eng.TermClass('term', mVal), new eng.TermClass('op', '•'), child);
+                } else {
+                    newSection.push(child);
+                }
+            });
+
+            // 2.2 จัดการ Array: ลบตัวคูณ เครื่องหมายคูณ และวงเล็บเก่าทิ้ง
+            let minChangeIdx = Math.min(srcIdx, opIdx, targetIdx);
+            let maxChangeIdx = Math.max(srcIdx, opIdx, targetIdx);
+            let finalList = [];
+            
+            for(let i = 0; i < srcList.length; i++) {
+                if (i < minChangeIdx || i > maxChangeIdx) {
+                    finalList.push(srcList[i]);
+                } else if (i === targetIdx) {
+                    // วางกลุ่มที่คูณเสร็จแล้ว ลงไปแทนที่วงเล็บเดิม
+                    finalList.push(new eng.TermClass('group', null, newSection));
+                }
+            }
+            
+            // 2.3 อัปเดตข้อมูลเข้าสู่กระดานหลัก
+            srcList.length = 0;
+            srcList.push(...finalList);
+
+            // ส่งต่อให้แม่บ้านเคลียร์เครื่องหมาย + อัปเดตหน้าจอ
+            eng.simplifyList(srcList);
+            eng.incrementMove();
+            eng.commitState();
+            if (eng.playTone) eng.playTone('pop');
+            return; // 🛑 จบการทำงานตรงนี้เลย ไม่ต้องลงไปหาโค้ดส่วนล่าง
         }
 
-        // 4. เซ็ตเป้าหมายที่ถูกจัดระเบียบโครงสร้างแล้ว กลับเข้าสู่ระบบแกนกลาง
+        // ==========================================
+        // 🚀 STEP 3: NATIVE CORE PASS-THROUGH
+        // หากไม่ใช่การคูณกระจาย ให้ส่งเป้าหมายที่ถูกจัดระเบียบโครงสร้างแล้ว ไปให้โค้ดเก่าทำหน้าที่ต่อ (เช่น บวกเศษส่วน)
+        // ==========================================
         targetWrapper = exactNode;
+        let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
+        
+        // --- โค้ดเดิมของระบบ (เช่น if (targetTerm.type === 'term'...) จะเริ่มต้นต่อจากจุดนี้ ---
             
             // 🎯 ฟีเจอร์ใหม่: ลากเครื่องหมาย + หรือ - ไปใส่ วงเล็บ หรือ เศษส่วน เพื่อกระจายและสลายร่าง
     if (srcTerm.type === 'op' && (srcTerm.value === '+' || srcTerm.value === '-') && (targetTerm.type === 'group' || targetTerm.type === 'fraction')) {
