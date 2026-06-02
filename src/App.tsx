@@ -1185,42 +1185,59 @@ box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.15); }
         };
 
         // MULTIPLY TERMS (Restored from Vanilla)
-        eng.multiplyTerms = (terms, factor) => {
+eng.multiplyTerms = (terms, factor) => {
+            let multiplyNext = true; // ตัวควบคุม: เช็คว่าตัวต่อไปต้องโดนคูณไหม
+            
             return terms.map(t => {
                 let copy = new eng.TermClass(t.type, t.value, null, null);
                 if (t.children) copy.children = JSON.parse(JSON.stringify(t.children));
                 if (t.denominator) copy.denominator = JSON.parse(JSON.stringify(t.denominator));
 
-                if (t.type === 'term') {
-                    if (t.value.match(/[a-zA-Z]/)) {
-                        let match = t.value.match(/^(-?\d*)([a-zA-Z]+)$/);
-                        if (match) {
-                            let cStr = match[1];
-                            let c = (cStr === '' || cStr === '+') ? 1 : (cStr === '-' ? -1 : parseInt(cStr));
-                            let variable = match[2];
-                            copy.value = (c * factor) + variable;
-                        } else copy.value = t.value;
-                    } else if (!isNaN(t.value) && t.value !== '') {
-                        copy.value = (parseInt(t.value) * factor).toString();
-                    }
-                } else if (t.type === 'group' || t.type === 'fraction') {
-                    copy.children = eng.multiplyTerms(copy.children, factor);
-                } else if (t.type === 'fraction') {
-                    let oldNumChildren = JSON.parse(JSON.stringify(t.children));
-                    if (oldNumChildren.length === 1 && oldNumChildren[0].type === 'term') {
-                        let innerTerm = oldNumChildren[0];
-                        let val = parseInt(innerTerm.value);
-                        if (!isNaN(val)) {
-                            innerTerm.value = (val * factor).toString();
-                            copy.children = [innerTerm];
+                // 1. จัดการเครื่องหมาย: ใช้เป็นตัวเปิด/ปิดระบบคูณ
+                if (t.type === 'op') {
+                    if (t.value === '+' || t.value === '-') multiplyNext = true; // เจอ + หรือ - ให้เปิดระบบคูณตัวถัดไป
+                    else if (t.value === '•') multiplyNext = false; // เจอ • ให้ปิดระบบ (ข้ามตัวถัดไป เพราะถือเป็นก้อนเดียวกัน)
+                    return copy;
+                }
+
+                // 2. จัดการตัวเลข/วงเล็บ/เศษส่วน: คูณเฉพาะตัวที่ระบบเปิดไว้
+                if (multiplyNext) {
+                    if (t.type === 'term') {
+                        if (t.value.match(/[a-zA-Z]/)) {
+                            let match = t.value.match(/^(-?\d*)([a-zA-Z]+)$/);
+                            if (match) {
+                                let cStr = match[1];
+                                let c = (cStr === '' || cStr === '+') ? 1 : (cStr === '-' ? -1 : parseInt(cStr));
+                                let variable = match[2];
+                                copy.value = (c * factor) + variable;
+                            } else {
+                                copy.value = t.value;
+                            }
+                        } else if (!isNaN(t.value) && t.value !== '') {
+                            copy.value = (parseInt(t.value) * factor).toString();
+                        }
+                    } else if (t.type === 'group') {
+                        // มุดเข้าไปคูณข้างในวงเล็บ
+                        copy.children = eng.multiplyTerms(t.children, factor);
+                    } else if (t.type === 'fraction') {
+                        // จัดการเศษส่วน: ให้คูณเข้าเฉพาะตัวเศษ
+                        let oldNumChildren = JSON.parse(JSON.stringify(t.children));
+                        if (oldNumChildren.length === 1 && oldNumChildren[0].type === 'term') {
+                            let innerTerm = oldNumChildren[0];
+                            let val = parseInt(innerTerm.value);
+                            if (!isNaN(val)) {
+                                innerTerm.value = (val * factor).toString();
+                                copy.children = [innerTerm];
+                            } else {
+                                let newNumContent = new eng.TermClass('group', null, oldNumChildren);
+                                copy.children = [new eng.TermClass('term', factor.toString()), new eng.TermClass('op', '•'), newNumContent];
+                            }
                         } else {
-                            let newNumContent = new eng.TermClass('group', null, oldNumChildren);
+                            let newNumContent = (oldNumChildren.length === 1 && oldNumChildren[0].type === 'group') ? oldNumChildren[0] : new eng.TermClass('group', null, oldNumChildren);
                             copy.children = [new eng.TermClass('term', factor.toString()), new eng.TermClass('op', '•'), newNumContent];
                         }
-                    } else {
-                        let newNumContent = (oldNumChildren.length === 1 && oldNumChildren[0].type === 'group') ? oldNumChildren[0] : new eng.TermClass('group', null, oldNumChildren);
-                        copy.children = [new eng.TermClass('term', factor.toString()), new eng.TermClass('op', '•'), newNumContent];
                     }
+                    multiplyNext = false; // เมื่อคูณเสร็จ 1 ก้อน ให้ปิดระบบทันที (จนกว่าจะเจอ + หรือ - ตัวถัดไป)
                 }
                 return copy;
             });
