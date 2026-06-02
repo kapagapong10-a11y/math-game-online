@@ -1376,10 +1376,10 @@ eng.createTermElement = (term, side, list, idx, depth) => {
 eng.createChildTermElement = (child, list, childIdx, parentId, context, side, parentFracTerm, mainList, mainIdx, depth) => {
     let el;
     if (child.type === 'group') {
-        el = document.createElement('div'); 
-        el.className = 'term-container inline-flex items-center mx-1';
+        el = document.createElement('div');
+        // 🚀 แก้ไข 1: เพิ่มคลาส context (เช่น numerator-term) ให้กล่องวงเล็บ เพื่อไม่ให้โดนเด้งบล็อก
+        el.className = 'term-container inline-flex items-center mx-1 ' + (context ? context + '-term' : '');
         
-        // 🚀 จุดที่เพิ่มเข้ามาเพื่อแก้บั๊ก: แปะป้าย ID เศษส่วนให้กล่องวงเล็บ เพื่อไม่ให้ระบบคิดว่าเป็นคนนอก
         if (parentId) el.dataset.parentFracId = parentId;
         if (list) el.dataset.childIdx = childIdx;
         
@@ -1391,12 +1391,16 @@ eng.createChildTermElement = (child, list, childIdx, parentId, context, side, pa
         child.children.forEach((gc, i) => el.appendChild(eng.createChildTermElement(gc, child.children, i, parentId, context, side, parentFracTerm, mainList, mainIdx, depth + 1))); 
         el.appendChild(rB);
         
-        if(list) eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context);
+        // 🚀 แก้ไข 2: ส่งค่า side เข้าไปแทน null เพื่อให้ระบบรู้ฝั่งที่แน่ชัด
+        if(list) eng.setupDrag(el, child, side, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context);
     } else {
         el = child.type === 'op' ? document.createElement('span') : document.createElement('div');
         if (parentId) el.dataset.parentFracId = parentId;
+        
         if (child.type === 'op') {
-            el.className = 'term-card is-operator mx-1'; el.innerText = child.value;
+            // 🚀 แก้ไข 3: เพิ่มคลาส context ให้เครื่องหมายเช่นกัน
+            el.className = 'term-card is-operator mx-1 ' + (context ? context + '-term' : ''); 
+            el.innerText = child.value;
             if (child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); }); }
             else if ((child.value === '+' || child.value === '-') && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { 
                 el.style.cursor = 'grab'; el.style.fontWeight = 'bold';
@@ -1404,13 +1408,16 @@ eng.createChildTermElement = (child, list, childIdx, parentId, context, side, pa
                 eng.setupDrag(el, child, side, list, childIdx, 'distribute-operator', parentFracTerm, mainList, mainIdx, context); 
             }
         } else {
-            el.className = (child.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number') + ' px-1 py-1 min-w-[20px] ' + context + '-term';
+            el.className = (child.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number') + ' px-1 py-1 min-w-[20px] ' + (context ? context + '-term' : '');
             el.innerText = child.value; el.dataset.parentFracId = parentId;
             if (list) el.dataset.childIdx = childIdx;
+            
             if (context === 'denominator' && !list) { 
-                el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, null, mainList, mainIdx, 'denominator', null, null, null, context); 
+                el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, side, mainList, mainIdx, 'denominator', null, null, null, context); 
             } else if (list) { 
-                makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); }); eng.setupDrag(el, child, null, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); 
+                makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); }); 
+                // 🚀 ส่งค่า side ตรงนี้ด้วยเช่นกัน
+                eng.setupDrag(el, child, side, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); 
             }
         }
     }
