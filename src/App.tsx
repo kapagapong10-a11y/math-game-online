@@ -979,102 +979,107 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
 }
 
 function Leaderboard({ setView, leaderboard }) {
-            // ฟังก์ชันคำนวณหาด่านล่าสุดที่ผู้เล่นคนนั้นเล่นผ่าน
+            // ฟังก์ชันคำนวณหาด่านล่าสุดที่ผู้เล่นคนนั้นเล่นผ่าน (ปรับข้อความให้สั้นลงเพื่อมือถือ)
             const getProgressText = (progress) => {
-                if (!progress) return "เพิ่งเริ่มต้น";
+                if (!progress) return "เริ่มต้น";
                 let hMap = 1; let hLev = 0;
                 for (let k in progress) {
                     let p = progress[k];
                     if (p.mapId > hMap) { hMap = p.mapId; hLev = p.levelId; }
                     else if (p.mapId === hMap && p.levelId > hLev) { hLev = p.levelId; }
                 }
-                if (hLev === 0) return "เพิ่งเริ่มต้น";
-                return `Map ${hMap} - ด่าน ${hLev}`;
+                if (hLev === 0) return "เริ่มต้น";
+                return `M${hMap}-${hLev}`; 
             };
 
             return (
-                <div className="p-4 md:p-8 h-screen flex justify-center items-center relative font-['Kanit']">
-                    {/* ปุ่มกลับ */}
-                    <button onClick={() => setView('menu')} className="absolute top-4 left-4 md:top-6 md:left-6 bg-white/90 backdrop-blur-sm text-blue-600 px-4 py-2 md:px-5 md:py-2.5 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-blue-200 z-50 hover:bg-blue-50">
-                        <i className="fas fa-chevron-left mr-2"></i> กลับเมนู
+                // พื้นหลังตีมเทพเจ้า (สีน้ำเงินเข้ม/ม่วง/ทองแดง แบบจักรวาลสวรรค์)
+                <div className="p-2 md:p-6 h-screen flex justify-center items-center relative font-['Kanit'] bg-gradient-to-br from-[#0f172a] via-[#312e81] to-[#451a03] overflow-hidden selection:bg-yellow-500/30">
+                    {/* เอฟเฟกต์แสงสวรรค์ (รัศมีเทพ) */}
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[50vh] bg-yellow-500/20 blur-[100px] pointer-events-none"></div>
+
+                    {/* ปุ่มกลับ ย่อขนาดให้เล็กสุดขีดในโหมดมือถือ */}
+                    <button onClick={() => setView('menu')} className="absolute top-2 left-2 md:top-4 md:left-4 bg-white/10 backdrop-blur-md text-yellow-400 px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold shadow-[0_2px_0_#ca8a04] active:translate-y-[2px] active:shadow-none transition-all text-[10px] md:text-sm border border-yellow-500/30 z-50 hover:bg-white/20">
+                        <i className="fas fa-chevron-left mr-1"></i> กลับ
                     </button>
 
-                    {/* กล่องกระดานหลัก ขยายความกว้างเป็น max-w-4xl */}
-                    <div className="bg-white/95 backdrop-blur-xl p-5 md:p-8 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border-4 border-white max-w-4xl w-full h-[88vh] flex flex-col relative overflow-hidden">
+                    {/* กล่องกระดานหลัก ใช้กระจกใสสีเข้ม ขอบทองเรืองแสง */}
+                    <div className="bg-black/40 backdrop-blur-xl p-2 md:p-6 rounded-[1.25rem] md:rounded-[2rem] shadow-[0_0_30px_rgba(234,179,8,0.15)] border border-yellow-500/40 w-full max-w-4xl h-[95vh] md:h-[88vh] flex flex-col relative overflow-hidden mt-8 md:mt-0">
                         
-                        {/* ส่วนหัว (Header) แบบใหม่ ตรงและพรีเมียมขึ้น */}
-                        <div className="flex justify-center items-center mb-6 relative z-10 mt-6 md:mt-2">
-                            <div className="bg-gradient-to-r from-yellow-400 via-orange-400 to-yellow-500 text-white px-8 py-2.5 md:py-3.5 rounded-full shadow-[0_6px_0_#b45309] border-2 border-yellow-200 flex items-center gap-3 transform transition hover:scale-105">
-                                <i className="fas fa-crown text-2xl md:text-3xl drop-shadow-md animate-bounce" style={{animationDuration: '2s'}}></i>
-                                <h1 className="text-xl md:text-3xl font-black tracking-widest drop-shadow-md m-0">ทำเนียบยอดฝีมือ</h1>
+                        {/* ส่วนหัว (Header) แบบป้ายทองคำยาวๆ ประหยัดพื้นที่ */}
+                        <div className="flex justify-center items-center mb-2 md:mb-5 relative z-10 mt-1 md:mt-0">
+                            <div className="bg-gradient-to-r from-yellow-700 via-yellow-300 to-yellow-700 text-black px-6 py-1.5 md:py-2.5 rounded-full shadow-[0_0_15px_#facc15] border border-yellow-100 flex items-center gap-2 transform transition hover:scale-105">
+                                <i className="fas fa-bolt text-sm md:text-2xl drop-shadow-md"></i>
+                                <h1 className="text-[11px] md:text-2xl font-black tracking-widest drop-shadow-sm m-0 uppercase">ทำเนียบเทพสมการ</h1>
+                                <i className="fas fa-bolt text-sm md:text-2xl drop-shadow-md"></i>
                             </div>
                         </div>
 
-                        {/* หัวตาราง (Table Header) */}
-                        <div className="flex text-gray-400 font-bold text-[10px] md:text-xs px-4 md:px-6 pb-2 border-b-2 border-gray-100 uppercase tracking-widest mb-3">
-                            <div className="w-12 md:w-16 text-center">อันดับ</div>
-                            <div className="flex-1 pl-2 md:pl-4">รายชื่อผู้เล่น</div>
-                            <div className="w-28 md:w-40 text-center hidden sm:block">ความคืบหน้า</div>
-                            <div className="w-20 md:w-28 text-right pr-2 md:pr-4">ดาวสะสม</div>
+                        {/* หัวตาราง (Table Header) เล็กลงสุดๆ */}
+                        <div className="flex text-yellow-200/70 font-bold text-[8px] md:text-xs px-2 md:px-4 pb-1.5 border-b border-yellow-500/30 uppercase tracking-widest mb-1.5">
+                            <div className="w-8 md:w-12 text-center">ยศ</div>
+                            <div className="flex-1 pl-1 md:pl-2">นามแห่งเทพ</div>
+                            <div className="w-12 md:w-32 text-center hidden sm:block">ดินแดน</div>
+                            <div className="w-14 md:w-24 text-right pr-1 md:pr-2">พลังดาว</div>
                         </div>
 
-                        {/* รายชื่อผู้เล่น (List) ปรับลดความหนา (p-2.5) */}
-                        <div className="flex-1 overflow-y-auto space-y-2 md:space-y-3 pr-1 md:pr-2 custom-scrollbar relative z-10 pb-4">
+                        {/* รายชื่อผู้เล่น ปรับ Padding ให้บางเฉียบ (p-1.5) เพื่อยัดคนให้ได้เยอะที่สุด */}
+                        <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 md:pr-2 custom-scrollbar relative z-10 pb-4">
                             {leaderboard.length === 0 ? (
-                                <div className="text-center text-gray-400 mt-10 text-base md:text-xl font-bold bg-gray-50 py-10 rounded-3xl border-2 border-dashed border-gray-300 flex flex-col items-center">
-                                    <i className="fas fa-ghost text-4xl mb-3 text-gray-300"></i>
-                                    ยังไม่มีใครพิชิตด่านได้เลยครับ
+                                <div className="text-center text-yellow-500/50 mt-10 text-sm md:text-lg font-bold flex flex-col items-center">
+                                    <i className="fas fa-cloud-moon text-3xl mb-2"></i>
+                                    สวรรค์ยังว่างเปล่า...
                                 </div>
                             ) : (
                                 leaderboard.map((u, index) => {
                                     const isTop3 = index < 3;
-                                    // สีพื้นหลังแยกตามอันดับ
+                                    // สีพื้นหลังแยกตามอันดับ ตีมเทพเจ้า
                                     const rankStyles = [
-                                        'bg-gradient-to-r from-[#fffbeb] to-white border-[#fcd34d] shadow-[0_4px_0_#fbbf24]', // ทอง
-                                        'bg-gradient-to-r from-[#f3f4f6] to-white border-[#d1d5db] shadow-[0_4px_0_#9ca3af]', // เงิน
-                                        'bg-gradient-to-r from-[#fff7ed] to-white border-[#fdba74] shadow-[0_4px_0_#f97316]'  // ทองแดง
+                                        'bg-gradient-to-r from-yellow-500/20 to-yellow-300/10 border-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.3)] text-yellow-300', // มหาเทพ (ทอง)
+                                        'bg-gradient-to-r from-slate-400/20 to-slate-200/10 border-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.2)] text-slate-200', // เทพสงคราม (เงิน)
+                                        'bg-gradient-to-r from-orange-500/20 to-orange-300/10 border-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.2)] text-orange-300'  // ครึ่งเทพ (ทองแดง)
                                     ];
-                                    const normalStyle = 'bg-white border-gray-100 shadow-[0_2px_0_#f3f4f6] hover:border-blue-200 hover:shadow-[0_2px_0_#bfdbfe]';
+                                    const normalStyle = 'bg-white/5 border-white/10 hover:bg-white/10 text-white hover:border-yellow-500/50 transition-colors';
                                     
                                     // สีตัวเลขและไอคอน
                                     const badgeStyles = [
-                                        'bg-gradient-to-br from-yellow-300 to-yellow-500 text-white shadow-inner border-yellow-200',
-                                        'bg-gradient-to-br from-gray-300 to-gray-400 text-white shadow-inner border-gray-200',
-                                        'bg-gradient-to-br from-orange-300 to-orange-500 text-white shadow-inner border-orange-200'
+                                        'bg-gradient-to-br from-yellow-300 to-yellow-600 text-black shadow-[0_0_5px_#facc15] border-yellow-200',
+                                        'bg-gradient-to-br from-slate-300 to-slate-500 text-black shadow-[0_0_5px_#cbd5e1] border-slate-200',
+                                        'bg-gradient-to-br from-orange-300 to-orange-600 text-black shadow-[0_0_5px_#fb923c] border-orange-200'
                                     ];
-                                    const normalBadge = 'bg-gray-100 text-gray-500 border-gray-200';
+                                    const normalBadge = 'bg-black/50 text-yellow-500/70 border-white/10';
 
                                     return (
-                                        <div key={u.id} className={`flex items-center p-2.5 md:p-3 rounded-2xl border-2 transform transition-all duration-200 hover:-translate-y-1 ${isTop3 ? rankStyles[index] : normalStyle}`}>
+                                        <div key={u.id} className={`flex items-center p-1.5 md:p-2.5 rounded-lg md:rounded-xl border ${isTop3 ? rankStyles[index] : normalStyle}`}>
                                             
                                             {/* 1. อันดับ */}
-                                            <div className="w-12 md:w-16 flex justify-center">
-                                                <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-black text-sm md:text-base border-2 ${isTop3 ? badgeStyles[index] : normalBadge}`}>
+                                            <div className="w-8 md:w-12 flex justify-center">
+                                                <div className={`w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center font-black text-[9px] md:text-sm border ${isTop3 ? badgeStyles[index] : normalBadge}`}>
                                                     {index + 1}
                                                 </div>
                                             </div>
 
-                                            {/* 2. ชื่อผู้เล่น */}
-                                            <div className="flex-1 px-2 md:px-4 flex items-center gap-2 md:gap-3 overflow-hidden">
-                                                <div className={`shrink-0 w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center text-white ${isTop3 ? badgeStyles[index].split(' ')[0] : 'bg-blue-400'}`}>
-                                                    <i className="fas fa-user-astronaut text-[10px] md:text-xs"></i>
+                                            {/* 2. ชื่อผู้เล่น พร้อมไอคอนยศ */}
+                                            <div className="flex-1 px-1.5 md:px-3 flex items-center gap-1.5 md:gap-3 overflow-hidden">
+                                                <div className={`shrink-0 w-5 h-5 md:w-7 md:h-7 rounded-full flex items-center justify-center text-[8px] md:text-xs ${isTop3 ? badgeStyles[index] : 'bg-white/10 text-yellow-100 border border-white/20'}`}>
+                                                    <i className={`fas ${index === 0 ? 'fa-crown' : index === 1 ? 'fa-khanda' : index === 2 ? 'fa-fire' : 'fa-user'}`}></i>
                                                 </div>
-                                                <span className={`text-sm md:text-lg font-black truncate ${isTop3 ? 'text-gray-800' : 'text-gray-600'}`}>
+                                                <span className={`text-[10px] md:text-base font-bold truncate ${isTop3 ? '' : 'opacity-90'}`}>
                                                     {u.displayName}
                                                 </span>
                                             </div>
 
-                                            {/* 3. ความคืบหน้าด่าน (NEW) */}
-                                            <div className="w-28 md:w-40 justify-center hidden sm:flex">
-                                                <div className="bg-[#f0f9ff] text-[#0284c7] border border-[#bae6fd] px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-sm">
-                                                    <i className="fas fa-map-marker-alt text-[#38bdf8]"></i> {getProgressText(u.progress)}
+                                            {/* 3. ความคืบหน้าด่าน (ย่อให้สั้นลง) */}
+                                            <div className="w-12 md:w-32 justify-center hidden sm:flex">
+                                                <div className="bg-black/40 border border-white/10 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-[8px] md:text-xs font-bold flex items-center gap-1 whitespace-nowrap opacity-80">
+                                                    <i className="fas fa-map-marker-alt text-yellow-500/70"></i> {getProgressText(u.progress)}
                                                 </div>
                                             </div>
 
-                                            {/* 4. ดาว */}
-                                            <div className="w-20 md:w-28 flex justify-end items-center pr-2 md:pr-4">
-                                                <div className="text-base md:text-2xl font-black text-gray-800 flex items-center gap-1.5 bg-white/60 px-2 md:px-3 py-0.5 md:py-1 rounded-full border border-gray-100">
-                                                    {u.totalStars} <i className="fas fa-star text-yellow-500 drop-shadow-sm"></i>
+                                            {/* 4. พลังดาว */}
+                                            <div className="w-14 md:w-24 flex justify-end items-center pr-1 md:pr-2">
+                                                <div className={`text-xs md:text-xl font-black flex items-center gap-1 ${isTop3 ? '' : 'text-yellow-400'}`}>
+                                                    {u.totalStars} <i className={`fas fa-star ${isTop3 ? 'text-black/50' : 'text-yellow-500'} text-[8px] md:text-sm drop-shadow-sm`}></i>
                                                 </div>
                                             </div>
 
