@@ -1739,6 +1739,28 @@ eng.handleFractionDivision = (targetCard) => {
         };
 
         eng.tryCombine = (targetWrapper) => {
+            // 🚀 ระบบเรดาร์ดักจับและปัดเป้าหมาย (Auto-Redirect) สำหรับวงเล็บซ้อน
+        let parentGroup = targetWrapper.closest('.term-container');
+        if (parentGroup && parentGroup !== targetWrapper && parentGroup.querySelector('.group-bracket')) {
+            let side = targetWrapper.dataset.side;
+            let rootList = side === 'lhs' ? eng.lhs : eng.rhs;
+            let currentList = rootList;
+            
+            // 1. ค้นหารายชื่อเศษส่วนที่ถูกต้อง
+            if (targetWrapper.dataset.parentFracId) {
+                let frac = eng.findFractionById(rootList, targetWrapper.dataset.parentFracId);
+                if (frac) currentList = targetWrapper.dataset.context === 'denominator' ? frac.denominator.children : frac.children;
+            }
+            
+            // 2. หากล่องวงเล็บในรายชื่อ
+            let groupIdx = parseInt(parentGroup.dataset.childIdx !== undefined ? parentGroup.dataset.childIdx : parentGroup.dataset.idx);
+            let groupObj = currentList[groupIdx];
+            
+            // 3. ถ้านักเรียนลากตัวเลขจากข้างนอกวงเล็บ ให้ปัดเป้าหมายไปกระแทกกล่องวงเล็บแทน
+            if (groupObj && groupObj.type === 'group' && eng.dragSrc.list !== groupObj.children) {
+                targetWrapper = parentGroup;
+            }
+        }
             if (!eng.dragSrc || !eng.dragSrc.el || !targetWrapper) return;
             let list = eng.dragSrc.list;
             let targetIdx = parseInt(targetWrapper.dataset.idx);
@@ -1752,25 +1774,7 @@ eng.handleFractionDivision = (targetCard) => {
             let srcTerm = eng.dragSrc.term, targetTerm = list[targetIdx];
             if (!targetTerm) return;
             let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
-            // 🚀 ระบบ Auto-Redirect: ถ้านักเรียนลากตัวเลขไปปล่อยทับ "ไส้ใน" ของวงเล็บ
-        // ระบบจะทำการปัดเป้าหมายให้ไปตกที่ "กล่องวงเล็บใหญ่" โดยอัตโนมัติ
-        if (eng.dragSrc.list !== list) {
-            let parentGroupIdx = eng.dragSrc.list.findIndex(t => t.type === 'group' && t.children === list);
-            if (parentGroupIdx !== -1) {
-                // เปลี่ยนเป้าหมายเป็นกล่องวงเล็บแทนไส้ใน
-                list = eng.dragSrc.list;
-                targetIdx = parentGroupIdx;
-                targetTerm = list[targetIdx];
-                // คำนวณขอบเขต min, max ใหม่ให้ถูกต้อง
-                min = Math.min(eng.dragSrc.idx, targetIdx);
-                max = Math.max(eng.dragSrc.idx, targetIdx);
-            } else {
-                // ระบบป้องกัน: ป้องกันการลากคูณทะลุวงเล็บแบบผิดหลักคณิตศาสตร์ (เช่น ลากข้ามทีละ 2 ชั้น)
-                eng.showPopup("ต้องคูณเข้าวงเล็บชั้นนอกสุดก่อนครับ");
-                if (eng.shakeElement) eng.shakeElement(targetWrapper);
-                return;
-            }
-        }
+
             // 🎯 ฟีเจอร์ใหม่: ลากเครื่องหมาย + หรือ - ไปใส่ วงเล็บ หรือ เศษส่วน เพื่อกระจายและสลายร่าง
     if (srcTerm.type === 'op' && (srcTerm.value === '+' || srcTerm.value === '-') && (targetTerm.type === 'group' || targetTerm.type === 'fraction')) {
         if (max - min === 1 && eng.dragSrc.idx < targetIdx) { // ลากจากซ้ายไปขวา และอยู่ติดกัน
