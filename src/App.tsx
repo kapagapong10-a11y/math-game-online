@@ -979,38 +979,114 @@ function AdminPanel({ setView, allLevels, allMaps, globalSettings }) {
 }
 
 function Leaderboard({ setView, leaderboard }) {
-    return (
-        <div className="p-4 md:p-8 h-screen flex justify-center items-center relative">
-            <button onClick={() => setView('menu')} className="absolute top-4 left-4 md:top-8 md:left-8 bg-white text-gray-700 px-4 py-2 md:px-6 md:py-3 rounded-full font-black shadow-[0_4px_0_#d1d5db] active:translate-y-[4px] active:shadow-none transition-all text-sm md:text-lg border-2 border-gray-200 z-10"><i className="fas fa-chevron-left mr-2"></i> กลับเมนู</button>
-            
-            <div className="bg-white/90 backdrop-blur-xl p-6 md:p-8 rounded-[2.5rem] shadow-xl border-4 border-white max-w-2xl w-full h-[85vh] flex flex-col mt-10 md:mt-0">
-                <div className="flex justify-center items-center mb-6">
-                    <h1 className="text-3xl md:text-4xl font-black text-gray-800 bg-yellow-300 px-8 py-3 rounded-full shadow-sm border-4 border-white transform rotate-1"><i className="fas fa-trophy text-yellow-600 mr-3"></i>ตารางอันดับผู้เล่น</h1>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-                    {leaderboard.length === 0 ? (
-                        <div className="text-center text-gray-400 mt-10 text-base md:text-xl font-bold bg-gray-100 py-8 rounded-3xl border-2 border-dashed border-gray-300">ยังไม่มีข้อมูลผู้เล่นครับ</div>
-                    ) : (
-                        leaderboard.map((u, index) => (
-                            <div key={u.id} className={`flex items-center justify-between p-4 rounded-2xl border-4 shadow-sm transform transition hover:scale-[1.02] ${index === 0 ? 'bg-gradient-to-r from-yellow-100 to-yellow-50 border-yellow-400' : index === 1 ? 'bg-gradient-to-r from-gray-100 to-gray-50 border-gray-300' : index === 2 ? 'bg-gradient-to-r from-orange-100 to-orange-50 border-orange-300' : 'bg-white border-gray-100'}`}>
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center font-black text-lg md:text-xl border-2 border-white shadow-sm ${index === 0 ? 'bg-yellow-400 text-white' : index === 1 ? 'bg-gray-400 text-white' : index === 2 ? 'bg-orange-400 text-white' : 'bg-gray-200 text-gray-500'}`}>{index + 1}</div>
-                                    <div className="text-base md:text-xl font-bold text-gray-700">{u.displayName}</div>
-                                </div>
-                                <div className="text-xl md:text-2xl font-black text-gray-800 bg-white/50 px-4 py-1 rounded-full shadow-inner">{u.totalStars} <i className="fas fa-star text-yellow-500"></i></div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
+            // ฟังก์ชันคำนวณหาด่านล่าสุดที่ผู้เล่นคนนั้นเล่นผ่าน
+            const getProgressText = (progress) => {
+                if (!progress) return "เพิ่งเริ่มต้น";
+                let hMap = 1; let hLev = 0;
+                for (let k in progress) {
+                    let p = progress[k];
+                    if (p.mapId > hMap) { hMap = p.mapId; hLev = p.levelId; }
+                    else if (p.mapId === hMap && p.levelId > hLev) { hLev = p.levelId; }
+                }
+                if (hLev === 0) return "เพิ่งเริ่มต้น";
+                return `Map ${hMap} - ด่าน ${hLev}`;
+            };
 
-// ==========================================
-// THE CORE GAME ENGINE WRAPPER (Perfected & Restored Division)
-// ==========================================
+            return (
+                <div className="p-4 md:p-8 h-screen flex justify-center items-center relative font-['Kanit']">
+                    {/* ปุ่มกลับ */}
+                    <button onClick={() => setView('menu')} className="absolute top-4 left-4 md:top-6 md:left-6 bg-white/90 backdrop-blur-sm text-blue-600 px-4 py-2 md:px-5 md:py-2.5 rounded-full font-black shadow-[0_4px_0_#93c5fd] active:translate-y-[4px] active:shadow-none transition-all text-sm border-2 border-blue-200 z-50 hover:bg-blue-50">
+                        <i className="fas fa-chevron-left mr-2"></i> กลับเมนู
+                    </button>
+
+                    {/* กล่องกระดานหลัก ขยายความกว้างเป็น max-w-4xl */}
+                    <div className="bg-white/95 backdrop-blur-xl p-5 md:p-8 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border-4 border-white max-w-4xl w-full h-[88vh] flex flex-col relative overflow-hidden">
+                        
+                        {/* ส่วนหัว (Header) แบบใหม่ ตรงและพรีเมียมขึ้น */}
+                        <div className="flex justify-center items-center mb-6 relative z-10 mt-6 md:mt-2">
+                            <div className="bg-gradient-to-r from-yellow-400 via-orange-400 to-yellow-500 text-white px-8 py-2.5 md:py-3.5 rounded-full shadow-[0_6px_0_#b45309] border-2 border-yellow-200 flex items-center gap-3 transform transition hover:scale-105">
+                                <i className="fas fa-crown text-2xl md:text-3xl drop-shadow-md animate-bounce" style={{animationDuration: '2s'}}></i>
+                                <h1 className="text-xl md:text-3xl font-black tracking-widest drop-shadow-md m-0">ทำเนียบยอดฝีมือ</h1>
+                            </div>
+                        </div>
+
+                        {/* หัวตาราง (Table Header) */}
+                        <div className="flex text-gray-400 font-bold text-[10px] md:text-xs px-4 md:px-6 pb-2 border-b-2 border-gray-100 uppercase tracking-widest mb-3">
+                            <div className="w-12 md:w-16 text-center">อันดับ</div>
+                            <div className="flex-1 pl-2 md:pl-4">รายชื่อผู้เล่น</div>
+                            <div className="w-28 md:w-40 text-center hidden sm:block">ความคืบหน้า</div>
+                            <div className="w-20 md:w-28 text-right pr-2 md:pr-4">ดาวสะสม</div>
+                        </div>
+
+                        {/* รายชื่อผู้เล่น (List) ปรับลดความหนา (p-2.5) */}
+                        <div className="flex-1 overflow-y-auto space-y-2 md:space-y-3 pr-1 md:pr-2 custom-scrollbar relative z-10 pb-4">
+                            {leaderboard.length === 0 ? (
+                                <div className="text-center text-gray-400 mt-10 text-base md:text-xl font-bold bg-gray-50 py-10 rounded-3xl border-2 border-dashed border-gray-300 flex flex-col items-center">
+                                    <i className="fas fa-ghost text-4xl mb-3 text-gray-300"></i>
+                                    ยังไม่มีใครพิชิตด่านได้เลยครับ
+                                </div>
+                            ) : (
+                                leaderboard.map((u, index) => {
+                                    const isTop3 = index < 3;
+                                    // สีพื้นหลังแยกตามอันดับ
+                                    const rankStyles = [
+                                        'bg-gradient-to-r from-[#fffbeb] to-white border-[#fcd34d] shadow-[0_4px_0_#fbbf24]', // ทอง
+                                        'bg-gradient-to-r from-[#f3f4f6] to-white border-[#d1d5db] shadow-[0_4px_0_#9ca3af]', // เงิน
+                                        'bg-gradient-to-r from-[#fff7ed] to-white border-[#fdba74] shadow-[0_4px_0_#f97316]'  // ทองแดง
+                                    ];
+                                    const normalStyle = 'bg-white border-gray-100 shadow-[0_2px_0_#f3f4f6] hover:border-blue-200 hover:shadow-[0_2px_0_#bfdbfe]';
+                                    
+                                    // สีตัวเลขและไอคอน
+                                    const badgeStyles = [
+                                        'bg-gradient-to-br from-yellow-300 to-yellow-500 text-white shadow-inner border-yellow-200',
+                                        'bg-gradient-to-br from-gray-300 to-gray-400 text-white shadow-inner border-gray-200',
+                                        'bg-gradient-to-br from-orange-300 to-orange-500 text-white shadow-inner border-orange-200'
+                                    ];
+                                    const normalBadge = 'bg-gray-100 text-gray-500 border-gray-200';
+
+                                    return (
+                                        <div key={u.id} className={`flex items-center p-2.5 md:p-3 rounded-2xl border-2 transform transition-all duration-200 hover:-translate-y-1 ${isTop3 ? rankStyles[index] : normalStyle}`}>
+                                            
+                                            {/* 1. อันดับ */}
+                                            <div className="w-12 md:w-16 flex justify-center">
+                                                <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-black text-sm md:text-base border-2 ${isTop3 ? badgeStyles[index] : normalBadge}`}>
+                                                    {index + 1}
+                                                </div>
+                                            </div>
+
+                                            {/* 2. ชื่อผู้เล่น */}
+                                            <div className="flex-1 px-2 md:px-4 flex items-center gap-2 md:gap-3 overflow-hidden">
+                                                <div className={`shrink-0 w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center text-white ${isTop3 ? badgeStyles[index].split(' ')[0] : 'bg-blue-400'}`}>
+                                                    <i className="fas fa-user-astronaut text-[10px] md:text-xs"></i>
+                                                </div>
+                                                <span className={`text-sm md:text-lg font-black truncate ${isTop3 ? 'text-gray-800' : 'text-gray-600'}`}>
+                                                    {u.displayName}
+                                                </span>
+                                            </div>
+
+                                            {/* 3. ความคืบหน้าด่าน (NEW) */}
+                                            <div className="w-28 md:w-40 justify-center hidden sm:flex">
+                                                <div className="bg-[#f0f9ff] text-[#0284c7] border border-[#bae6fd] px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-sm">
+                                                    <i className="fas fa-map-marker-alt text-[#38bdf8]"></i> {getProgressText(u.progress)}
+                                                </div>
+                                            </div>
+
+                                            {/* 4. ดาว */}
+                                            <div className="w-20 md:w-28 flex justify-end items-center pr-2 md:pr-4">
+                                                <div className="text-base md:text-2xl font-black text-gray-800 flex items-center gap-1.5 bg-white/60 px-2 md:px-3 py-0.5 md:py-1 rounded-full border border-gray-100">
+                                                    {u.totalStars} <i className="fas fa-star text-yellow-500 drop-shadow-sm"></i>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    )
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
 // ==========================================
 // THE CORE GAME ENGINE WRAPPER (Full Algebra Restored)
 // ==========================================
