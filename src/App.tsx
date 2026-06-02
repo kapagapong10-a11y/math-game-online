@@ -1142,11 +1142,25 @@ box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.15); }
             let str = eq.replace(/\s+/g, '').replace(/x/g, 'x');
             let oldStr; do { oldStr = str; str = str.replace(/\(\(([^()]+)\)\)/g, '($1)'); } while (oldStr !== str);
             class Term { constructor(type, value, children = null, denominator = null) { this.id = Math.random().toString(36).substr(2, 9); this.type = type; this.value = value; this.children = children; this.denominator = denominator; } }
+            
             function parseExpression(s) {
                 let terms = [], buffer = '', depth = 0; s = s.replace(/\*/g, '•');
                 for (let i = 0; i < s.length; i++) {
                     let char = s[i]; if (char === '(') depth++; if (char === ')') depth--;
-                    if (depth === 0 && (char === '+' || char === '-')) { if (buffer === '') buffer += char; else { terms.push(...parseTermGroup(buffer)); terms.push(new Term('op', char)); buffer = ''; } } else buffer += char;
+                    if (depth === 0 && (char === '+' || char === '-')) { 
+                        if (buffer === '') {
+                            // เช็คว่าถ้าเป็นเครื่องหมายนำหน้าวงเล็บ ให้แยกเป็น Operator การ์ดเดี่ยวๆ ออกมาเลย
+                            if (i + 1 < s.length && s[i+1] === '(') {
+                                terms.push(new Term('op', char));
+                            } else {
+                                buffer += char;
+                            }
+                        } else { 
+                            terms.push(...parseTermGroup(buffer)); 
+                            terms.push(new Term('op', char)); 
+                            buffer = ''; 
+                        } 
+                    } else buffer += char;
                 }
                 if (buffer) terms.push(...parseTermGroup(buffer)); return terms;
             }
