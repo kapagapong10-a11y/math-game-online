@@ -36,7 +36,7 @@ const db = getDatabase(app);
 export default function MathGameApp() {
     const [user, setUser] = useState(null);
     const [userData, setUserData] = useState(null);
-    const [view, setView] = useState('login');
+    const [view, setView] = useState('');
     const [isLandscape, setIsLandscape] = useState(true);
     const [isCheckingAuth, setIsCheckingAuth] = useState(true);
     const [showProfileMenu, setShowProfileMenu] = useState(false); // 🚀 เพิ่ม State สำหรับเปิด-ปิดเมนูโปรไฟล์
@@ -291,7 +291,7 @@ function LoginScreen({ globalSettings }) {
         <div className="flex h-screen items-center justify-center p-2 bg-gradient-to-br from-blue-400/50 to-purple-500/50 relative" style={bgStyle}>
             <div className="bg-white/95 backdrop-blur-md p-4 md:p-8 rounded-[2rem] shadow-[0_8px_0_rgba(0,0,0,0.2)] border-4 border-white max-w-sm w-full text-center relative transform transition-all hover:scale-[1.02] flex flex-col justify-center max-h-[95vh] overflow-y-auto z-10">
                 <div className="text-4xl md:text-5xl mb-2 text-blue-500 drop-shadow-md"><i className="fas fa-gamepad"></i></div>
-                <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-1">สมาร์ทแมท AI</h1>
+                <h1 className="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-500 to-orange-500 mb-1 drop-shadow-sm tracking-wider uppercase">MATH SAGA</h1>
                 <h2 className="text-[10px] md:text-xs text-gray-500 font-bold mb-4 bg-gray-100 inline-block px-3 py-1 rounded-full mx-auto">โดย ครูจักรวรรดิ ไชยโคตร</h2>
                 
                 {error && <div className="bg-red-500 text-white p-2 rounded-xl mb-3 text-xs font-bold animate-bounce shadow-md">{error}</div>}
