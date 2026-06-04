@@ -2125,7 +2125,56 @@ eng.tryCombine = (targetWrapper) => {
                     eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
                 }
             }
-
+            // 🚀 NEW: รองรับการคูณ เศษส่วน (Fraction) กับ วงเล็บ (Group) ตามเงื่อนไขใหม่
+                if ((srcTerm.type === 'fraction' && targetTerm.type === 'group') || (srcTerm.type === 'group' && targetTerm.type === 'fraction')) {
+                    let fracTerm = srcTerm.type === 'fraction' ? srcTerm : targetTerm;
+                    let groupTerm = srcTerm.type === 'group' ? srcTerm : targetTerm;
+                    
+                    if (max - min === 2 && list[min+1].value === '•') {
+                        // เช็คว่ามีตัวคูณซ้อนกันอยู่ด้านนอกอีกหรือไม่
+                        let leftBound = min > 0 && list[min-1].type === 'op' && list[min-1].value === '•';
+                        let rightBound = max < list.length - 1 && list[max+1].type === 'op' && list[max+1].value === '•';
+                        if (leftBound || rightBound) {
+                            eng.showPopup("ติดตัวคูณซ้อนกันอยู่ครับ ต้องคูณให้เสร็จทีละคู่");
+                            eng.shakeElement(targetWrapper); return;
+                        }
+            
+                        // จัดการนำตัวเศษเดิม มาคูณกับวงเล็บ
+                        let oldNumChildren = JSON.parse(JSON.stringify(fracTerm.children));
+                        // ถ้าตัวเศษมีหลายพจน์ ให้ใส่วงเล็บคลุมตัวเศษก่อนกันความผิดพลาด
+                        let oldNumNode = (oldNumChildren.length === 1 && oldNumChildren[0].type !== 'op') ? oldNumChildren[0] : new eng.TermClass('group', null, oldNumChildren);
+            
+                        // เรียงลำดับว่าอะไรอยู่ซ้าย อะไรอยู่ขวา
+                        let newNumeratorChildren = [];
+                        if (list[min] === fracTerm) {
+                            newNumeratorChildren = [oldNumNode, new eng.TermClass('op', '•'), JSON.parse(JSON.stringify(groupTerm))];
+                        } else {
+                            newNumeratorChildren = [JSON.parse(JSON.stringify(groupTerm)), new eng.TermClass('op', '•'), oldNumNode];
+                        }
+            
+                        // สร้างเศษส่วนก้อนใหม่ที่ตัวเศษรวมกันแล้ว
+                        let newFraction = new eng.TermClass('fraction', null, newNumeratorChildren, JSON.parse(JSON.stringify(fracTerm.denominator)));
+            
+                        // จัดการเครื่องหมาย (+ / -) ที่อยู่หน้าเศษส่วนหรือวงเล็บ
+                        let precedingSign = '+';
+                        let replaceIdx = min;
+                        let replaceCount = 3;
+                        if (min > 0 && list[min-1].type === 'op' && (list[min-1].value === '+' || list[min-1].value === '-')) {
+                            precedingSign = list[min-1].value;
+                            replaceIdx = min - 1;
+                            replaceCount = 4;
+                        }
+            
+                        let insertion = [];
+                        if (replaceIdx > 0) insertion.push(new eng.TermClass('op', precedingSign));
+                        insertion.push(newFraction);
+            
+                        // แทนที่ของเดิมด้วยเศษส่วนก้อนใหม่
+                        list.splice(replaceIdx, replaceCount, ...insertion);
+                        eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
+                    }
+                }
+    
             if (srcTerm.type === 'fraction' && targetTerm.type === 'fraction') {
                 if (max - min === 2) {
                     let op = list[min+1];
