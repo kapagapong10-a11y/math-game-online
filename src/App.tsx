@@ -718,7 +718,8 @@ function VisualEditor({ id, label, value, onChange }) {
         <div className="flex flex-col gap-2 w-full">
             <style>{`
                 .visual-editor-content .editor-fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 4px; background: #f0f9ff; border-radius: 8px; padding: 4px; border: 2px dashed #bae6fd; user-select: none; }
-                .visual-editor-content .frac-num, .visual-editor-content .frac-den { min-width: 30px; min-height: 30px; text-align: center; outline: none; padding: 2px 6px; background: white; border-radius: 6px; border: 2px solid #cbd5e1; font-weight: bold; color: #1e3a8a; }
+                .visual-editor-content .frac-num, .visual-editor-content .frac-den { min-width: 30px; min-height: 30px; display: inline-flex; flex-direction: row; align-items: center; justify-content: center; outline: none; padding: 2px 6px; background: white; border-radius: 6px;
+                border: 2px solid #cbd5e1; font-weight: bold; color: #1e3a8a; }
                 .visual-editor-content .frac-num:focus, .visual-editor-content .frac-den:focus { border-color: #3b82f6; background: #eff6ff; }
                 .visual-editor-content .frac-num:empty::before, .visual-editor-content .frac-den:empty::before { content: '□'; color: #94a3b8; font-weight: normal; }
                 .visual-editor-content .frac-line { width: 100%; height: 3px; background-color: #3b82f6; margin: 4px 0; border-radius: 2px; }
@@ -1774,16 +1775,15 @@ eng.handleFractionDivision = (targetCard) => {
                 }
 
                 let isCrossMove = (currentSide !== targetSide);
-
                 if (isCrossMove) {
                     let isMainList = (eng.dragSrc.list === eng.localGameState.lhs || eng.dragSrc.list === eng.localGameState.rhs);
-                    let isValidCrossMove = (role === 'denominator' || role === 'whole-fraction' || (role === 'term' && isMainList));
-
+                    let isValidCrossMove = (role === 'denominator' || role === 'whole-fraction' || ((role === 'term' || role === 'group') && isMainList));
                     if (isValidCrossMove) {
                         eng.dragSrc.side = currentSide; eng.executeMoveSide();
                     } else {
-                        eng.showPopup("ย้ายตัวเศษข้ามฝั่งไม่ได้ครับ! ต้องย้ายตัวส่วน(หาร) ไปคูณก่อน");
-                        eng.incrementMove();
+                        // 🚨 Educational Trap 1: ป้องกันการดึงของในเศษส่วนหรือวงเล็บข้ามฝั่งโดยตรง
+                        eng.showPopup("ผิดกฎ! ย้ายตัวเลขที่อยู่ด้านในเศษส่วนหรือวงเล็บ ข้ามฝั่งตรงๆ ไม่ได้ครับ (ต้องกำจัดตัวส่วนหรือวงเล็บก่อน)");
+                        eng.incrementMove(); // 🔥 หักคะแนน 1 มูฟทันที!
                         eng.shakeElement(eng.dragSrc.el);
                     }
                 } else {
@@ -1911,6 +1911,33 @@ eng.handleFractionDivision = (targetCard) => {
 
 eng.tryCombine = (targetWrapper) => {
             if (!eng.dragSrc || !eng.dragSrc.el || !targetWrapper) return;
+            
+            // 🚨 Educational Trap 2.1: ป้องกันการย้ายตัวส่วนไปบวกลบกับเพื่อนในฝั่งเดียวกัน (ต้องย้ายข้ามฝั่งไปคูณเท่านั้น)
+            if (eng.dragSrc.role === 'denominator') {
+                eng.showPopup("ผิดกฎ! ย้ายตัวส่วนไปคำนวณฝั่งเดียวกันไม่ได้ครับ (ต้องย้ายข้ามฝั่ง = ไปคูณ หรือลากใส่เศษเพื่อตัดทอนเท่านั้น)");
+                eng.incrementMove(); // 🔥 หักคะแนน 1 มูฟ
+                eng.shakeElement(eng.dragSrc.el);
+                return;
+            }
+
+            // 🚨 Educational Trap 2.2: ป้องกันการดึงตัวเลขทะลุกำแพงเศษส่วนเข้าๆ ออกๆ
+            let targetFracId = targetWrapper.dataset?.parentFracId || targetWrapper.closest('[data-parent-frac-id]')?.dataset?.parentFracId;
+            let srcFracId = eng.dragSrc.el.dataset?.parentFracId || eng.dragSrc.el.closest('[data-parent-frac-id]')?.dataset?.parentFracId;
+            
+            // อนุญาตถ้าเป้าหมายคือเศษส่วนทั้งก้อน (เช่น ลากเลข 2 จากข้างนอก ไปวางทับเศษส่วนเพื่อคูณเข้า)
+            let isTargetWholeFraction = false;
+            let targetIdxForCheck = parseInt(targetWrapper.dataset?.idx);
+            let mainList = (eng.dragSrc.side === 'lhs' ? eng.localGameState.lhs : eng.localGameState.rhs);
+            if (!isNaN(targetIdxForCheck) && eng.dragSrc.list === mainList && mainList[targetIdxForCheck]?.type === 'fraction') {
+                isTargetWholeFraction = true;
+            }
+
+            if (srcFracId !== targetFracId && !isTargetWholeFraction && eng.dragSrc.term.type !== 'fraction') {
+                eng.showPopup("ผิดกฎ! ดึงตัวเลขเข้า/ออกจากเศษส่วนโดยตรงไม่ได้ครับ (ต้องคูณกระจาย หรือตัดทอนเท่านั้น)");
+                eng.incrementMove(); // 🔥 หักคะแนน 1 มูฟ
+                eng.shakeElement(eng.dragSrc.el);
+                return;
+            }
 
             let potentialGroupWrapper = null;
             let currentEl = targetWrapper;
