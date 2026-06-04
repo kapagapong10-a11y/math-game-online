@@ -104,27 +104,42 @@ export default function MathGameApp() {
 
 // 2. จัดการ Login ให้โหลดข้อมูลโปรไฟล์ให้เสร็จก่อนค่อยเข้าเกม (แก้ชื่อ/ดาวหาย)
 useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-        if (currentUser) {
-            setUser(currentUser);
-            const userRef = ref(db, `users/${currentUser.uid}`);
-            const snapshot = await get(userRef);
-            if (snapshot.exists()) {
-                setUserData(snapshot.val());
+    // 2. จัดการ Login ให้โหลดข้อมูลโปรไฟล์ (เพิ่มระบบป้องกันเน็ตช้าแล้วค้าง)
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            if (currentUser) {
+                setUser(currentUser);
+                const userRef = ref(db, `users/${currentUser.uid}`);
+                
+                try {
+                    // 🚀 แข่งขันกับเวลา (Promise.race): รอข้อมูลจากฐานข้อมูลสูงสุด 10 วินาที ถ้าช้ากว่านี้ให้ข้ามไปเลย
+                    const snapshot = await Promise.race([
+                        get(userRef),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
+                    ]);
+
+                    if (snapshot.exists()) {
+                        setUserData(snapshot.val());
+                    } else {
+                        const role = (currentUser.email === 'admin@math.com' || currentUser.email.includes('admin')) ? 'admin' : 'player';
+                        const newUserData = { email: currentUser.email, totalStars: 0, role: role, displayName: currentUser.email.split('@')[0] };
+                        await set(userRef, newUserData);
+                        setUserData(newUserData);
+                    }
+                } catch (err) {
+                    console.log("โหลดข้อมูลโปรไฟล์ช้าหรือเน็ตมีปัญหา: ", err.message);
+                    // ถ้าดึงฐานข้อมูลไม่ทันเพราะเน็ตช้า ก็บังคับสร้าง User ชั่วคราวให้เล่นไปก่อนได้เลย
+                    setUserData({ email: currentUser.email, totalStars: 0, role: 'player', displayName: currentUser.email.split('@')[0] });
+                }
+                
+                setView('menu'); // โหลดเสร็จ หรือหมดเวลาปุ๊บ พาเข้าเมนูทันที
             } else {
-                const role = (currentUser.email === 'admin@math.com' || currentUser.email.includes('admin')) ? 'admin' : 'player';
-                const newUserData = { email: currentUser.email, totalStars: 0, role: role, displayName: currentUser.email.split('@')[0] };
-                await set(userRef, newUserData);
-                setUserData(newUserData);
+                setUser(null); setUserData(null); setView('login');
             }
-            setView('menu'); // โหลดข้อมูลเสร็จค่อยสลับหน้า
-        } else {
-            setUser(null); setUserData(null); setView('login');
-        }
-        setIsCheckingAuth(false); // 🚀 ปิดหน้าโหลดเมื่อตรวจสอบเสร็จสิ้น
-    });
-    return () => unsubscribe();
-}, []);
+            setIsCheckingAuth(false); // 🚀 ปิดหน้าโหลดดิ้งแน่นอน 100% ไม่ค้างที่ 99%
+        });
+        return () => unsubscribe();
+    }, []);
 
     // 3. โหลดข้อมูลอื่นๆ หลังจากล็อกอินแล้ว
     useEffect(() => {
@@ -228,18 +243,29 @@ function LoginScreen({ globalSettings }) {
     
     const bgStyle = globalSettings?.loginBgUrl ? { backgroundImage: `url(${globalSettings.loginBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {};
     
-    const handleSubmit = async (e) => {
-        e.preventDefault(); 
+   const handleSubmit = async (e) => {
+        e.preventDefault();
         setError('');
         setIsLoggingIn(true); // 🚀 เปิดหน้าโหลดดิ้งทันทีที่กดปุ่ม
-        
+
         try {
-            if (isLogin) await signInWithEmailAndPassword(auth, email, password);
-            else await createUserWithEmailAndPassword(auth, email, password);
-            // ถ้าล็อคอินผ่าน ระบบจะโหลดค้างไว้แบบนี้ลื่นๆ แล้ว onAuthStateChanged จะสลับหน้าให้เอง
-        } catch (err) { 
-            setError('ข้อมูลไม่ถูกต้อง หรือรหัสผ่านสั้นไปครับ'); 
-            setIsLoggingIn(false); // 🚀 ปิดหน้าโหลดดิ้ง กลับมาหน้าฟอร์มถ้าพิมพ์รหัสผิด
+            // 🚀 ป้องกันปัญหาเผลอเคาะวรรค: ตัดช่องว่างหน้า-หลังอีเมลทิ้งอัตโนมัติ
+            let cleanEmail = email.trim(); 
+            
+            if (isLogin) await signInWithEmailAndPassword(auth, cleanEmail, password);
+            else await createUserWithEmailAndPassword(auth, cleanEmail, password);
+            
+        } catch (err) {
+            // 🚀 แปลงโค้ด Error ของ Firebase ให้เป็นภาษาไทย เพื่อให้เด็กรู้ตัวว่าทำอะไรผิด
+            let errorMsg = 'เกิดข้อผิดพลาด กรุณาลองใหม่ครับ';
+            if (err.code === 'auth/email-already-in-use') errorMsg = 'อีเมลนี้ถูกสมัครไปแล้วครับ ลองเปลี่ยนหรือกดเข้าสู่ระบบนะ';
+            else if (err.code === 'auth/weak-password') errorMsg = 'รหัสผ่านสั้นไปครับ (ต้องมีอย่างน้อย 6 ตัวอักษร)';
+            else if (err.code === 'auth/invalid-email') errorMsg = 'รูปแบบอีเมลไม่ถูกต้องครับ (ตรวจสอบว่าพิมพ์ผิดไหม)';
+            else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') errorMsg = 'อีเมลหรือรหัสผ่านไม่ถูกต้องครับ';
+            else if (err.code === 'auth/network-request-failed') errorMsg = 'อินเทอร์เน็ตมีปัญหาครับ กรุณาตรวจสอบสัญญาณเน็ต';
+            
+            setError(errorMsg);
+            setIsLoggingIn(false); // 🚀 ปิดหน้าโหลดดิ้ง กลับมาหน้าฟอร์มให้แก้ตัวใหม่
         }
     };
 
