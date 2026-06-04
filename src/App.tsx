@@ -193,15 +193,18 @@ if (isCheckingAuth) {
         <button onClick={() => setIsMuted(!isMuted)} className="fixed bottom-4 left-4 md:bottom-8 md:left-8 z-[9999] bg-white/90 backdrop-blur-md w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center shadow-[0_4px_0_#d1d5db] border-2 border-gray-200 text-gray-700 hover:text-blue-500 hover:scale-110 active:translate-y-[4px] active:shadow-none transition-all">
                 <i className={`fas ${isMuted ? 'fa-volume-mute text-red-500' : 'fa-volume-up text-blue-500'} text-xl md:text-2xl`}></i>
             </button>
+            
             {user && view !== 'play' && view !== 'sandbox' && view !== 'profile' && (
-                <div className="absolute top-4 right-4 md:top-6 md:right-6 flex flex-col items-end z-[100]">
+                // เปลี่ยนเป็น fixed ขวาล่าง และใช้ flex-col-reverse เพื่อให้เมนูดันขึ้นข้างบน
+                <div className="fixed bottom-4 right-4 md:bottom-8 md:right-8 flex flex-col-reverse items-end z-[100]">
+                    
                     {/* ปุ่มรูปคนสำหรับกดเปิด/ปิดเมนู */}
                     <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="bg-white/90 backdrop-blur-md w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-[0_4px_0_#d1d5db] border-2 border-white/80 transform transition active:translate-y-[4px] active:shadow-none hover:scale-105 text-blue-600 z-[101]">
                         <i className={`fas ${showProfileMenu ? 'fa-times text-red-500' : 'fa-user-astronaut'} text-xl md:text-2xl`}></i>
                     </button>
                     
-                    {/* ตัวแถบเมนูที่จะขยายลงมา */}
-                    <div className={`mt-2 flex items-center gap-1.5 md:gap-3 bg-white/90 backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-full shadow-lg border-2 border-white/80 transform transition-all duration-300 origin-top-right ${showProfileMenu ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}`}>
+                    {/* ตัวแถบเมนูที่จะขยายขึ้นด้านบน (เปลี่ยนเป็น mb-2 และ origin-bottom-right) */}
+                    <div className={`mb-2 md:mb-3 flex items-center gap-1.5 md:gap-3 bg-white/90 backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-full shadow-lg border-2 border-white/80 transform transition-all duration-300 origin-bottom-right ${showProfileMenu ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}`}>
                         <div className="text-sm md:text-base font-black text-gray-800 flex items-center bg-yellow-100 px-3 py-1 rounded-full shadow-inner">
                             <i className="fas fa-star text-yellow-500 mr-1.5 drop-shadow-sm"></i> {userData?.totalStars || 0}
                         </div>
