@@ -102,9 +102,7 @@ export default function MathGameApp() {
         return () => window.removeEventListener('resize', checkOrientation);
     }, []);
 
-// 2. จัดการ Login ให้โหลดข้อมูลโปรไฟล์ให้เสร็จก่อนค่อยเข้าเกม (แก้ชื่อ/ดาวหาย)
-useEffect(() => {
-    // 2. จัดการ Login ให้โหลดข้อมูลโปรไฟล์ (เพิ่มระบบป้องกันเน็ตช้าแล้วค้าง)
+// 2. จัดการ Login ให้โหลดข้อมูลโปรไฟล์ (เพิ่มระบบป้องกันเน็ตช้าแล้วค้าง)
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
