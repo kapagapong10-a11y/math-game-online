@@ -683,28 +683,43 @@ function VisualEditor({ id, label, value, onChange }) {
         }
     };
 
-    const insertHTML = (htmlString) => {
-        const el = editorRef.current;
-        if (!el) return;
-        el.focus();
-        let sel = window.getSelection();
-        if (sel.rangeCount > 0) {
-            let range = sel.getRangeAt(0);
-            if (el.contains(range.commonAncestorContainer)) {
-                let fragment = range.createContextualFragment(htmlString);
-                range.deleteContents();
-                let lastNode = fragment.lastChild;
-                range.insertNode(fragment);
-                if (lastNode) {
-                    range.setStartAfter(lastNode);
-                    range.setEndAfter(lastNode);
-                    sel.removeAllRanges();
-                    sel.addRange(range);
+const insertHTML = (htmlString) => {
+                const el = editorRef.current;
+                if (!el) return;
+                
+                let sel = window.getSelection();
+                // 🚀 ถ้านิ้วผู้ใช้ไม่ได้อยู่ในกล่องโจทย์เลย ค่อยบังคับให้มันกลับมาที่กล่องหลัก (ท้ายสุด)
+                if (sel.rangeCount === 0 || !el.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+                    el.focus();
+                    sel = window.getSelection();
+                    if(sel.rangeCount > 0) {
+                        let r = sel.getRangeAt(0);
+                        r.selectNodeContents(el);
+                        r.collapse(false);
+                    }
                 }
-            } else el.insertAdjacentHTML('beforeend', htmlString);
-        } else el.insertAdjacentHTML('beforeend', htmlString);
-        updateReactState();
-    };
+
+                if (sel.rangeCount > 0) {
+                    let range = sel.getRangeAt(0);
+                    if (el.contains(range.commonAncestorContainer)) {
+                        let fragment = range.createContextualFragment(htmlString);
+                        range.deleteContents();
+                        let lastNode = fragment.lastChild;
+                        range.insertNode(fragment);
+                        if (lastNode) {
+                            range.setStartAfter(lastNode);
+                            range.setEndAfter(lastNode);
+                            sel.removeAllRanges();
+                            sel.addRange(range);
+                        }
+                    } else {
+                        el.insertAdjacentHTML('beforeend', htmlString);
+                    }
+                } else {
+                    el.insertAdjacentHTML('beforeend', htmlString);
+                }
+                updateReactState();
+            };
 
     const insertFraction = (e) => {
         e.preventDefault();
