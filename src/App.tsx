@@ -197,7 +197,7 @@ if (isCheckingAuth) {
             {/* ลบปุ่มเมนูลอยขวาล่างทิ้งไปแล้ว เพื่อไม่ให้บังกัน */}
             
             {view === 'login' && <LoginScreen globalSettings={globalSettings} />}
-            {view === 'menu' && <MainMenu setView={setView} isAdmin={userData?.role === 'admin' || user?.email?.includes('admin')} globalSettings={globalSettings} userData={userData} />}
+            {view === 'menu' && <MainMenu setView={setView} isAdmin={userData?.role === 'admin' || user?.email?.includes('admin')} globalSettings={globalSettings} userData={userData} handleSignOut={handleSignOut} />}
             {view === 'mapSelect' && <MapSelect setView={setView} setSelectedMap={setSelectedMap} userProgress={userProgress} globalSettings={globalSettings} allMaps={allMaps} />}
             {view === 'levelSelect' && <LevelSelect setView={setView} mapId={selectedMap} setSelectedLevel={setSelectedLevel} setLevelData={setLevelData} allLevels={allLevels} allMaps={allMaps} userProgress={userProgress} />}
             {view === 'admin' && <AdminPanel setView={setView} allLevels={allLevels} allMaps={allMaps} globalSettings={globalSettings} />}
@@ -356,21 +356,40 @@ function ProfileSettings({ setView, user, userData, handleSignOut }) {
 }
 
 // ออกแบบหน้าแรกใหม่: ย่อขนาดและเลื่อนเมนูลงด้านล่างมุมขวา
-function MainMenu({ setView, isAdmin, globalSettings, userData }) {
+function MainMenu({ setView, isAdmin, globalSettings, userData, handleSignOut }) {
+    const [showProfile, setShowProfile] = useState(false);
     const bgStyle = globalSettings?.mainMenuBgUrl ? { backgroundImage: `url(${globalSettings.mainMenuBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {};
 
     return (
         <div className="flex h-screen w-full items-end justify-end p-6 md:p-10 pb-8 md:pb-12 relative overflow-hidden bg-gradient-to-b from-blue-300 to-blue-500" style={bgStyle}>
-            <div className="flex flex-col gap-2.5 w-full max-w-[160px] md:max-w-[220px] z-10 mt-auto">
+            <div className="flex flex-col items-end gap-2.5 w-full max-w-[160px] md:max-w-[220px] z-10 mt-auto">
                 
-                {/* 🚀 ปุ่มเมนูที่ 1: โปรไฟล์ (ทำหน้าตาเหมือนปุ่มอื่น) */}
-                <MenuButton 
-                    icon="fa-user-astronaut" 
-                    text={`${userData?.displayName || 'ผู้เล่น'} ⭐${userData?.totalStars || 0}`} 
-                    color="from-blue-400 to-blue-600" 
-                    shadowColor="#1e3a8a" 
-                    onClick={() => setView('profile')} 
-                />
+                {/* 🚀 ปุ่มโปรไฟล์ขนาดเล็ก (ยืดหดได้) อยู่บนสุดของเมนู */}
+                <div className="relative flex flex-col items-end w-full mb-2">
+                    
+                    {/* กล่องเมนูที่จะกางออกมา (เด้งขึ้นด้านบน) */}
+                    <div className={`absolute bottom-[110%] right-0 mb-2 flex flex-col items-end gap-2 bg-white/90 backdrop-blur-md px-4 py-3 rounded-2xl shadow-xl border-2 border-white/80 transform transition-all duration-300 origin-bottom-right ${showProfile ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}`}>
+                        <div className="text-sm md:text-base font-black text-gray-800 flex items-center bg-yellow-100 px-3 py-1 rounded-full shadow-inner w-full justify-center whitespace-nowrap">
+                            <i className="fas fa-star text-yellow-500 mr-1.5 drop-shadow-sm"></i> {userData?.totalStars || 0}
+                        </div>
+                        <button onClick={() => setView('profile')} className="text-xs md:text-sm text-gray-700 hover:text-blue-600 font-bold flex items-center justify-end w-full border-b-2 border-gray-100 pb-2 transition-colors group whitespace-nowrap">
+                            <span className="truncate max-w-[100px] md:max-w-[120px] mr-2">{userData?.displayName}</span>
+                            <i className="fas fa-user-astronaut text-blue-500"></i>
+                            <i className="fas fa-cog ml-1.5 text-gray-400 group-hover:animate-spin"></i>
+                        </button>
+                        <button onClick={handleSignOut} className="w-full text-white text-xs md:text-sm bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-full shadow-[0_3px_0_#b91c1c] active:translate-y-[3px] active:shadow-none transition-all flex items-center justify-center mt-1 whitespace-nowrap">
+                            <i className="fas fa-sign-out-alt mr-1.5"></i> ออกจากระบบ
+                        </button>
+                    </div>
+                    
+                    {/* ปุ่มนักบินอวกาศกลมๆ เล็กๆ */}
+                    <button 
+                        onClick={() => setShowProfile(!showProfile)} 
+                        className="bg-white/90 backdrop-blur-md w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-[0_4px_0_#d1d5db] border-2 border-white/80 transform transition active:translate-y-[4px] active:shadow-none hover:scale-105 text-blue-600 z-[101]"
+                    >
+                        <i className={`fas ${showProfile ? 'fa-times text-red-500' : 'fa-user-astronaut'} text-xl md:text-2xl`}></i>
+                    </button>
+                </div>
 
                 <MenuButton icon="fa-map-marked-alt" text="ลุยด่าน (Play)" color="from-green-400 to-green-600" shadowColor="#166534" imgUrl={globalSettings?.btnPlay} onClick={() => setView('mapSelect')} />
                 <MenuButton icon="fa-flask" text="ฝึกฝน (Sandbox)" color="from-orange-400 to-orange-600" shadowColor="#9a3412" imgUrl={globalSettings?.btnSandbox} onClick={() => setView('sandbox')} />
