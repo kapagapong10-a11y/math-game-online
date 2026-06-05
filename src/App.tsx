@@ -2250,7 +2250,70 @@ eng.tryCombine = (targetWrapper) => {
         };
        
         
-        eng.splitFraction = (term, list, idx) => { let nt = []; term.children.forEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.incrementMove(); eng.commitState(); eng.playTone('pop'); };
+        eng.splitFraction = (term, list, idx) => { 
+            let numList = term.children;
+            // ถ้าตัวเศษทั้งหมดถูกครอบด้วยวงเล็บอยู่ ให้แกะวงเล็บออกชั้นนึงก่อนเพื่อสแกนพจน์ข้างใน
+            if (numList.length === 1 && numList[0].type === 'group') {
+                numList = numList[0].children;
+            }
+
+            let chunks = [];
+            let currentChunk = [];
+            let ops = [];
+
+            // 🚀 ขั้นตอนที่ 1: สแกนและหั่นตัวเศษออกเป็นชิ้นๆ ตามเครื่องหมาย + หรือ -
+            for (let i = 0; i < numList.length; i++) {
+                let t = numList[i];
+                if (t.type === 'op' && (t.value === '+' || t.value === '-')) {
+                    if (currentChunk.length === 0) {
+                        currentChunk.push(t); // กรณีเป็นเครื่องหมายลบหน้าสุด เช่น -x
+                    } else {
+                        chunks.push(currentChunk);
+                        ops.push(new eng.TermClass('op', t.value)); // เก็บเครื่องหมายเชื่อมไว้
+                        currentChunk = [];
+                    }
+                } else {
+                    currentChunk.push(t);
+                }
+            }
+            if (currentChunk.length > 0) chunks.push(currentChunk);
+
+            // 🚨 ขั้นตอนที่ 2: Validation Guard - ตรวจสอบว่าแยกได้จริงไหม
+            if (chunks.length <= 1) {
+                eng.showPopup("แยกไม่ได้ครับ! ต้องมีบวกหรือลบอยู่ด้านบน และต้องคูณกระจายวงเล็บให้เสร็จก่อน");
+                // ค้นหา Element เศษส่วนก้อนนี้บนหน้าจอเพื่อสั่งสั่นเตือน (Shake)
+                let numCont = document.querySelector(`[data-parent-frac-id="${term.id}"]`);
+                if (numCont && numCont.parentElement) eng.shakeElement(numCont.parentElement);
+                return;
+            }
+
+            // 🚀 ขั้นตอนที่ 3: Deep Cloning Denominator - สร้างเศษส่วนก้อนเล็กๆ
+            let newFractions = [];
+            for (let c of chunks) {
+                let numNode = (c.length === 1 && c[0].type !== 'op') ? c[0] : new eng.TermClass('group', null, c);
+                let denClone = JSON.parse(JSON.stringify(term.denominator)); // โคลนตัวส่วน
+                newFractions.push(new eng.TermClass('fraction', null, [numNode], denClone));
+            }
+
+            // ประกอบชิ้นส่วนเศษส่วนเล็กๆ เข้ากับเครื่องหมาย + / - 
+            let combinedSequence = [];
+            for (let i = 0; i < newFractions.length; i++) {
+                combinedSequence.push(newFractions[i]);
+                if (i < ops.length) {
+                    combinedSequence.push(ops[i]);
+                }
+            }
+
+            // 🛡️ ขั้นตอนที่ 4: Safety Group Wrapping - ครอบวงเล็บนิรภัยกันสมการพัง
+            let finalGroup = new eng.TermClass('group', null, combinedSequence);
+            
+            // นำก้อนใหม่ที่สมบูรณ์ไปสลับที่กับเศษส่วนก้อนเดิม
+            list.splice(idx, 1, finalGroup);
+
+            eng.incrementMove(); 
+            eng.commitState(); 
+            if (eng.playTone) eng.playTone('pop');
+        };rEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.incrementMove(); eng.commitState(); eng.playTone('pop'); };
         
 eng.splitTerm = (term, list, idx) => {
     if (!term || term.type !== 'term' || !term.value) return;
