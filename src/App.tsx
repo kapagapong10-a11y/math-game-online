@@ -2313,7 +2313,7 @@ eng.tryCombine = (targetWrapper) => {
             eng.incrementMove(); 
             eng.commitState(); 
             if (eng.playTone) eng.playTone('pop');
-        };rEach(t => nt.push(t)); list.splice(idx, 1, ...nt); eng.incrementMove(); eng.commitState(); eng.playTone('pop'); };
+        };
         
 eng.splitTerm = (term, list, idx) => {
     if (!term || term.type !== 'term' || !term.value) return;
