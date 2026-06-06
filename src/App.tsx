@@ -1905,17 +1905,27 @@ eng.handleFractionDivision = (targetCard) => {
                     if (sourceContext === 'denominator') {
                         if (targetList.length > 1) { let inner = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('group', null, inner)); }
                         targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', moveValue));
-                    } else {
-                        if (targetList.length === 1 && targetList[0].type === 'fraction') {
-                            let targetFrac = targetList[0];
-                            if (!targetFrac.denominator) { let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue))); }
-                            else {
-                                let newFactor = new eng.TermClass('term', moveValue);
-                                if (targetFrac.denominator.type !== 'group') targetFrac.denominator = new eng.TermClass('group', null, [targetFrac.denominator]);
-                                targetFrac.denominator.children.push(new eng.TermClass('op', '•')); targetFrac.denominator.children.push(newFactor);
-                            }
+                   } else {
+                    // 🚀 NEW: ถ้าย้ายไปหารฝั่งที่มีหลายพจน์ ให้แปลงเป็นการคูณด้วยเศษส่วน (เช่น * 1/-2)
+                        let hasPlusMinus = targetList.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'));
+                        if (hasPlusMinus) {
+                            let inner = JSON.parse(JSON.stringify(targetList));
+                            targetList.length = 0;
+                            targetList.push(new eng.TermClass('group', null, inner));
+                            let reciprocalFrac = new eng.TermClass('fraction', null, [new eng.TermClass('term', '1')], new eng.TermClass('term', moveValue));
+                            targetList.push(new eng.TermClass('op', '•'), reciprocalFrac);
                         } else {
-                            let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue)));
+                            if (targetList.length === 1 && targetList[0].type === 'fraction') {
+                                let targetFrac = targetList[0];
+                                if (!targetFrac.denominator) { let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue))); }
+                                else {
+                                    let newFactor = new eng.TermClass('term', moveValue);
+                                    if (targetFrac.denominator.type !== 'group') targetFrac.denominator = new eng.TermClass('group', null, [targetFrac.denominator]);
+                                    targetFrac.denominator.children.push(new eng.TermClass('op', '•')); targetFrac.denominator.children.push(newFactor);
+                                }
+                            } else {
+                                let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue)));
+                            }
                         }
                     }
                     eng.incrementMove(); eng.playTone('success');
@@ -2189,11 +2199,92 @@ eng.tryCombine = (targetWrapper) => {
                     }
                 }
     
-            if (srcTerm.type === 'fraction' && targetTerm.type === 'fraction') {
-                if (max - min === 2) {
-                    let op = list[min+1];
-                    if (op.type === 'op' && (op.value === '+' || op.value === '-')) {
-                        if (eng.isBoundByMultiply(list, min) || eng.isBoundByMultiply(list, max)) { eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน"); eng.shakeElement(targetWrapper); return; }
+        // 🚀 NEW: รองรับการคูณ เศษส่วน (Fraction) เข้า วงเล็บ (Group) แบบแจกแจงเข้าไปทุกพจน์
+                if ((srcTerm.type === 'fraction' && targetTerm.type === 'group') || (srcTerm.type === 'group' && targetTerm.type === 'fraction')) {
+                    let fracTerm = srcTerm.type === 'fraction' ? srcTerm : targetTerm;
+                    let groupTerm = srcTerm.type === 'group' ? srcTerm : targetTerm;
+                    if (max - min === 2 && list[min+1].value === '•') {
+                        let leftBound = min > 0 && list[min-1].type === 'op' && list[min-1].value === '•';
+                        let rightBound = max < list.length - 1 && list[max+1].type === 'op' && list[max+1].value === '•';
+                        if (leftBound || rightBound) {
+                            eng.showPopup("ติดตัวคูณซ้อนกันอยู่ครับ ต้องคูณให้เสร็จทีละคู่");
+                            eng.shakeElement(targetWrapper); return;
+                        }
+        
+                        // ฟังก์ชันแจกแจงเศษส่วนเข้าไปทีละพจน์ในวงเล็บ (เศษคูณเศษ ส่วนคูณส่วน)
+                        let distributeFractionIntoGroup = (terms, fracObj) => {
+                            let result = [];
+                            let multiplyNext = true;
+                            for (let i=0; i<terms.length; i++) {
+                                let t = terms[i];
+                                let copy = JSON.parse(JSON.stringify(t));
+                                if (copy.type === 'op') {
+                                    if (copy.value === '+' || copy.value === '-') multiplyNext = true;
+                                    else if (copy.value === '•') multiplyNext = false;
+                                    result.push(copy);
+                                    continue;
+                                }
+                                if (multiplyNext) {
+                                    let fracClone = JSON.parse(JSON.stringify(fracObj));
+                                    if (copy.type === 'fraction') {
+                                        let n1 = (copy.children.length === 1 && copy.children[0].type !== 'op') ? copy.children[0] : new eng.TermClass('group', null, copy.children);
+                                        let n2 = (fracClone.children.length === 1 && fracClone.children[0].type !== 'op') ? fracClone.children[0] : new eng.TermClass('group', null, fracClone.children);
+                                        let newNum = [n1, new eng.TermClass('op', '•'), n2];
+                                        
+                                        let d1 = (copy.denominator.type === 'group') ? copy.denominator.children : [copy.denominator];
+                                        let d2 = (fracClone.denominator.type === 'group') ? fracClone.denominator.children : [fracClone.denominator];
+                                        let newDen = new eng.TermClass('group', null, [...d1, new eng.TermClass('op', '•'), ...d2]);
+                                        
+                                        copy = new eng.TermClass('fraction', null, newNum, newDen);
+                                    } else {
+                                        let n1 = copy;
+                                        let n2 = (fracClone.children.length === 1 && fracClone.children[0].type !== 'op') ? fracClone.children[0] : new eng.TermClass('group', null, fracClone.children);
+                                        let newNum = [n1, new eng.TermClass('op', '•'), n2];
+                                        copy = new eng.TermClass('fraction', null, newNum, JSON.parse(JSON.stringify(fracClone.denominator)));
+                                    }
+                                    multiplyNext = false;
+                                }
+                                result.push(copy);
+                            }
+                            return result;
+                        };
+        
+                        let newGroupChildren = distributeFractionIntoGroup(groupTerm.children, fracTerm);
+                        
+                        let precedingSign = '+';
+                        let replaceIdx = min;
+                        let replaceCount = 3;
+                        if (min > 0 && list[min-1].type === 'op' && (list[min-1].value === '+' || list[min-1].value === '-')) {
+                            precedingSign = list[min-1].value;
+                            replaceIdx = min - 1;
+                            replaceCount = 4;
+                        }
+                        if (precedingSign === '-') {
+                            newGroupChildren = eng.multiplyTerms(newGroupChildren, -1);
+                        }
+                        
+                        let insertion = [];
+                        if (replaceIdx > 0) insertion.push(new eng.TermClass('op', '+'));
+                        insertion.push(...newGroupChildren);
+                        list.splice(replaceIdx, replaceCount, ...insertion);
+                        
+                        eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
+                    }
+                }
+        
+                if (srcTerm.type === 'fraction' && targetTerm.type === 'fraction') {
+                    if (max - min === 2) {
+                        let op = list[min+1];
+                        if (op.type === 'op' && (op.value === '+' || op.value === '-')) {
+                            if (eng.isBoundByMultiply(list, min) || eng.isBoundByMultiply(list, max)) { eng.showPopup("ติดตัวคูณอยู่ครับ ต้องคูณเข้าวงเล็บก่อน"); eng.shakeElement(targetWrapper); return; }
+                            
+                            // 🚀 Educational Trap: ป้องกันการบวกลบเศษส่วนในขณะที่ตัวส่วนติดลบ
+                            let d1ValStr = list[min].denominator.type === 'term' ? list[min].denominator.value : '';
+                            let d2ValStr = list[max].denominator.type === 'term' ? list[max].denominator.value : '';
+                            if (d1ValStr.includes('-') || d2ValStr.includes('-')) {
+                                eng.showPopup("ผิดกฎ! ห้ามบวกลบเศษส่วนในขณะที่ตัวส่วนติดลบ (ลากเครื่องหมายลบขึ้นบนก่อนครับ)");
+                                eng.incrementMove(); eng.shakeElement(targetWrapper); return;
+                            }
                         let den1 = 1, den2 = 1, valid = true;
                         if (list[min].denominator.type === 'term' && !isNaN(list[min].denominator.value)) den1 = parseInt(list[min].denominator.value); else valid = false;
                         if (list[max].denominator.type === 'term' && !isNaN(list[max].denominator.value)) den2 = parseInt(list[max].denominator.value); else valid = false;
