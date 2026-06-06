@@ -1378,16 +1378,30 @@ eng.multiplyTerms = (terms, factor) => {
                         // จัดการเศษส่วน: ให้คูณเข้าเฉพาะตัวเศษ
                         let oldNumChildren = JSON.parse(JSON.stringify(t.children));
                         if (oldNumChildren.length === 1 && oldNumChildren[0].type === 'term') {
-                            let innerTerm = oldNumChildren[0];
-                            let val = parseInt(innerTerm.value);
-                            if (!isNaN(val)) {
-                                innerTerm.value = (val * factor).toString();
-                                copy.children = [innerTerm];
+                                let innerTerm = oldNumChildren[0];
+                                // 🚀 NEW: ตรวจสอบตัวแปรในตัวเศษก่อนคูณ ป้องกัน x หาย (Regex Split)
+                                if (innerTerm.value.match(/[a-zA-Z]/)) {
+                                    let match = innerTerm.value.match(/^(-?\d*)([a-zA-Z]+)$/);
+                                    if (match) {
+                                        let cStr = match[1];
+                                        // ถอดรหัสสัมประสิทธิ์ (กรณีเป็น x เฉยๆ ให้เป็น 1, -x ให้เป็น -1)
+                                        let c = (cStr === '' || cStr === '+') ? 1 : (cStr === '-' ? -1 : parseInt(cStr));
+                                        let variable = match[2];
+                                        innerTerm.value = (c * factor) + variable;
+                                        copy.children = [innerTerm];
+                                    } else {
+                                        let newNumContent = new eng.TermClass('group', null, oldNumChildren);
+                                        copy.children = [new eng.TermClass('term', factor.toString()), new eng.TermClass('op', '•'), newNumContent];
+                                    }
+                                } else if (!isNaN(parseInt(innerTerm.value)) && innerTerm.value !== '') {
+                                    // กรณีเป็นตัวเลขล้วน (เช่น 13 * 3 = 39)
+                                    innerTerm.value = (parseInt(innerTerm.value) * factor).toString();
+                                    copy.children = [innerTerm];
+                                } else {
+                                    let newNumContent = new eng.TermClass('group', null, oldNumChildren);
+                                    copy.children = [new eng.TermClass('term', factor.toString()), new eng.TermClass('op', '•'), newNumContent];
+                                }
                             } else {
-                                let newNumContent = new eng.TermClass('group', null, oldNumChildren);
-                                copy.children = [new eng.TermClass('term', factor.toString()), new eng.TermClass('op', '•'), newNumContent];
-                            }
-                        } else {
                             let newNumContent = (oldNumChildren.length === 1 && oldNumChildren[0].type === 'group') ? oldNumChildren[0] : new eng.TermClass('group', null, oldNumChildren);
                             copy.children = [new eng.TermClass('term', factor.toString()), new eng.TermClass('op', '•'), newNumContent];
                         }
