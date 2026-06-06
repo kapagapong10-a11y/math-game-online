@@ -2198,77 +2198,91 @@ eng.tryCombine = (targetWrapper) => {
                         eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
                     }
                 }
-    
         // 🚀 NEW: รองรับการคูณ เศษส่วน (Fraction) เข้า วงเล็บ (Group) แบบแจกแจงเข้าไปทุกพจน์
                 if ((srcTerm.type === 'fraction' && targetTerm.type === 'group') || (srcTerm.type === 'group' && targetTerm.type === 'fraction')) {
                     let fracTerm = srcTerm.type === 'fraction' ? srcTerm : targetTerm;
                     let groupTerm = srcTerm.type === 'group' ? srcTerm : targetTerm;
                     if (max - min === 2 && list[min+1].value === '•') {
-                        let leftBound = min > 0 && list[min-1].type === 'op' && list[min-1].value === '•';
-                        let rightBound = max < list.length - 1 && list[max+1].type === 'op' && list[max+1].value === '•';
-                        if (leftBound || rightBound) {
-                            eng.showPopup("ติดตัวคูณซ้อนกันอยู่ครับ ต้องคูณให้เสร็จทีละคู่");
-                            eng.shakeElement(targetWrapper); return;
-                        }
+                        try {
+                            let leftBound = min > 0 && list[min-1].type === 'op' && list[min-1].value === '•';
+                            let rightBound = max < list.length - 1 && list[max+1].type === 'op' && list[max+1].value === '•';
+                            if (leftBound || rightBound) {
+                                eng.showPopup("ติดตัวคูณซ้อนกันอยู่ครับ ต้องคูณให้เสร็จทีละคู่");
+                                eng.shakeElement(targetWrapper); return;
+                            }
         
-                        // ฟังก์ชันแจกแจงเศษส่วนเข้าไปทีละพจน์ในวงเล็บ (เศษคูณเศษ ส่วนคูณส่วน)
-                        let distributeFractionIntoGroup = (terms, fracObj) => {
-                            let result = [];
+                            // 🛡️ ฟังก์ชันแจกแจงแบบใหม่ ป้องกันโค้ดพัง (Bulletproof)
+                            let newGroupChildren = [];
                             let multiplyNext = true;
+                            let terms = groupTerm.children || [];
+                            
                             for (let i=0; i<terms.length; i++) {
                                 let t = terms[i];
-                                let copy = JSON.parse(JSON.stringify(t));
-                                if (copy.type === 'op') {
-                                    if (copy.value === '+' || copy.value === '-') multiplyNext = true;
-                                    else if (copy.value === '•') multiplyNext = false;
-                                    result.push(copy);
+                                if (t.type === 'op') {
+                                    if (t.value === '+' || t.value === '-') multiplyNext = true;
+                                    else if (t.value === '•') multiplyNext = false;
+                                    newGroupChildren.push(JSON.parse(JSON.stringify(t)));
                                     continue;
                                 }
                                 if (multiplyNext) {
-                                    let fracClone = JSON.parse(JSON.stringify(fracObj));
-                                    if (copy.type === 'fraction') {
-                                        let n1 = (copy.children.length === 1 && copy.children[0].type !== 'op') ? copy.children[0] : new eng.TermClass('group', null, copy.children);
-                                        let n2 = (fracClone.children.length === 1 && fracClone.children[0].type !== 'op') ? fracClone.children[0] : new eng.TermClass('group', null, fracClone.children);
-                                        let newNum = [n1, new eng.TermClass('op', '•'), n2];
+                                    let termCopy = JSON.parse(JSON.stringify(t));
+                                    let fracClone = JSON.parse(JSON.stringify(fracTerm));
+                                    
+                                    let fracNumNode = (fracClone.children && fracClone.children.length === 1 && fracClone.children[0].type !== 'op') 
+                                        ? fracClone.children[0] 
+                                        : new eng.TermClass('group', null, fracClone.children);
+        
+                                    if (termCopy.type === 'fraction') {
+                                        let targetNumNode = (termCopy.children && termCopy.children.length === 1 && termCopy.children[0].type !== 'op') 
+                                            ? termCopy.children[0] 
+                                            : new eng.TermClass('group', null, termCopy.children);
                                         
-                                        let d1 = (copy.denominator.type === 'group') ? copy.denominator.children : [copy.denominator];
-                                        let d2 = (fracClone.denominator.type === 'group') ? fracClone.denominator.children : [fracClone.denominator];
+                                        let newNum = [targetNumNode, new eng.TermClass('op', '•'), fracNumNode];
+                                        
+                                        let d1 = (termCopy.denominator && termCopy.denominator.type === 'group') ? termCopy.denominator.children : [termCopy.denominator];
+                                        let d2 = (fracClone.denominator && fracClone.denominator.type === 'group') ? fracClone.denominator.children : [fracClone.denominator];
                                         let newDen = new eng.TermClass('group', null, [...d1, new eng.TermClass('op', '•'), ...d2]);
                                         
-                                        copy = new eng.TermClass('fraction', null, newNum, newDen);
+                                        newGroupChildren.push(new eng.TermClass('fraction', null, newNum, newDen));
                                     } else {
-                                        let n1 = copy;
-                                        let n2 = (fracClone.children.length === 1 && fracClone.children[0].type !== 'op') ? fracClone.children[0] : new eng.TermClass('group', null, fracClone.children);
-                                        let newNum = [n1, new eng.TermClass('op', '•'), n2];
-                                        copy = new eng.TermClass('fraction', null, newNum, JSON.parse(JSON.stringify(fracClone.denominator)));
+                                        let newNum = [termCopy, new eng.TermClass('op', '•'), fracNumNode];
+                                        newGroupChildren.push(new eng.TermClass('fraction', null, newNum, fracClone.denominator));
                                     }
                                     multiplyNext = false;
+                                } else {
+                                    newGroupChildren.push(JSON.parse(JSON.stringify(t)));
                                 }
-                                result.push(copy);
                             }
-                            return result;
-                        };
         
-                        let newGroupChildren = distributeFractionIntoGroup(groupTerm.children, fracTerm);
-                        
-                        let precedingSign = '+';
-                        let replaceIdx = min;
-                        let replaceCount = 3;
-                        if (min > 0 && list[min-1].type === 'op' && (list[min-1].value === '+' || list[min-1].value === '-')) {
-                            precedingSign = list[min-1].value;
-                            replaceIdx = min - 1;
-                            replaceCount = 4;
+                            let precedingSign = '+';
+                            let replaceIdx = min;
+                            let replaceCount = 3;
+                            if (min > 0 && list[min-1].type === 'op' && (list[min-1].value === '+' || list[min-1].value === '-')) {
+                                precedingSign = list[min-1].value;
+                                replaceIdx = min - 1;
+                                replaceCount = 4;
+                            }
+                            if (precedingSign === '-') {
+                                newGroupChildren = eng.multiplyTerms(newGroupChildren, -1);
+                            }
+                            
+                            let insertion = [];
+                            if (replaceIdx > 0) insertion.push(new eng.TermClass('op', '+'));
+                            
+                            if (newGroupChildren.length > 0) {
+                                insertion.push(...newGroupChildren);
+                                list.splice(replaceIdx, replaceCount, ...insertion);
+                                eng.incrementMove(); eng.commitState(); eng.playTone('success'); 
+                            } else {
+                                eng.shakeElement(targetWrapper);
+                            }
+                            return;
+                        } catch(e) {
+                            console.error("Distribution Error:", e);
+                            eng.showPopup("ระบบขัดข้อง! ไม่สามารถคูณกระจายพจน์นี้ได้ครับ");
+                            eng.shakeElement(targetWrapper);
+                            return;
                         }
-                        if (precedingSign === '-') {
-                            newGroupChildren = eng.multiplyTerms(newGroupChildren, -1);
-                        }
-                        
-                        let insertion = [];
-                        if (replaceIdx > 0) insertion.push(new eng.TermClass('op', '+'));
-                        insertion.push(...newGroupChildren);
-                        list.splice(replaceIdx, replaceCount, ...insertion);
-                        
-                        eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
                     }
                 }
         
