@@ -2229,14 +2229,135 @@ eng.tryCombine = (targetWrapper) => {
                                 eng.shakeElement(targetWrapper);
                             }
                             return;
-                        } catch(e) {
-                            console.error("Distribution Error:", e);
-                            eng.showPopup("ระบบขัดข้อง! ไม่สามารถคูณกระจายพจน์นี้ได้ครับ");
-                            eng.shakeElement(targetWrapper);
-                            return;
+                        // 🚀 NEW: รองรับการคูณ เศษส่วน (Fraction) เข้า วงเล็บ (Group) แบบอัจฉริยะ (Smart Distribution)
+        if ((srcTerm.type === 'fraction' && targetTerm.type === 'group') || (srcTerm.type === 'group' && targetTerm.type === 'fraction')) {
+            let fracTerm = srcTerm.type === 'fraction' ? srcTerm : targetTerm;
+            let groupTerm = srcTerm.type === 'group' ? srcTerm : targetTerm;
+            if (max - min === 2 && list[min+1].value === '•') {
+                try {
+                    let leftBound = min > 0 && list[min-1].type === 'op' && list[min-1].value === '•';
+                    let rightBound = max < list.length - 1 && list[max+1].type === 'op' && list[max+1].value === '•';
+                    if (leftBound || rightBound) {
+                        eng.showPopup("ติดตัวคูณซ้อนกันอยู่ครับ ต้องคูณให้เสร็จทีละคู่");
+                        eng.shakeElement(targetWrapper); return;
+                    }
+
+                    // 🧠 Smart Content Detection: เช็คว่าในวงเล็บมีเศษส่วนซ่อนอยู่ไหม
+                    const checkHasFraction = (arr) => {
+                        for (let t of arr) {
+                            if (t.type === 'fraction') return true;
+                            if (t.type === 'group' && t.children && checkHasFraction(t.children)) return true;
+                        }
+                        return false;
+                    };
+                    let isComplexGroup = checkHasFraction(groupTerm.children || []);
+
+                    if (!isComplexGroup) {
+                        // 🌟 กรณีที่ 1: วงเล็บปกติ (ไม่มีเศษส่วนซ่อนอยู่) -> จับรวบขึ้นไปคูณบนหลังคาเศษส่วนทีเดียว
+                        let oldNumChildren = JSON.parse(JSON.stringify(fracTerm.children));
+                        let oldNumNode = (oldNumChildren.length === 1 && oldNumChildren[0].type !== 'op') ? oldNumChildren[0] : new eng.TermClass('group', null, oldNumChildren);
+                        
+                        let newNumeratorChildren = [];
+                        if (list[min] === fracTerm) {
+                            newNumeratorChildren = [oldNumNode, new eng.TermClass('op', '•'), JSON.parse(JSON.stringify(groupTerm))];
+                        } else {
+                            newNumeratorChildren = [JSON.parse(JSON.stringify(groupTerm)), new eng.TermClass('op', '•'), oldNumNode];
+                        }
+                        
+                        let newFraction = new eng.TermClass('fraction', null, newNumeratorChildren, JSON.parse(JSON.stringify(fracTerm.denominator)));
+                        
+                        let precedingSign = '+';
+                        let replaceIdx = min;
+                        let replaceCount = 3;
+                        if (min > 0 && list[min-1].type === 'op' && (list[min-1].value === '+' || list[min-1].value === '-')) {
+                            precedingSign = list[min-1].value;
+                            replaceIdx = min - 1;
+                            replaceCount = 4;
+                        }
+                        
+                        let insertion = [];
+                        if (replaceIdx > 0) insertion.push(new eng.TermClass('op', precedingSign));
+                        insertion.push(newFraction);
+                        
+                        list.splice(replaceIdx, replaceCount, ...insertion);
+                        eng.incrementMove(); eng.commitState(); eng.playTone('success'); 
+                        return;
+                    }
+
+                    // 🛡️ กรณีที่ 2: วงเล็บซับซ้อน (มีเศษส่วนซ่อนอยู่) -> แจกแจงแบบ Bulletproof เพื่อป้องกันสมการพัง
+                    let newGroupChildren = [];
+                    let multiplyNext = true;
+                    let termsList = groupTerm.children || [];
+                    
+                    for (let i=0; i<termsList.length; i++) {
+                        let t = termsList[i];
+                        if (t.type === 'op') {
+                            if (t.value === '+' || t.value === '-') multiplyNext = true;
+                            else if (t.value === '•') multiplyNext = false;
+                            newGroupChildren.push(JSON.parse(JSON.stringify(t)));
+                            continue;
+                        }
+                        if (multiplyNext) {
+                            let termCopy = JSON.parse(JSON.stringify(t));
+                            let fracClone = JSON.parse(JSON.stringify(fracTerm));
+                            
+                            let fracNumNode = (fracClone.children && fracClone.children.length === 1 && fracClone.children[0].type !== 'op') 
+                                ? fracClone.children[0] 
+                                : new eng.TermClass('group', null, fracClone.children);
+
+                            if (termCopy.type === 'fraction') {
+                                let targetNumNode = (termCopy.children && termCopy.children.length === 1 && termCopy.children[0].type !== 'op') 
+                                    ? termCopy.children[0] 
+                                    : new eng.TermClass('group', null, termCopy.children);
+                                
+                                let newNum = [targetNumNode, new eng.TermClass('op', '•'), fracNumNode];
+                                
+                                let d1 = (termCopy.denominator && termCopy.denominator.type === 'group') ? termCopy.denominator.children : [termCopy.denominator];
+                                let d2 = (fracClone.denominator && fracClone.denominator.type === 'group') ? fracClone.denominator.children : [fracClone.denominator];
+                                let newDen = new eng.TermClass('group', null, [...d1, new eng.TermClass('op', '•'), ...d2]);
+                                
+                                newGroupChildren.push(new eng.TermClass('fraction', null, newNum, newDen));
+                            } else {
+                                let newNum = [termCopy, new eng.TermClass('op', '•'), fracNumNode];
+                                newGroupChildren.push(new eng.TermClass('fraction', null, newNum, fracClone.denominator));
+                            }
+                            multiplyNext = false;
+                        } else {
+                            newGroupChildren.push(JSON.parse(JSON.stringify(t)));
                         }
                     }
+
+                    let precedingSign = '+';
+                    let replaceIdx = min;
+                    let replaceCount = 3;
+                    if (min > 0 && list[min-1].type === 'op' && (list[min-1].value === '+' || list[min-1].value === '-')) {
+                        precedingSign = list[min-1].value;
+                        replaceIdx = min - 1;
+                        replaceCount = 4;
+                    }
+                    if (precedingSign === '-') {
+                        newGroupChildren = eng.multiplyTerms(newGroupChildren, -1);
+                    }
+                    
+                    let insertion = [];
+                    if (replaceIdx > 0) insertion.push(new eng.TermClass('op', '+'));
+                    
+                    if (newGroupChildren.length > 0) {
+                        insertion.push(...newGroupChildren);
+                        list.splice(replaceIdx, replaceCount, ...insertion);
+                        eng.incrementMove(); eng.commitState(); eng.playTone('success'); 
+                    } else {
+                        eng.shakeElement(targetWrapper);
+                    }
+                    return;
+                } catch(e) {
+                    console.error("Distribution Error:", e);
+                    eng.showPopup("ระบบขัดข้อง! ไม่สามารถคูณกระจายพจน์นี้ได้ครับ");
+                    eng.shakeElement(targetWrapper);
+                    return;
                 }
+            }
+        }
         
                 if (srcTerm.type === 'fraction' && targetTerm.type === 'fraction') {
                     if (max - min === 2) {
