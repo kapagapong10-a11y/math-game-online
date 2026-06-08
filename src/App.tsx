@@ -2076,16 +2076,19 @@ eng.tryCombine = (targetWrapper) => {
                     let p1 = parseVar(srcTerm.value), p2 = parseVar(targetTerm.value);
                     if (max - min === 2 && (list[min+1].value === '+' || list[min+1].value === '-')) {
                         if (p1 && p2 && p1.v === p2.v) {
-                            let srcSign = (eng.dragSrc.idx > 0 && list[eng.dragSrc.idx-1].type === 'op' && list[eng.dragSrc.idx-1].value === '-') ? -1 : 1;
+                           let srcSign = (eng.dragSrc.idx > 0 && list[eng.dragSrc.idx-1].type === 'op' && list[eng.dragSrc.idx-1].value === '-') ? -1 : 1;
                             let targetSign = (targetIdx > 0 && list[targetIdx-1].type === 'op' && list[targetIdx-1].value === '-') ? -1 : 1;
                             let resCoef = (p1.c * srcSign) + (p2.c * targetSign);
-                            
-                            // 🔥 แก้ไข: ถ้าสัมประสิทธิ์หักล้างกันเหลือ 0 ให้ทิ้งตัวแปรไปเลย กลายเป็นเลข 0 เพียวๆ
-                            let finalTermVal = resCoef === 0 ? "0" : (Math.abs(resCoef) + (p1.v || ''));
-                            
+        
+                            // 🚀 NEW: ใส่เครื่องหมายลบติดตัวเลขไปเลย แล้วให้ simplifyList จัดการความสวยงามของ UI ต่อ
+                            let finalTermVal = resCoef === 0 ? "0" : (resCoef.toString() + (p1.v || ''));
+        
                             list[targetIdx].value = finalTermVal.toString();
-                            if (targetIdx > 0 && list[targetIdx-1].type === 'op') list[targetIdx-1].value = resCoef < 0 ? '-' : '+';
-                            else if (targetIdx === 0 && resCoef < 0) list[targetIdx].value = '-' + finalTermVal.toString();
+                            
+                            // บังคับให้เครื่องหมายหน้าเป้าหมายเป็นบวก (ถ้ามี) แล้วเดี๋ยว simplifyList จะแปลง "+ -8x" เป็น "- 8x" ให้เอง
+                            if (targetIdx > 0 && list[targetIdx-1].type === 'op') {
+                                list[targetIdx-1].value = '+';
+                            }
                             let removeIdx = eng.dragSrc.idx, removeCount = 1;
                             if (eng.dragSrc.idx > 0 && list[eng.dragSrc.idx-1].type === 'op' && (list[eng.dragSrc.idx-1].value === '+' || list[eng.dragSrc.idx-1].value === '-')) { removeIdx = eng.dragSrc.idx - 1; removeCount = 2; }
                             else if (eng.dragSrc.idx === 0 && list.length > 1 && (list[1].value === '+' || list[1].value === '-')) { removeCount = 2; }
