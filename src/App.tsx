@@ -1879,9 +1879,9 @@ eng.handleFractionDivision = (targetCard) => {
                     else if (gc.length === 2 && gc[0].value === '-' && gc[1].type === 'term') val = "-" + gc[1].value;
                 }
                 
-                if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
-
-                if(term.denominator.type === 'group' && term.denominator.children.length === 1) targetList.push(new eng.TermClass('op', '•'), term.denominator.children[0]);
+                    // 🚀 ล็อกเลข 0 ไว้: ป้องกัน 0 หายเมื่อย้ายตัวส่วนขึ้นมาคูณ
+                    // if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
+                    if(term.denominator.type === 'group' && term.denominator.children.length === 1) targetList.push(new eng.TermClass('op', '•'), term.denominator.children[0]);
                 else if (term.denominator.type === 'group') targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('group', null, term.denominator.children));
                 else targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', val));
                 eng.incrementMove(); eng.playTone('success');
@@ -1900,8 +1900,8 @@ eng.handleFractionDivision = (targetCard) => {
                     list.splice(removeIdx, removeCount);
                     if (list.length === 0) list.push(new eng.TermClass('term', '1'));
                     
-                    if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
-
+                         // 🚀 ล็อกเลข 0 ไว้: ป้องกัน 0 หายเมื่อย้ายตัวคูณลงไปหาร
+                    // if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
                     if (sourceContext === 'denominator') {
                         if (targetList.length > 1) { let inner = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('group', null, inner)); }
                         targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', moveValue));
