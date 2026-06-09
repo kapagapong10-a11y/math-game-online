@@ -2431,45 +2431,52 @@ eng.tryCombine = (targetWrapper) => {
             if (eng.playTone) eng.playTone('pop');
         };
         
-eng.splitTerm = (term, list, idx) => {
-    if (!term || term.type !== 'term' || !term.value) return;
-    
-    // 🚀 อัปเกรด Regex ให้รองรับกรณีที่ไม่มีตัวเลข (เช่น -x)
-    let match = term.value.match(/^(-?\d*)([a-zA-Z]+)$/);
-    if (match) {
-        let numPart = match[1];
-        let varPart = match[2];
-        
-        // ถ้าเป็น x เฉยๆ (ค่าว่าง) ไม่ต้องแยก 1 ออกมาให้รกกระดาน
-        if (numPart === '' && term.value === varPart) {
-            eng.shakeElement(document.querySelector(`[data-idx="${idx}"]`));
-            return;
-        }
-        
-        // 🌟 ถอดรหัส -x ให้กลายเป็น -1
-        if (numPart === '-') {
-            numPart = '-1';
-        } else if (numPart === '') {
-            numPart = '1';
-        }
-        
-        // สร้างการ์ด 3 ใบใหม่: ตัวเลข -> เครื่องหมายคูณ -> ตัวแปร
-        let numTerm = new eng.TermClass('term', numPart);
-        let opTerm = new eng.TermClass('op', '•');
-        let varTerm = new eng.TermClass('term', varPart);
-        
-        // สลับเอาการ์ด 3 ใบนี้ ไปวางแทนที่การ์ดใบเดิม
-        list.splice(idx, 1, numTerm, opTerm, varTerm);
-        
-        eng.incrementMove();
-        eng.commitState();
-        if (eng.playTone) eng.playTone('pop');
-    } else {
-        // ถ้าไม่ใช่ตัวแปรที่แยกได้ ให้สั่นเตือน
-        let el = document.querySelector(`[data-idx="${idx}"]`);
-        if (el) eng.shakeElement(el);
-    }
-};
+        eng.splitTerm = (term, list, idx) => {
+            if (!term || term.type !== 'term' || !term.value) return;
+
+            let match = term.value.match(/^(-?\d*)([a-zA-Z]+)$/);
+            if (match) {
+                let numPart = match[1];
+                let varPart = match[2];
+
+                // 🧠 Smart Detection: เช็คว่ามีเครื่องหมายลบนำหน้าตัวแปรนี้หรือไม่ (เช่น - x)
+                let isNegativeAhead = (idx > 0 && list[idx-1].type === 'op' && list[idx-1].value === '-');
+
+                // ถ้าเป็น x เฉยๆ และ "ไม่มี" เครื่องหมายลบข้างหน้า ไม่ต้องแยกให้รกกระดาน
+                if (numPart === '' && term.value === varPart && !isNegativeAhead) {
+                    let el = document.querySelector(`[data-idx="${idx}"]`);
+                    if (el) eng.shakeElement(el);
+                    return;
+                }
+
+                //  🌟   ถอดรหัสสัมประสิทธิ์ และดูดเครื่องหมายลบ
+                if (numPart === '-') {
+                    numPart = '-1';
+                } else if (numPart === '') {
+                    if (isNegativeAhead) {
+                        numPart = '-1';
+                        list[idx-1].value = '+'; // 🚀 เปลี่ยนเครื่องหมายลบข้างหน้าเป็นบวก (เดี๋ยว simplifyList จะมาเคลียร์ทิ้งเอง)
+                    } else {
+                        numPart = '1';
+                    }
+                }
+
+                // สร้างการ์ด 3 ใบใหม่: ตัวเลข -> เครื่องหมายคูณ -> ตัวแปร
+                let numTerm = new eng.TermClass('term', numPart);
+                let opTerm = new eng.TermClass('op', '•');
+                let varTerm = new eng.TermClass('term', varPart);
+
+                // สลับเอาการ์ด 3 ใบนี้ ไปวางแทนที่การ์ดใบเดิม
+                list.splice(idx, 1, numTerm, opTerm, varTerm);
+
+                eng.incrementMove();
+                eng.commitState();
+                if (eng.playTone) eng.playTone('pop');
+            } else {
+                let el = document.querySelector(`[data-idx="${idx}"]`);
+                if (el) eng.shakeElement(el);
+            }
+        };
         
         // 🚀 NEW: อัปเกรดระบบรวมร่าง ให้คูณตัวแปรได้แม่นยำขึ้น
         eng.combineSplitTerm = (term, list, idx) => { 
