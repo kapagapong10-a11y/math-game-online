@@ -2073,25 +2073,35 @@ eng.tryCombine = (targetWrapper) => {
                         let m=v.trim().match(/^(-?\d*)([a-zA-Z]*)$/);
                         if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null;
                     };
-                    let p1 = parseVar(srcTerm.value), p2 = parseVar(targetTerm.value);
+                   let p1 = parseVar(srcTerm.value), p2 = parseVar(targetTerm.value);
                     if (max - min === 2 && (list[min+1].value === '+' || list[min+1].value === '-')) {
-                        if (p1 && p2 && p1.v === p2.v) {
-                           let srcSign = (eng.dragSrc.idx > 0 && list[eng.dragSrc.idx-1].type === 'op' && list[eng.dragSrc.idx-1].value === '-') ? -1 : 1;
+                        // 🚀 NEW & FIX: ยอมให้รวมพจน์ได้ถ้าตัวแปรเหมือนกัน หรือมีฝั่งใดฝั่งหนึ่งเป็นเลข 0
+                        if (p1 && p2 && (p1.v === p2.v || p1.c === 0 || p2.c === 0)) {
+                            let srcSign = (eng.dragSrc.idx > 0 && list[eng.dragSrc.idx-1].type === 'op' && list[eng.dragSrc.idx-1].value === '-') ? -1 : 1;
                             let targetSign = (targetIdx > 0 && list[targetIdx-1].type === 'op' && list[targetIdx-1].value === '-') ? -1 : 1;
                             let resCoef = (p1.c * srcSign) + (p2.c * targetSign);
-        
-                            // 🚀 NEW: ใส่เครื่องหมายลบติดตัวเลขไปเลย แล้วให้ simplifyList จัดการความสวยงามของ UI ต่อ
-                            let finalTermVal = resCoef === 0 ? "0" : (resCoef.toString() + (p1.v || ''));
-        
-                            list[targetIdx].value = finalTermVal.toString();
+
+                            // 🧠 เลือกตัวแปร: ถ้ามีตัวใดตัวหนึ่งเป็น 0 ให้ยึดตัวแปรของอีกฝั่งมาใช้
+                            let targetVar = (p1.v === p2.v) ? p1.v : (p1.c === 0 ? p2.v : p1.v);
+
+                            // ใส่เครื่องหมายติดตัวเลขไปเลย (อุดรูรั่วเรื่องเครื่องหมายหาย)
+                            let finalTermVal = resCoef === 0 ? "0" : (resCoef.toString() + (targetVar || ''));
+
+                            list[targetIdx].value = finalTermVal;
                             
-                            // บังคับให้เครื่องหมายหน้าเป้าหมายเป็นบวก (ถ้ามี) แล้วเดี๋ยว simplifyList จะแปลง "+ -8x" เป็น "- 8x" ให้เอง
+                            // บังคับให้เครื่องหมายหน้าเป้าหมายเป็นบวก (ถ้ามี) แล้วเดี๋ยว simplifyList จัดการความสวยงามต่อ
                             if (targetIdx > 0 && list[targetIdx-1].type === 'op') {
                                 list[targetIdx-1].value = '+';
                             }
+
                             let removeIdx = eng.dragSrc.idx, removeCount = 1;
-                            if (eng.dragSrc.idx > 0 && list[eng.dragSrc.idx-1].type === 'op' && (list[eng.dragSrc.idx-1].value === '+' || list[eng.dragSrc.idx-1].value === '-')) { removeIdx = eng.dragSrc.idx - 1; removeCount = 2; }
-                            else if (eng.dragSrc.idx === 0 && list.length > 1 && (list[1].value === '+' || list[1].value === '-')) { removeCount = 2; }
+                            if (eng.dragSrc.idx > 0 && list[eng.dragSrc.idx-1].type === 'op' && (list[eng.dragSrc.idx-1].value === '+' || list[eng.dragSrc.idx-1].value === '-')) { 
+                                removeIdx = eng.dragSrc.idx - 1;
+                                removeCount = 2; 
+                            }
+                            else if (eng.dragSrc.idx === 0 && list.length > 1 && (list[1].value === '+' || list[1].value === '-')) { 
+                                removeCount = 2;
+                            }
                             list.splice(removeIdx, removeCount);
                             eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
                         } else {
