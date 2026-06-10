@@ -2024,17 +2024,21 @@ eng.tryCombine = (targetWrapper) => {
                 let parentWrapper = targetWrapper.closest('.term-container');
                 if (parentWrapper) targetIdx = parseInt(parentWrapper.dataset.idx);
             }
-            if (isNaN(targetIdx) || targetIdx === eng.dragSrc.idx) return;
-            // 🚀 NEW: ทางลัดอัจฉริยะสำหรับเลข 0 (Zero Shortcut Bypass) ครอบคลุมวงเล็บและเศษส่วน
-                    let isZeroNode = (node) => node.type === 'term' && node.value === '0';
+// 1. 🛡️ กู้คืนตัวแปรหลักที่ห้ามหาย (ถ้าหายระบบจะพังเงียบ)
+                    let srcTerm = eng.dragSrc.term, targetTerm = list[targetIdx];
+                    if (!targetTerm) return;
+                    let min = Math.min(eng.dragSrc.idx, targetIdx), max = Math.max(eng.dragSrc.idx, targetIdx);
+
+                    // 2. 🚀 ทางลัดอัจฉริยะสำหรับเลข 0 (Zero Shortcut Bypass) ครอบคลุมวงเล็บและเศษส่วน
+                    let isZeroNode = (node) => node && node.type === 'term' && node.value === '0';
                     if (isZeroNode(srcTerm) || isZeroNode(targetTerm)) {
-                        // 1. กฎการคูณด้วย 0 (0 คูณก้อนไหน ก้อนนั้นกลายเป็น 0 ทันที)
+                        // กฎการคูณด้วย 0
                         if (max - min === 2 && list[min+1].value === '•') {
                             list.splice(min, 3, new eng.TermClass('term', '0'));
                             eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
                         }
                         
-                        // 2. กฎการบวกลบด้วย 0 (0 หายไป เหลือแค่พจน์ก้อนใหญ่ของอีกฝั่ง)
+                        // กฎการบวกลบด้วย 0
                         if (max - min === 2 && (list[min+1].value === '+' || list[min+1].value === '-')) {
                             let nonZeroTerm = isZeroNode(srcTerm) ? targetTerm : srcTerm;
                             let zeroIsMin = isZeroNode(list[min]);
@@ -2044,19 +2048,15 @@ eng.tryCombine = (targetWrapper) => {
                             let insertion = [];
 
                             if (zeroIsMin) {
-                                // กรณี 0 อยู่ข้างหน้า (เช่น 0 + ก้อนใหญ่ หรือ 0 - ก้อนใหญ่)
                                 if (min > 0 && list[min-1].type === 'op') {
                                     replaceIdx = min - 1;
                                     replaceCount = 4;
                                     insertion.push(new eng.TermClass('op', list[min+1].value));
                                 } else if (list[min+1].value === '-') {
-                                    // ถ้า 0 อยู่หน้าสุดของสมการ และเป็น 0 - ก้อนใหญ่ ต้องแปะลบให้มันด้วย
                                     insertion.push(new eng.TermClass('op', '-'));
                                 }
                             }
-                            // (กรณี 0 อยู่ข้างหลัง เช่น ก้อนใหญ่ + 0 ไม่ต้องแก้ replaceIdx เพราะเครื่องหมายหน้าก้อนใหญ่ยังคงอยู่เหมือนเดิม)
 
-                            // โคลนก้อนใหญ่ที่เหลือรอดมาวาง
                             insertion.push(JSON.parse(JSON.stringify(nonZeroTerm)));
                             list.splice(replaceIdx, replaceCount, ...insertion);
                             
