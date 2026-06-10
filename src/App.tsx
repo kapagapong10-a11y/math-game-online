@@ -1933,12 +1933,21 @@ eng.handleFractionDivision = (targetCard) => {
                     let movingSign = '+'; if (idx > 0 && list[idx-1].type === 'op') { movingSign = list[idx-1].value; removeIdx = idx - 1; removeCount = 2; }
                     list.splice(removeIdx, removeCount); if(list.length > 0 && list[0].type === 'op' && (list[0].value === '+' || list[0].value === '•')) list.shift();
                     
-                    if (list.length === 0) list.push(new eng.TermClass('term', '0'));
-                    let newSign = movingSign === '+' ? '-' : '+';
-                    
-                    if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
+                   if (list.length === 0) list.push(new eng.TermClass('term', '0'));
+                        
+                        // 🚀 NEW & FIX: กฎเอกสิทธิ์ของเลข 0 (Zero Privilege) - ไม่ให้ติดลบ
+                        let isZero = (term.type === 'term' && term.value === '0');
+                        let newSign = movingSign === '+' ? '-' : '+';
+                        if (isZero) newSign = '+'; // บังคับให้ 0 เป็นบวกเสมอ
 
-                    if (targetList.length > 0) targetList.push(new eng.TermClass('op', newSign)); else if (newSign === '-') targetList.push(new eng.TermClass('op', '-'));
+                        if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
+                        
+                        if (targetList.length > 0) {
+                            targetList.push(new eng.TermClass('op', newSign));
+                        } else if (newSign === '-' && !isZero) {
+                            targetList.push(new eng.TermClass('op', '-'));
+                        }
+                        
                     targetList.push(term);
                     eng.incrementMove(); eng.playTone('success');
                 }
