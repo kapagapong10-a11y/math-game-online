@@ -2313,15 +2313,44 @@ eng.tryCombine = (targetWrapper) => {
                             let commonDen = eng.lcm(den1, den2), mult1 = commonDen / den1, mult2 = commonDen / den2;
                             let group1 = (mult1 === 1) ? ((list[min].children.length === 1 && list[min].children[0].type === 'group') ? list[min].children[0] : new eng.TermClass('group', null, JSON.parse(JSON.stringify(list[min].children)))) : new eng.TermClass('group', null, [new eng.TermClass('term', mult1.toString()), new eng.TermClass('op', '•'), (list[min].children.length === 1 && list[min].children[0].type === 'group') ? list[min].children[0] : new eng.TermClass('group', null, JSON.parse(JSON.stringify(list[min].children)))]);
                             let group2 = (mult2 === 1) ? ((list[max].children.length === 1 && list[max].children[0].type === 'group') ? list[max].children[0] : new eng.TermClass('group', null, JSON.parse(JSON.stringify(list[max].children)))) : new eng.TermClass('group', null, [new eng.TermClass('term', mult2.toString()), new eng.TermClass('op', '•'), (list[max].children.length === 1 && list[max].children[0].type === 'group') ? list[max].children[0] : new eng.TermClass('group', null, JSON.parse(JSON.stringify(list[max].children)))]);
-                            let combinedNumerator = [group1, op, group2];
-                            list.splice(min, 3, new eng.TermClass('fraction', null, combinedNumerator, new eng.TermClass('term', commonDen.toString())));
-                            eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
+// 🚀 NEW & FIX: ดึงเครื่องหมายลบขึ้นไปไว้บนตัวเศษก่อนรวมร่าง (Sign Push-Up)
+                                let sign1 = '+';
+                                let replaceIdx = min;
+                                let replaceCount = 3;
+                                
+                                // 1. เช็คเครื่องหมายของก้อนซ้าย (ว่ามี - นำหน้าอยู่ไหม)
+                                if (min > 0 && list[min-1].type === 'op' && (list[min-1].value === '+' || list[min-1].value === '-')) {
+                                    sign1 = list[min-1].value;
+                                    replaceIdx = min - 1;
+                                    replaceCount = 4; // รวบเอาเครื่องหมายตัวหน้าสุดไปคำนวณด้วย
+                                }
+                                
+                                let sign2 = op.value; // 2. เช็คเครื่องหมายตรงกลาง
+                                
+                                // 3. ดันเครื่องหมายเข้าก้อนซ้าย (ถ้าข้างหน้าติดลบ ให้คูณ -1 เข้าไปในวงเล็บเศษ)
+                                let g1Arr = [group1];
+                                if (sign1 === '-') g1Arr = eng.multiplyTerms(g1Arr, -1);
+                                
+                                // 4. ดันเครื่องหมายเข้าก้อนขวา (ถ้าตรงกลางติดลบ ให้คูณ -1 เข้าไปในวงเล็บเศษ)
+                                let g2Arr = [group2];
+                                if (sign2 === '-') g2Arr = eng.multiplyTerms(g2Arr, -1);
+                                
+                                // 5. เชื่อมทั้งสองก้อนเข้าด้วยกันด้วยเครื่องหมาย + เสมอ (เพราะลบถูกอมเข้าไปในพจน์หมดแล้ว)
+                                let combinedNumerator = [...g1Arr, new eng.TermClass('op', '+'), ...g2Arr];
+                                
+                                let insertion = [];
+                                // 6. ถ้าเศษส่วนไม่ได้อยู่หน้าสุด ให้เติม + เชื่อมกลับเข้าสมการ
+                                if (replaceIdx > 0) insertion.push(new eng.TermClass('op', '+')); 
+                                insertion.push(new eng.TermClass('fraction', null, combinedNumerator, new eng.TermClass('term', commonDen.toString())));
+                                
+                                list.splice(replaceIdx, replaceCount, ...insertion);
+                                eng.incrementMove(); eng.commitState(); eng.playTone('success'); return;
+                                }
+                            } else if (op.type === 'op' && op.value === '•') {
+                                eng.performFractionMultiply(list, min, max); return;
+                            }
                         }
-                    } else if (op.type === 'op' && op.value === '•') {
-                        eng.performFractionMultiply(list, min, max); return;
                     }
-                }
-            }
 
             if ((srcTerm.type === 'term' && targetTerm.type === 'fraction') || (srcTerm.type === 'fraction' && targetTerm.type === 'term')) {
                 let termPart = srcTerm.type === 'term' ? srcTerm : targetTerm;
