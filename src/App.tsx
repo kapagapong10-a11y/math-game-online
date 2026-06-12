@@ -1895,40 +1895,75 @@ eng.handleFractionDivision = (targetCard) => {
                         if(eng.dragSrc && eng.dragSrc.el) eng.shakeElement(eng.dragSrc.el);
                         return;
                     }
-                    let moveValue = term.value;
-                    if(idx === 1 && list[0].type === 'op' && (list[0].value === '-' || list[0].value === '+')) { if(list[0].value === '-') moveValue = '-' + moveValue; removeIdx = 0; removeCount += 1; }
-                    list.splice(removeIdx, removeCount);
-                    if (list.length === 0) list.push(new eng.TermClass('term', '1'));
-                    
-                         // 🚀 ล็อกเลข 0 ไว้: ป้องกัน 0 หายเมื่อย้ายตัวคูณลงไปหาร
-                    // if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
-                    if (sourceContext === 'denominator') {
-                        if (targetList.length > 1) { let inner = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('group', null, inner)); }
-                        targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', moveValue));
-                   } else {
-                    // 🚀 NEW: ถ้าย้ายไปหารฝั่งที่มีหลายพจน์ ให้แปลงเป็นการคูณด้วยเศษส่วน (เช่น * 1/-2)
-                        let hasPlusMinus = targetList.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'));
-                        if (hasPlusMinus) {
-                            let inner = JSON.parse(JSON.stringify(targetList));
-                            targetList.length = 0;
-                            targetList.push(new eng.TermClass('group', null, inner));
-                            let reciprocalFrac = new eng.TermClass('fraction', null, [new eng.TermClass('term', '1')], new eng.TermClass('term', moveValue));
-                            targetList.push(new eng.TermClass('op', '•'), reciprocalFrac);
+                     // 🚀 NEW: เช็คก่อนว่าเป็นการลากเศษส่วนข้ามสมการหรือไม่
+                        let isMovingFraction = (term.type === 'fraction');
+                        let moveValue = term.value;
+                        let isNegativeTerm = false;
+                        
+                        if(idx === 1 && list[0].type === 'op' && (list[0].value === '-' || list[0].value === '+')) { 
+                            if(list[0].value === '-') {
+                                isNegativeTerm = true;
+                                if (!isMovingFraction) moveValue = '-' + moveValue;
+                            }
+                            removeIdx = 0; removeCount += 1; 
+                        }
+                        
+                        list.splice(removeIdx, removeCount);
+                        if (list.length === 0) list.push(new eng.TermClass('term', '1'));
+
+                        // 🚀 ล็อกเลข 0 ไว้: ป้องกัน 0 หายเมื่อย้ายตัวคูณลงไปหาร
+                        // if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
+
+                        if (isMovingFraction) {
+                            // 🌟 กฎตีลังกาเศษส่วน (Reciprocal Rule)
+                            let oldNum = JSON.parse(JSON.stringify(term.children));
+                            let oldDen = JSON.parse(JSON.stringify(term.denominator));
+
+                            // สลับส่วนขึ้นเป็นเศษ (ถ้ามีลบ ให้ดันลบไปเกาะที่เศษของตัวกลับด้วย)
+                            let newNum = (oldDen.type === 'group') ? oldDen.children : [oldDen];
+                            if (isNegativeTerm) newNum = eng.multiplyTerms(newNum, -1);
+                            
+                            // สลับเศษลงเป็นส่วน
+                            let newDen = (oldNum.length === 1 && oldNum[0].type === 'group') ? oldNum[0] : new eng.TermClass('group', null, oldNum);
+                            let reciprocalFrac = new eng.TermClass('fraction', null, newNum, newDen);
+
+                            // ถ้าย้ายไปชนวงเล็บยาวๆ ให้ครอบวงเล็บกันเหนียวก่อน
+                            let hasPlusMinus = targetList.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'));
+                            if (hasPlusMinus) {
+                                let inner = JSON.parse(JSON.stringify(targetList));
+                                targetList.length = 0;
+                                targetList.push(new eng.TermClass('group', null, inner));
+                            }
+                            
+                            if (targetList.length > 0) targetList.push(new eng.TermClass('op', '•'));
+                            targetList.push(reciprocalFrac);
+
+                        } else if (sourceContext === 'denominator') {
+                            if (targetList.length > 1) { let inner = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('group', null, inner)); }
+                            targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', moveValue));
                         } else {
-                            if (targetList.length === 1 && targetList[0].type === 'fraction') {
-                                let targetFrac = targetList[0];
-                                if (!targetFrac.denominator) { let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue))); }
-                                else {
-                                    let newFactor = new eng.TermClass('term', moveValue);
-                                    if (targetFrac.denominator.type !== 'group') targetFrac.denominator = new eng.TermClass('group', null, [targetFrac.denominator]);
-                                    targetFrac.denominator.children.push(new eng.TermClass('op', '•')); targetFrac.denominator.children.push(newFactor);
-                                }
+                            let hasPlusMinus = targetList.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'));
+                            if (hasPlusMinus) {
+                                let inner = JSON.parse(JSON.stringify(targetList));
+                                targetList.length = 0;
+                                targetList.push(new eng.TermClass('group', null, inner));
+                                let reciprocalFrac = new eng.TermClass('fraction', null, [new eng.TermClass('term', '1')], new eng.TermClass('term', moveValue));
+                                targetList.push(new eng.TermClass('op', '•'), reciprocalFrac);
                             } else {
-                                let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue)));
+                                if (targetList.length === 1 && targetList[0].type === 'fraction') {
+                                    let targetFrac = targetList[0];
+                                    if (!targetFrac.denominator) { let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue))); }
+                                    else {
+                                        let newFactor = new eng.TermClass('term', moveValue);
+                                        if (targetFrac.denominator.type !== 'group') targetFrac.denominator = new eng.TermClass('group', null, [targetFrac.denominator]);
+                                        targetFrac.denominator.children.push(new eng.TermClass('op', '•')); targetFrac.denominator.children.push(newFactor);
+                                    }
+                                } else {
+                                    let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue)));
+                                }
                             }
                         }
-                    }
-                    eng.incrementMove(); eng.playTone('success');
+                        eng.incrementMove(); eng.playTone('success');
                 } else {
                     let movingSign = '+'; if (idx > 0 && list[idx-1].type === 'op') { movingSign = list[idx-1].value; removeIdx = idx - 1; removeCount = 2; }
                     list.splice(removeIdx, removeCount); if(list.length > 0 && list[0].type === 'op' && (list[0].value === '+' || list[0].value === '•')) list.shift();
