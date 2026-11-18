@@ -1544,42 +1544,67 @@ eng.simplifyList = (list) => {
             if (!pg) return;
             pg.innerHTML = ''; 
 
+            // 🌟 ใช้โครงสร้างแบบ Table เพื่อล็อกให้เครื่องหมาย = ตรงกันทุกบรรทัด
+            // และแก้ปัญหาโดนตัดขอบซ้ายเวลาสมการยาวเกินไป
+            let table = document.createElement('div');
+            table.className = 'table min-w-full w-max border-separate';
+            table.style.borderSpacing = '0 12px'; // ระยะห่างระหว่างบรรทัด
+
             const buildRow = (state, isLatest) => {
                 let row = document.createElement('div');
-                // ✨ บรรทัดอดีตจะจาง ย่อเล็กลง และกดไม่ได้ (pointer-events-none)
-                row.className = `flex items-center min-w-full w-max relative py-2 transition-all duration-300 ${isLatest ? 'opacity-100 scale-100 mt-2' : 'opacity-50 scale-90 pointer-events-none grayscale-[30%]'}`;
+                row.className = `table-row transition-all duration-300 ${isLatest ? 'opacity-100' : 'opacity-50 pointer-events-none grayscale-[40%]'}`;
                 
-                let lhsZone = document.createElement('div');
-                lhsZone.className = 'flex items-center justify-end h-full pr-2 md:pr-4 gap-1.5 md:gap-2 z-10 flex-1 min-w-[40vw]';
-                if (isLatest) lhsZone.id = 'engine-lhs';
-                state.lhs.forEach((t, i) => lhsZone.appendChild(eng.createTermElement(t, 'lhs', state.lhs, i, 0, !isLatest)));
+                // ฝั่งซ้าย
+                let lhsCell = document.createElement('div');
+                lhsCell.className = 'table-cell align-middle w-[45vw]';
+                let lhsFlex = document.createElement('div');
+                lhsFlex.className = 'flex items-center justify-end h-full pr-2 md:pr-4 gap-1.5 md:gap-2 z-10';
+                if (isLatest) lhsFlex.id = 'engine-lhs';
+                state.lhs.forEach((t, i) => lhsFlex.appendChild(eng.createTermElement(t, 'lhs', state.lhs, i, 0, !isLatest)));
+                lhsCell.appendChild(lhsFlex);
                 
-                let eqZone = document.createElement('div');
-                eqZone.className = 'relative shrink-0 flex items-center justify-center px-1';
-                // เครื่องหมาย = ของบรรทัดอดีต จะเล็กและเป็นสีเทา
-                eqZone.innerHTML = `<div class="bg-gradient-to-b from-gray-300 to-gray-400 text-white rounded-full flex items-center justify-center font-black shadow-sm shrink-0 w-6 h-6 md:w-8 md:h-8 text-sm md:text-lg relative">=</div>`;
-                if (isLatest) {
-                    eqZone.innerHTML = `<div class="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl relative">=</div>`;
-                }
+                // ตรงกลาง (เครื่องหมาย =)
+                let eqCell = document.createElement('div');
+                eqCell.className = 'table-cell align-middle px-1 w-[40px] text-center';
+                let eqFlex = document.createElement('div');
+                eqFlex.className = 'flex justify-center relative shrink-0';
+                eqFlex.innerHTML = isLatest 
+                    ? `<div class="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl relative">=</div>`
+                    : `<div class="bg-gradient-to-b from-gray-300 to-gray-400 text-white rounded-full flex items-center justify-center font-black shadow-sm shrink-0 w-6 h-6 md:w-8 md:h-8 text-sm md:text-lg relative">=</div>`;
+                eqCell.appendChild(eqFlex);
                 
-                let rhsZone = document.createElement('div');
-                rhsZone.className = 'flex items-center justify-start h-full pl-2 md:pl-4 gap-1.5 md:gap-2 z-10 flex-1 min-w-[40vw]';
-                if (isLatest) rhsZone.id = 'engine-rhs';
-                state.rhs.forEach((t, i) => rhsZone.appendChild(eng.createTermElement(t, 'rhs', state.rhs, i, 0, !isLatest)));
+                // ฝั่งขวา
+                let rhsCell = document.createElement('div');
+                rhsCell.className = 'table-cell align-middle w-[45vw]';
+                let rhsFlex = document.createElement('div');
+                rhsFlex.className = 'flex items-center justify-start h-full pl-2 md:pl-4 gap-1.5 md:gap-2 z-10';
+                if (isLatest) rhsFlex.id = 'engine-rhs';
+                state.rhs.forEach((t, i) => rhsFlex.appendChild(eng.createTermElement(t, 'rhs', state.rhs, i, 0, !isLatest)));
+                rhsCell.appendChild(rhsFlex);
                 
-                row.appendChild(lhsZone); row.appendChild(eqZone); row.appendChild(rhsZone);
+                row.appendChild(lhsCell); row.appendChild(eqCell); row.appendChild(rhsCell);
                 return row;
             };
 
-            // สร้างบรรทัดประวัติศาสตร์ตาม historyIndex
             for (let i = 0; i <= eng.historyIndex; i++) {
                 let isLatest = (i === eng.historyIndex);
                 let stateToRender = isLatest ? eng.localGameState : eng.historyStack[i];
-                pg.appendChild(buildRow(stateToRender, isLatest));
+                table.appendChild(buildRow(stateToRender, isLatest));
             }
             
-            // Auto scroll ให้กล้องเลื่อนลงมาที่บรรทัดล่าสุด
-            setTimeout(() => { pg.scrollTop = pg.scrollHeight; }, 50);
+            pg.appendChild(table);
+
+            // 🌟 ระบบ Auto-scroll ขั้นสูง: เลื่อนลงล่างสุด + แพนกล้องไปตรงกลางเครื่องหมาย = ทันที
+            setTimeout(() => { 
+                pg.scrollTop = pg.scrollHeight; 
+                let eqElem = document.querySelector('.engine-equal');
+                if (eqElem) {
+                    let containerRect = pg.getBoundingClientRect();
+                    let eqRect = eqElem.getBoundingClientRect();
+                    let offset = (eqRect.left - containerRect.left) + pg.scrollLeft; 
+                    pg.scrollLeft = offset - (pg.clientWidth / 2) + (eqRect.width / 2);
+                }
+            }, 50);
         };
 
         const makeDoubleTap = (el, action) => {
@@ -2900,7 +2925,7 @@ eng.checkWinCondition = () => {
                     </div>
 
                     <div className="flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white shadow-inner shrink-0 min-h-[60vh]">
-                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm relative w-full flex-1 overflow-x-auto min-h-[40vh] overflow-y-auto scroll-smooth custom-scrollbar flex flex-col p-4 gap-2 items-center">
+                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm relative w-full flex-1 overflow-x-auto overflow-y-auto min-h-[40vh] scroll-smooth custom-scrollbar p-4 block">
                             {/* พื้นที่สำหรับ Engine เรนเดอร์สมการแบบแนวตั้ง (History Lines) จะถูกสร้างด้วย JS */}
                         </div>
                         <div className="shrink-0 flex justify-center mt-3 md:mt-4">
@@ -2947,7 +2972,7 @@ eng.checkWinCondition = () => {
                     </div>
 
                     <div className="flex-1 flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white shadow-inner overflow-hidden">
-                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm relative w-full flex-1 overflow-x-auto min-h-[40vh] overflow-y-auto scroll-smooth custom-scrollbar flex flex-col p-4 gap-2 items-center">
+                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm relative w-full flex-1 overflow-x-auto overflow-y-auto min-h-[40vh] scroll-smooth custom-scrollbar p-4 block">
                             {/* พื้นที่สำหรับ Engine เรนเดอร์สมการแบบแนวตั้ง (History Lines) จะถูกสร้างด้วย JS */}
                         </div>
                         
