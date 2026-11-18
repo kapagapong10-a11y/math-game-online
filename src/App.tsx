@@ -1192,6 +1192,15 @@ border-radius: 12px; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.08); borde
 .group-bracket { color: #94a3b8; font-weight: 300; line-height: 0.8; font-family: 'Kanit'; cursor: default; }
 .dragging-ghost { opacity: 0.9; position: fixed; z-index: 9999; pointer-events: none; transform: scale(1.05) rotate(2deg);
 box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.15); }
+/* ✨ CSS สำหรับไฮไลท์พจน์ที่มีการเปลี่ยนแปลง */
+.highlight-changed { 
+    animation: flipPopEffect 0.5s ease-out; 
+    box-shadow: 0 0 15px 5px rgba(255, 215, 0, 0.8) !important; 
+    border-color: #fbbf24 !important; 
+    background-color: #fffbeb !important; 
+    color: #b45309 !important; 
+    border-radius: 12px;
+}
 
 /* ✨ แอนิเมชันสำหรับแนวทางที่ 2: เครื่องหมายและพจน์คณิตศาสตร์เด้งป๊อปตอนสลับเครื่องหมาย */
 .animate-flip-pop { animation: flipPopEffect 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important; }
@@ -1415,7 +1424,22 @@ eng.multiplyTerms = (terms, factor) => {
         eng.commitState = () => {
             for(let k=0; k<2; k++) { eng.simplifyList(eng.localGameState.lhs); eng.simplifyList(eng.localGameState.rhs); eng.unwrapGroups(eng.localGameState.lhs); eng.unwrapGroups(eng.localGameState.rhs); }
             eng.simplifyList(eng.localGameState.lhs); eng.simplifyList(eng.localGameState.rhs);
-            eng.historyStack.push(JSON.parse(JSON.stringify(eng.localGameState))); eng.historyIndex++; eng.render(); eng.checkWinCondition();
+            
+            eng.historyStack.push(JSON.parse(JSON.stringify(eng.localGameState))); 
+            eng.historyIndex++; 
+            eng.render(); 
+            eng.checkWinCondition();
+            
+            // ✨ เคลียร์ไฮไลท์ทิ้งจาก State ตัวปัจจุบัน เพื่อไม่ให้ไฟค้างในเทิร์นหน้า
+            const clearHighlight = (list) => {
+                for (let t of list) {
+                    t.isHighlighted = false;
+                    if (t.children) clearHighlight(t.children);
+                    if (t.denominator && t.denominator.type === 'group') clearHighlight(t.denominator.children);
+                    else if (t.denominator) t.denominator.isHighlighted = false;
+                }
+            }
+            clearHighlight(eng.localGameState.lhs); clearHighlight(eng.localGameState.rhs);
         };
         eng.undo = () => { if (eng.historyIndex > 0) { eng.historyIndex--; eng.localGameState = JSON.parse(JSON.stringify(eng.historyStack[eng.historyIndex])); eng.render(); eng.playTone('pop'); } };
         
@@ -1516,9 +1540,46 @@ eng.simplifyList = (list) => {
 };
 
         eng.render = () => {
-            const lhsZone = document.getElementById('engine-lhs'), rhsZone = document.getElementById('engine-rhs');
-            if(lhsZone) { lhsZone.innerHTML = ''; eng.localGameState.lhs.forEach((t, i) => lhsZone.appendChild(eng.createTermElement(t, 'lhs', eng.localGameState.lhs, i, 0))); }
-            if(rhsZone) { rhsZone.innerHTML = ''; eng.localGameState.rhs.forEach((t, i) => rhsZone.appendChild(eng.createTermElement(t, 'rhs', eng.localGameState.rhs, i, 0))); }
+            const pg = document.getElementById('engine-playground');
+            if (!pg) return;
+            pg.innerHTML = ''; 
+
+            const buildRow = (state, isLatest) => {
+                let row = document.createElement('div');
+                // ✨ บรรทัดอดีตจะจาง ย่อเล็กลง และกดไม่ได้ (pointer-events-none)
+                row.className = `flex items-center min-w-full w-max relative py-2 transition-all duration-300 ${isLatest ? 'opacity-100 scale-100 mt-2' : 'opacity-50 scale-90 pointer-events-none grayscale-[30%]'}`;
+                
+                let lhsZone = document.createElement('div');
+                lhsZone.className = 'flex items-center justify-end h-full pr-2 md:pr-4 gap-1.5 md:gap-2 z-10 flex-1 min-w-[40vw]';
+                if (isLatest) lhsZone.id = 'engine-lhs';
+                state.lhs.forEach((t, i) => lhsZone.appendChild(eng.createTermElement(t, 'lhs', state.lhs, i, 0, !isLatest)));
+                
+                let eqZone = document.createElement('div');
+                eqZone.className = 'relative shrink-0 flex items-center justify-center px-1';
+                // เครื่องหมาย = ของบรรทัดอดีต จะเล็กและเป็นสีเทา
+                eqZone.innerHTML = `<div class="bg-gradient-to-b from-gray-300 to-gray-400 text-white rounded-full flex items-center justify-center font-black shadow-sm shrink-0 w-6 h-6 md:w-8 md:h-8 text-sm md:text-lg relative">=</div>`;
+                if (isLatest) {
+                    eqZone.innerHTML = `<div class="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl relative">=</div>`;
+                }
+                
+                let rhsZone = document.createElement('div');
+                rhsZone.className = 'flex items-center justify-start h-full pl-2 md:pl-4 gap-1.5 md:gap-2 z-10 flex-1 min-w-[40vw]';
+                if (isLatest) rhsZone.id = 'engine-rhs';
+                state.rhs.forEach((t, i) => rhsZone.appendChild(eng.createTermElement(t, 'rhs', state.rhs, i, 0, !isLatest)));
+                
+                row.appendChild(lhsZone); row.appendChild(eqZone); row.appendChild(rhsZone);
+                return row;
+            };
+
+            // สร้างบรรทัดประวัติศาสตร์ตาม historyIndex
+            for (let i = 0; i <= eng.historyIndex; i++) {
+                let isLatest = (i === eng.historyIndex);
+                let stateToRender = isLatest ? eng.localGameState : eng.historyStack[i];
+                pg.appendChild(buildRow(stateToRender, isLatest));
+            }
+            
+            // Auto scroll ให้กล้องเลื่อนลงมาที่บรรทัดล่าสุด
+            setTimeout(() => { pg.scrollTop = pg.scrollHeight; }, 50);
         };
 
         const makeDoubleTap = (el, action) => {
@@ -1532,92 +1593,117 @@ eng.simplifyList = (list) => {
             };
         };
 
-eng.createTermElement = (term, side, list, idx, depth) => {
-    let wrapper = document.createElement('div'); wrapper.className = 'term-container'; wrapper.dataset.idx = idx; wrapper.dataset.side = side;
-    if (term.type === 'op') {
-        let card = document.createElement('div'); card.className = 'term-card is-operator'; card.innerText = term.value;
-        if (term.value === '•') { makeDoubleTap(card, () => { eng.combineSplitTerm(term, list, idx); }); }
-        // ✨ โค้ดใหม่: ทำให้ + และ - ที่อยู่หน้าวงเล็บ/เศษส่วน ลากได้
-        else if ((term.value === '+' || term.value === '-') && idx < list.length - 1 && (list[idx+1].type === 'group' || list[idx+1].type === 'fraction')) { 
-            card.style.cursor = 'grab'; card.style.fontWeight = 'bold';
-            card.style.color = term.value === '-' ? '#e53e3e' : '#38a169'; // สีแดงสำหรับลบ, เขียวสำหรับบวก
-            eng.setupDrag(card, term, side, list, idx, 'distribute-operator'); 
-        }
-        wrapper.appendChild(card);
-    } else if (term.type === 'group') {
-        let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}'];
-        let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
-        wrapper.appendChild(lB); term.children.forEach((c, i) => wrapper.appendChild(eng.createTermElement(c, side, term.children, i, depth + 1))); wrapper.appendChild(rB);
-        eng.setupDrag(wrapper, term, side, list, idx, 'group'); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
-    } else if (term.type === 'fraction') {
-        let fracGroup = document.createElement('div'); fracGroup.className = 'fraction-group';
-        let numCont = document.createElement('div'); numCont.className = 'numerator-container'; numCont.dataset.parentFracId = term.id;
-        term.children.forEach((c, i) => numCont.appendChild(eng.createChildTermElement(c, term.children, i, term.id, 'numerator', side, null, null, null, depth)));
-        let line = document.createElement('div'); line.className = 'fraction-line';
-        let denCont = document.createElement('div'); denCont.className = 'denominator-container'; denCont.dataset.parentFracId = term.id;
-        if (term.denominator.type === 'group') term.denominator.children.forEach((c, i) => denCont.appendChild(eng.createChildTermElement(c, term.denominator.children, i, term.id, 'denominator', side, term, list, idx, depth)));
-        else denCont.appendChild(eng.createChildTermElement(term.denominator, null, -1, term.id, 'denominator', side, term, list, idx, depth));
-        fracGroup.append(numCont, line, denCont);
-        makeDoubleTap(fracGroup, () => { eng.splitFraction(term, list, idx); });
-        eng.setupDrag(fracGroup, term, side, list, idx, 'whole-fraction'); wrapper.appendChild(fracGroup); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
-    } else {
-        let card = document.createElement('div'); card.className = term.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number'; card.innerText = term.value;
-        makeDoubleTap(card, () => { eng.splitTerm(term, list, idx); });
-        eng.setupDrag(card, term, side, list, idx, 'term'); wrapper.appendChild(card); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
-    }
-    return wrapper;
-};
-eng.createChildTermElement = (child, list, childIdx, parentId, context, side, parentFracTerm, mainList, mainIdx, depth) => {
-    let el;
-    if (child.type === 'group') {
-        el = document.createElement('div');
-        el.className = 'term-container inline-flex items-center mx-1 ' + (context ? context + '-term' : '');
-        
-        if (parentId) el.dataset.parentFracId = parentId;
-        if (list) el.dataset.childIdx = childIdx;
-        
-        let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}']; 
-        let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; 
-        let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
-        
-        el.appendChild(lB); 
-        child.children.forEach((gc, i) => el.appendChild(eng.createChildTermElement(gc, child.children, i, parentId, context, side, parentFracTerm, mainList, mainIdx, depth + 1))); 
-        el.appendChild(rB);
-        
-        if(list) eng.setupDrag(el, child, side, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context);
-    } else {
-        el = child.type === 'op' ? document.createElement('span') : document.createElement('div');
-        if (parentId) el.dataset.parentFracId = parentId;
-        
-        if (child.type === 'op') {
-            el.className = 'term-card is-operator mx-1 ' + (context ? context + '-term' : ''); 
-            el.innerText = child.value;
+eng.createTermElement = (term, side, list, idx, depth, isStatic = false) => {
+            let wrapper = document.createElement('div'); wrapper.className = 'term-container'; wrapper.dataset.idx = idx; wrapper.dataset.side = side;
             
-            // 🚀 จุดที่แก้ไข: บังคับให้เครื่องหมายทุกตัวต้องมีป้ายตำแหน่ง (childIdx) เพื่อไม่ให้ระบบหลงทาง
-            if (list) el.dataset.childIdx = childIdx; 
+            if (term.isHighlighted) wrapper.classList.add('highlight-changed');
 
-            if (child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); }); }
-            else if ((child.value === '+' || child.value === '-') && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { 
-                el.style.cursor = 'grab'; el.style.fontWeight = 'bold';
-                el.style.color = child.value === '-' ? '#e53e3e' : '#38a169';
-                eng.setupDrag(el, child, side, list, childIdx, 'distribute-operator', parentFracTerm, mainList, mainIdx, context); 
+            if (term.type === 'op') {
+                let card = document.createElement('div'); card.className = 'term-card is-operator'; card.innerText = term.value;
+                if (term.isHighlighted) card.classList.add('highlight-changed');
+
+                if (!isStatic) {
+                    if (term.value === '•') { makeDoubleTap(card, () => { eng.combineSplitTerm(term, list, idx); }); }
+                    else if ((term.value === '+' || term.value === '-') && idx < list.length - 1 && (list[idx+1].type === 'group' || list[idx+1].type === 'fraction')) { 
+                        card.style.cursor = 'grab'; card.style.fontWeight = 'bold';
+                        card.style.color = term.value === '-' ? '#e53e3e' : '#38a169'; 
+                        eng.setupDrag(card, term, side, list, idx, 'distribute-operator'); 
+                    }
+                }
+                wrapper.appendChild(card);
+            } else if (term.type === 'group') {
+                let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}'];
+                let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
+                wrapper.appendChild(lB); term.children.forEach((c, i) => wrapper.appendChild(eng.createTermElement(c, side, term.children, i, depth + 1, isStatic))); wrapper.appendChild(rB);
+                if (!isStatic) eng.setupDrag(wrapper, term, side, list, idx, 'group'); 
+                wrapper.dataset.idx = idx; wrapper.dataset.side = side;
+            } else if (term.type === 'fraction') {
+                let fracGroup = document.createElement('div'); fracGroup.className = 'fraction-group';
+                if (term.isHighlighted) fracGroup.classList.add('highlight-changed');
+                
+                let numCont = document.createElement('div'); numCont.className = 'numerator-container'; numCont.dataset.parentFracId = term.id;
+                term.children.forEach((c, i) => numCont.appendChild(eng.createChildTermElement(c, term.children, i, term.id, 'numerator', side, null, null, null, depth, isStatic)));
+                let line = document.createElement('div'); line.className = 'fraction-line';
+                let denCont = document.createElement('div'); denCont.className = 'denominator-container'; denCont.dataset.parentFracId = term.id;
+                if (term.denominator.type === 'group') term.denominator.children.forEach((c, i) => denCont.appendChild(eng.createChildTermElement(c, term.denominator.children, i, term.id, 'denominator', side, term, list, idx, depth, isStatic)));
+                else denCont.appendChild(eng.createChildTermElement(term.denominator, null, -1, term.id, 'denominator', side, term, list, idx, depth, isStatic));
+                fracGroup.append(numCont, line, denCont);
+                if (!isStatic) {
+                    makeDoubleTap(fracGroup, () => { eng.splitFraction(term, list, idx); });
+                    eng.setupDrag(fracGroup, term, side, list, idx, 'whole-fraction'); 
+                }
+                wrapper.appendChild(fracGroup); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
+            } else {
+                let card = document.createElement('div'); card.className = term.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number'; card.innerText = term.value;
+                if (term.isHighlighted) card.classList.add('highlight-changed');
+                
+                if (!isStatic) {
+                    makeDoubleTap(card, () => { eng.splitTerm(term, list, idx); });
+                    eng.setupDrag(card, term, side, list, idx, 'term'); 
+                }
+                wrapper.appendChild(card); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
             }
-        } else {
-            el.className = (child.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number') + ' px-1 py-1 min-w-[20px] ' + (context ? context + '-term' : '');
-            el.innerText = child.value; el.dataset.parentFracId = parentId;
-            if (list) el.dataset.childIdx = childIdx;
-            
-            if (context === 'denominator' && !list) { 
-                el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, side, mainList, mainIdx, 'denominator', null, null, null, context); 
-            } else if (list) { 
-                makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); }); 
-                eng.setupDrag(el, child, side, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); 
+            return wrapper;
+        };
+
+        eng.createChildTermElement = (child, list, childIdx, parentId, context, side, parentFracTerm, mainList, mainIdx, depth, isStatic = false) => {
+            let el;
+            if (child.type === 'group') {
+                el = document.createElement('div');
+                el.className = 'term-container inline-flex items-center mx-1 ' + (context ? context + '-term' : '');
+                if (child.isHighlighted) el.classList.add('highlight-changed');
+                
+                if (parentId) el.dataset.parentFracId = parentId;
+                if (list) el.dataset.childIdx = childIdx;
+                
+                let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}']; 
+                let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; 
+                let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
+                
+                el.appendChild(lB); 
+                child.children.forEach((gc, i) => el.appendChild(eng.createChildTermElement(gc, child.children, i, parentId, context, side, parentFracTerm, mainList, mainIdx, depth + 1, isStatic))); 
+                el.appendChild(rB);
+                
+                if(list && !isStatic) eng.setupDrag(el, child, side, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context);
+            } else {
+                el = child.type === 'op' ? document.createElement('span') : document.createElement('div');
+                if (parentId) el.dataset.parentFracId = parentId;
+                
+                if (child.isHighlighted) el.classList.add('highlight-changed');
+
+                if (child.type === 'op') {
+                    el.className = 'term-card is-operator mx-1 ' + (context ? context + '-term' : ''); 
+                    el.innerText = child.value;
+                    
+                    if (list) el.dataset.childIdx = childIdx; 
+
+                    if (!isStatic) {
+                        if (child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); }); }
+                        else if ((child.value === '+' || child.value === '-') && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { 
+                            el.style.cursor = 'grab'; el.style.fontWeight = 'bold';
+                            el.style.color = child.value === '-' ? '#e53e3e' : '#38a169';
+                            eng.setupDrag(el, child, side, list, childIdx, 'distribute-operator', parentFracTerm, mainList, mainIdx, context); 
+                        }
+                    }
+                } else {
+                    el.className = (child.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number') + ' px-1 py-1 min-w-[20px] ' + (context ? context + '-term' : '');
+                    el.innerText = child.value; el.dataset.parentFracId = parentId;
+                    if (list) el.dataset.childIdx = childIdx;
+                    
+                    if (!isStatic) {
+                        if (context === 'denominator' && !list) { 
+                            el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, side, mainList, mainIdx, 'denominator', null, null, null, context); 
+                        } else if (list) { 
+                            makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); }); 
+                            eng.setupDrag(el, child, side, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); 
+                        }
+                    }
+                }
             }
-        }
-    }
-    if (el && list) el.dataset.side = side;
-    return el;
-};
+            if (el && list) el.dataset.side = side;
+            return el;
+        };
+        
         const findFractionTerm = (list, id) => {
             for (let t of list) {
                 if (t.id === id && t.type === 'fraction') return t;
@@ -1858,6 +1944,7 @@ eng.handleFractionDivision = (targetCard) => {
 
         eng.executeMoveSide = () => {
             let { term, side, list, idx, role, parentFracTerm, mainList, mainIdx, sourceContext } = eng.dragSrc;
+            term.isHighlighted = true; // ✨ เปิดไฟไฮไลท์ตัวที่ถูกย้ายมา
             if (role === 'inner-term' && parentFracTerm && list.length === 1) { term = parentFracTerm; list = mainList; idx = mainIdx; role = 'denominator'; }
             if (!list) return; let targetList = side === 'lhs' ? eng.localGameState.rhs : eng.localGameState.lhs;
             
@@ -2163,10 +2250,10 @@ eng.tryCombine = (targetWrapper) => {
                             // 🧠 เลือกตัวแปร: ถ้ามีตัวใดตัวหนึ่งเป็น 0 ให้ยึดตัวแปรของอีกฝั่งมาใช้
                             let targetVar = (p1.v === p2.v) ? p1.v : (p1.c === 0 ? p2.v : p1.v);
 
-                            // ใส่เครื่องหมายติดตัวเลขไปเลย (อุดรูรั่วเรื่องเครื่องหมายหาย)
                             let finalTermVal = resCoef === 0 ? "0" : (resCoef.toString() + (targetVar || ''));
 
                             list[targetIdx].value = finalTermVal;
+                            list[targetIdx].isHighlighted = true; // ✨ เปิดไฟไฮไลท์ผลลัพธ์จากการรวมพจน์
                             
                             // บังคับให้เครื่องหมายหน้าเป้าหมายเป็นบวก (ถ้ามี) แล้วเดี๋ยว simplifyList จัดการความสวยงามต่อ
                             if (targetIdx > 0 && list[targetIdx-1].type === 'op') {
@@ -2585,6 +2672,8 @@ eng.tryCombine = (targetWrapper) => {
                 let varTerm = new eng.TermClass('term', varPart);
 
                 // สลับเอาการ์ด 3 ใบนี้ ไปวางแทนที่การ์ดใบเดิม
+                numTerm.isHighlighted = true; varTerm.isHighlighted = true; // ✨ เปิดไฟไฮไลท์ตัวเลขและตัวแปรที่เพิ่งแยกออกมา
+                // สลับเอาการ์ด 3 ใบนี้ ไปวางแทนที่การ์ดใบเดิม
                 list.splice(idx, 1, numTerm, opTerm, varTerm);
 
                 eng.incrementMove();
@@ -2811,18 +2900,8 @@ eng.checkWinCondition = () => {
                     </div>
 
                     <div className="flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white shadow-inner shrink-0 min-h-[60vh]">
-                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm relative w-full flex-1 overflow-x-auto min-h-[40vh] overflow-y-hidden scroll-smooth custom-scrollbar">
-                            {/* 🔥 สร้าง Track ด้านในที่สามารถยืดหดตามความยาวสมการได้ */}
-                            <div className="flex items-center min-w-full w-max h-full relative py-4">
-                                <div id="engine-lhs" className="flex items-center justify-end h-full pr-3 md:pr-6 gap-1.5 md:gap-2 z-10 flex-1 min-w-[45vw]"></div>
-                                
-                                <div className="relative shrink-0 flex items-center justify-center px-2">
-                                    <div className="w-[2px] bg-gray-200 h-[60vh] absolute top-1/2 transform -translate-y-1/2 z-0 rounded-full"></div>
-                                    <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl relative">=</div>
-                                </div>
-
-                                <div id="engine-rhs" className="flex items-center justify-start h-full pl-3 md:pl-6 gap-1.5 md:gap-2 z-10 flex-1 min-w-[45vw]"></div>
-                            </div>
+                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm relative w-full flex-1 overflow-x-auto min-h-[40vh] overflow-y-auto scroll-smooth custom-scrollbar flex flex-col p-4 gap-2 items-center">
+                            {/* พื้นที่สำหรับ Engine เรนเดอร์สมการแบบแนวตั้ง (History Lines) จะถูกสร้างด้วย JS */}
                         </div>
                         <div className="shrink-0 flex justify-center mt-3 md:mt-4">
                             <div className="flex items-center gap-2 md:gap-4 bg-white/95 px-3 py-2 md:px-5 md:py-3 rounded-full shadow-lg border-2 border-gray-200 whitespace-nowrap">
@@ -2868,18 +2947,8 @@ eng.checkWinCondition = () => {
                     </div>
 
                     <div className="flex-1 flex flex-col bg-white/60 backdrop-blur-md rounded-[2rem] p-2 md:p-4 border-4 border-white shadow-inner overflow-hidden">
-                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm relative w-full flex-1 overflow-x-auto overflow-y-hidden min-h-0 scroll-smooth custom-scrollbar">
-                            {/* 🔥 สร้าง Track ด้านในที่สามารถยืดหดตามความยาวสมการได้ */}
-                            <div className="flex items-center min-w-full w-max h-full relative py-4">
-                                <div id="engine-lhs" className="flex items-center justify-end h-full pr-3 md:pr-6 gap-1.5 md:gap-2 z-10 flex-1 min-w-[45vw]"></div>
-                                
-                                <div className="relative shrink-0 flex items-center justify-center px-2">
-                                    <div className="w-[2px] bg-gray-200 h-[60vh] absolute top-1/2 transform -translate-y-1/2 z-0 rounded-full"></div>
-                                    <div className="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl relative">=</div>
-                                </div>
-
-                                <div id="engine-rhs" className="flex items-center justify-start h-full pl-3 md:pl-6 gap-1.5 md:gap-2 z-10 flex-1 min-w-[45vw]"></div>
-                            </div>
+                        <div id="engine-playground" className="bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-sm relative w-full flex-1 overflow-x-auto min-h-[40vh] overflow-y-auto scroll-smooth custom-scrollbar flex flex-col p-4 gap-2 items-center">
+                            {/* พื้นที่สำหรับ Engine เรนเดอร์สมการแบบแนวตั้ง (History Lines) จะถูกสร้างด้วย JS */}
                         </div>
                         
                         <div className="shrink-0 flex justify-center mt-3 md:mt-4">
