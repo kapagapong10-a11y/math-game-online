@@ -1177,7 +1177,7 @@ function GameEngine({ view, setView, levelData, mapId, levelId, setSelectedLevel
 const engineCSS = `
 .term-container { display: inline-flex; align-items: center; margin: 0 2px; transition: all 0.2s; }
 .term-card { display: flex; flex-direction: row; align-items: center; justify-content: center; background: white; color: #4a5568; font-family: 'Fredoka', sans-serif; font-weight: 600;
-border-radius: 12px; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.08); border: 2px solid #e2e8f0; position: relative; user-select: none; white-space: nowrap; }
+border-radius: 12px; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.08); border: 2px solid #e2e8f0; position: relative; user-select: none; white-space: nowrap; transition: all 0.2s; }
 .term-card.is-variable { background: #4FACFE; color: white; border-color: #00f2fe; }
 .term-card.is-number { background: linear-gradient(to top, #fbc2eb 0%, #a6c1ee 100%); color: white; border-color: #fff; }
 .term-card.is-operator { background: transparent; box-shadow: none; border: none; color: #718096; padding: 0 4px; min-width: auto; cursor: default; }
@@ -1185,7 +1185,7 @@ border-radius: 12px; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.08); borde
 .term-card.is-operator.draggable-negative { cursor: grab; color: #e53e3e; font-weight: bold; }
 .term-card:active { transform: scale(0.95); }
 
-.fraction-group { display: inline-flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.7); border: 2px dashed #cbd5e0; cursor: grab; margin: 0 4px; }
+.fraction-group { display: inline-flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.7); border: 2px dashed #cbd5e0; cursor: grab; margin: 0 4px; transition: all 0.2s; }
 .fraction-line { width: 100%; background-color: #4a5568; margin: 4px 0; }
 .numerator-container, .denominator-container { display: flex; align-items: center; justify-content: center; padding: 2px; }
 
@@ -1193,12 +1193,42 @@ border-radius: 12px; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.08); borde
 .dragging-ghost { opacity: 0.9; position: fixed; z-index: 9999; pointer-events: none; transform: scale(1.05) rotate(2deg);
 box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.15); }
 
-/* ✨ แอนิเมชันสำหรับแนวทางที่ 2: เครื่องหมายและพจน์คณิตศาสตร์เด้งป๊อปตอนสลับเครื่องหมาย */
-.animate-flip-pop { animation: flipPopEffect 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important; }
-@keyframes flipPopEffect {
-    0% { transform: scale(1.4); filter: brightness(1.6); }
-    40% { transform: scale(0.85); }
-    100% { transform: scale(1); filter: brightness(1); }
+/* 🌟 NEW: เอฟเฟกต์บรรทัดประวัติศาสตร์และไฮไลต์การกระทำล่าสุด */
+.card-highlight {
+    box-shadow: 0 0 15px 4px rgba(251, 191, 36, 0.8) !important;
+    border: 3px solid #f59e0b !important;
+    transform: scale(1.08);
+    z-index: 50;
+}
+.history-line {
+    opacity: 0.55;
+    pointer-events: none; /* ห้ามคลิกหรือลากบรรทัดเก่า */
+    transform: scale(0.85);
+    margin-bottom: -15px;
+    transition: all 0.3s ease;
+}
+.history-line .term-card {
+    background: #f8fafc !important;
+    color: #94a3b8 !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: none !important;
+}
+.history-line .fraction-group {
+    border-color: #cbd5e1 !important;
+    background: transparent !important;
+}
+.history-line .card-highlight {
+    /* ให้ประวัติมีแสงจางๆ เพื่อให้เด็กตามรอยบรรทัดเก่าได้ว่าทำอะไรไป */
+    box-shadow: 0 0 8px 2px rgba(251, 191, 36, 0.4) !important;
+    border-color: #fbbf24 !important;
+    background: #fffbeb !important;
+    color: #d97706 !important;
+    transform: scale(1.02);
+}
+.active-line {
+    transform: scale(1);
+    transition: all 0.3s ease;
+    padding-bottom: 30px;
 }
 
 @media (max-width: 768px) {
@@ -1515,32 +1545,101 @@ eng.simplifyList = (list) => {
     }
 };
 
-        eng.render = () => {
-            const lhsZone = document.getElementById('engine-lhs'), rhsZone = document.getElementById('engine-rhs');
-            if(lhsZone) { lhsZone.innerHTML = ''; eng.localGameState.lhs.forEach((t, i) => lhsZone.appendChild(eng.createTermElement(t, 'lhs', eng.localGameState.lhs, i, 0))); }
-            if(rhsZone) { rhsZone.innerHTML = ''; eng.localGameState.rhs.forEach((t, i) => rhsZone.appendChild(eng.createTermElement(t, 'rhs', eng.localGameState.rhs, i, 0))); }
+// 🚀 ฟังก์ชันช่วยล้างและติด Tag ไฮไลต์
+        eng.clearHighlights = (state) => {
+            if (!state) return;
+            state.forEach(side => {
+                if (side) side.forEach(term => {
+                    term.isChanged = false;
+                    if (term.children) eng.clearHighlights([term.children]);
+                    if (term.denominator) {
+                        term.denominator.isChanged = false;
+                        if (term.denominator.children) eng.clearHighlights([term.denominator.children]);
+                    }
+                });
+            });
         };
 
-        const makeDoubleTap = (el, action) => {
-            let tapCount = 0; let tapTimer = null;
-            el.ondblclick = (e) => { e.stopPropagation(); action(); };
-            el.ontouchend = (e) => {
-                if (eng.dragSrc && eng.dragSrc.hasMoved) { tapCount = 0; return; }
-                tapCount++;
-                if (tapCount === 1) { tapTimer = setTimeout(() => { tapCount = 0; }, 300); } 
-                else if (tapCount === 2) { clearTimeout(tapTimer); tapCount = 0; if(e.cancelable) e.preventDefault(); action(); }
+        eng.markChanged = (list, startIndex, count = 1) => {
+            for (let i = startIndex; i < startIndex + count; i++) {
+                if (list[i]) list[i].isChanged = true;
+            }
+        };
+
+        // 🚀 ระบบวาดหน้าจอใหม่ (Render แบบหลายบรรทัด)
+        eng.render = () => {
+            const pg = document.getElementById('engine-playground');
+            if (!pg) return;
+
+            // ปรับแต่งกล่องหลักให้รองรับการเรียงแบบแนวตั้ง
+            pg.classList.remove('overflow-y-hidden');
+            pg.classList.add('overflow-y-auto', 'flex-col', 'items-center');
+            pg.style.display = 'flex';
+            pg.style.padding = '20px 0';
+            pg.innerHTML = ''; 
+
+            const createRow = (gameState, isHistory) => {
+                let row = document.createElement('div');
+                row.className = 'flex items-center min-w-full w-max relative py-2 justify-center ' + (isHistory ? 'history-line' : 'active-line');
+                
+                let lhsZone = document.createElement('div');
+                lhsZone.className = 'flex items-center justify-end pr-3 md:pr-6 gap-1.5 md:gap-2 z-10 flex-1 min-w-[45vw]';
+                
+                let eqZone = document.createElement('div');
+                eqZone.className = 'relative shrink-0 flex items-center justify-center px-2';
+                
+                let rhsZone = document.createElement('div');
+                rhsZone.className = 'flex items-center justify-start pl-3 md:pl-6 gap-1.5 md:gap-2 z-10 flex-1 min-w-[45vw]';
+
+                if (isHistory) {
+                    eqZone.innerHTML = `
+                        <div class="w-[2px] bg-gray-200 h-[100%] absolute top-1/2 transform -translate-y-1/2 z-0 rounded-full"></div>
+                        <div class="bg-gray-300 text-white rounded-full flex items-center justify-center font-black z-20 shadow-sm border-2 border-white shrink-0 w-8 h-8 md:w-10 md:h-10 text-base md:text-xl relative">=</div>
+                    `;
+                } else {
+                    lhsZone.id = 'engine-lhs';
+                    rhsZone.id = 'engine-rhs';
+                    eqZone.innerHTML = `
+                        <div class="w-[2px] bg-gray-200 h-[100%] absolute top-1/2 transform -translate-y-1/2 z-0 rounded-full"></div>
+                        <div class="engine-equal bg-gradient-to-b from-red-400 to-pink-500 text-white rounded-full flex items-center justify-center font-black z-20 shadow-md border-2 border-white shrink-0 w-10 h-10 md:w-14 md:h-14 text-xl md:text-3xl relative">=</div>
+                    `;
+                }
+
+                if (gameState.lhs) gameState.lhs.forEach((t, i) => lhsZone.appendChild(eng.createTermElement(t, 'lhs', gameState.lhs, i, 0)));
+                if (gameState.rhs) gameState.rhs.forEach((t, i) => rhsZone.appendChild(eng.createTermElement(t, 'rhs', gameState.rhs, i, 0)));
+
+                row.appendChild(lhsZone);
+                row.appendChild(eqZone);
+                row.appendChild(rhsZone);
+                return row;
             };
+
+            // 1. วาดบรรทัดประวัติทั้งหมด
+            if (eng.historyStack && eng.historyStack.length > 0) {
+                eng.historyStack.forEach(histState => pg.appendChild(createRow(histState, true)));
+            }
+            
+            // 2. วาดบรรทัดปัจจุบัน
+            pg.appendChild(createRow(eng.localGameState, false));
+
+            // 3. เลื่อนกล้องลงล่างสุดอัตโนมัติ
+            setTimeout(() => { pg.scrollTop = pg.scrollHeight; }, 50);
         };
 
 eng.createTermElement = (term, side, list, idx, depth) => {
     let wrapper = document.createElement('div'); wrapper.className = 'term-container'; wrapper.dataset.idx = idx; wrapper.dataset.side = side;
+    
+    // 🎨 ประทับตราไฮไลต์ให้วงเล็บใหญ่
+    if (term.isChanged && term.type === 'group') wrapper.classList.add('card-highlight');
+
     if (term.type === 'op') {
         let card = document.createElement('div'); card.className = 'term-card is-operator'; card.innerText = term.value;
+        if (term.isChanged) card.classList.add('card-highlight'); // 🎨 ไฮไลต์
+
         if (term.value === '•') { makeDoubleTap(card, () => { eng.combineSplitTerm(term, list, idx); }); }
-        // ✨ โค้ดใหม่: ทำให้ + และ - ที่อยู่หน้าวงเล็บ/เศษส่วน ลากได้
         else if ((term.value === '+' || term.value === '-') && idx < list.length - 1 && (list[idx+1].type === 'group' || list[idx+1].type === 'fraction')) { 
             card.style.cursor = 'grab'; card.style.fontWeight = 'bold';
-            card.style.color = term.value === '-' ? '#e53e3e' : '#38a169'; // สีแดงสำหรับลบ, เขียวสำหรับบวก
+            card.style.color = term.value === '-' ? '#e53e3e' : '#38a169';
             eng.setupDrag(card, term, side, list, idx, 'distribute-operator'); 
         }
         wrapper.appendChild(card);
@@ -1551,6 +1650,8 @@ eng.createTermElement = (term, side, list, idx, depth) => {
         eng.setupDrag(wrapper, term, side, list, idx, 'group'); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
     } else if (term.type === 'fraction') {
         let fracGroup = document.createElement('div'); fracGroup.className = 'fraction-group';
+        if (term.isChanged) fracGroup.classList.add('card-highlight'); // 🎨 ไฮไลต์เศษส่วน
+
         let numCont = document.createElement('div'); numCont.className = 'numerator-container'; numCont.dataset.parentFracId = term.id;
         term.children.forEach((c, i) => numCont.appendChild(eng.createChildTermElement(c, term.children, i, term.id, 'numerator', side, null, null, null, depth)));
         let line = document.createElement('div'); line.className = 'fraction-line';
@@ -1562,10 +1663,64 @@ eng.createTermElement = (term, side, list, idx, depth) => {
         eng.setupDrag(fracGroup, term, side, list, idx, 'whole-fraction'); wrapper.appendChild(fracGroup); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
     } else {
         let card = document.createElement('div'); card.className = term.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number'; card.innerText = term.value;
+        if (term.isChanged) card.classList.add('card-highlight'); // 🎨 ไฮไลต์
         makeDoubleTap(card, () => { eng.splitTerm(term, list, idx); });
         eng.setupDrag(card, term, side, list, idx, 'term'); wrapper.appendChild(card); wrapper.dataset.idx = idx; wrapper.dataset.side = side;
     }
     return wrapper;
+};
+
+eng.createChildTermElement = (child, list, childIdx, parentId, context, side, parentFracTerm, mainList, mainIdx, depth) => {
+    let el;
+    if (child.type === 'group') {
+        el = document.createElement('div');
+        el.className = 'term-container inline-flex items-center mx-1 ' + (context ? context + '-term' : '');
+        if (child.isChanged) el.classList.add('card-highlight'); // 🎨 ไฮไลต์
+
+        if (parentId) el.dataset.parentFracId = parentId;
+        if (list) el.dataset.childIdx = childIdx;
+        
+        let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}']; 
+        let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; 
+        let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
+        
+        el.appendChild(lB); 
+        child.children.forEach((gc, i) => el.appendChild(eng.createChildTermElement(gc, child.children, i, parentId, context, side, parentFracTerm, mainList, mainIdx, depth + 1))); 
+        el.appendChild(rB);
+        
+        if(list) eng.setupDrag(el, child, side, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context);
+    } else {
+        el = child.type === 'op' ? document.createElement('span') : document.createElement('div');
+        if (parentId) el.dataset.parentFracId = parentId;
+        
+        if (child.type === 'op') {
+            el.className = 'term-card is-operator mx-1 ' + (context ? context + '-term' : ''); 
+            el.innerText = child.value;
+            if (child.isChanged) el.classList.add('card-highlight'); // 🎨 ไฮไลต์
+            if (list) el.dataset.childIdx = childIdx; 
+
+            if (child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); }); }
+            else if ((child.value === '+' || child.value === '-') && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { 
+                el.style.cursor = 'grab'; el.style.fontWeight = 'bold';
+                el.style.color = child.value === '-' ? '#e53e3e' : '#38a169';
+                eng.setupDrag(el, child, side, list, childIdx, 'distribute-operator', parentFracTerm, mainList, mainIdx, context); 
+            }
+        } else {
+            el.className = (child.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number') + ' px-1 py-1 min-w-[20px] ' + (context ? context + '-term' : '');
+            el.innerText = child.value; el.dataset.parentFracId = parentId;
+            if (child.isChanged) el.classList.add('card-highlight'); // 🎨 ไฮไลต์
+            if (list) el.dataset.childIdx = childIdx;
+            
+            if (context === 'denominator' && !list) { 
+                el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, side, mainList, mainIdx, 'denominator', null, null, null, context); 
+            } else if (list) { 
+                makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); }); 
+                eng.setupDrag(el, child, side, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); 
+            }
+        }
+    }
+    if (el && list) el.dataset.side = side;
+    return el;
 };
 eng.createChildTermElement = (child, list, childIdx, parentId, context, side, parentFracTerm, mainList, mainIdx, depth) => {
     let el;
@@ -1857,6 +2012,8 @@ eng.handleFractionDivision = (targetCard) => {
         };
 
         eng.executeMoveSide = () => {
+            eng.clearHighlights([eng.localGameState.lhs, eng.localGameState.rhs]); // 🧹 ล้างสีเก่า
+            
             let { term, side, list, idx, role, parentFracTerm, mainList, mainIdx, sourceContext } = eng.dragSrc;
             if (role === 'inner-term' && parentFracTerm && list.length === 1) { term = parentFracTerm; list = mainList; idx = mainIdx; role = 'denominator'; }
             if (!list) return; let targetList = side === 'lhs' ? eng.localGameState.rhs : eng.localGameState.lhs;
@@ -1879,11 +2036,14 @@ eng.handleFractionDivision = (targetCard) => {
                     else if (gc.length === 2 && gc[0].value === '-' && gc[1].type === 'term') val = "-" + gc[1].value;
                 }
                 
-                    // 🚀 ล็อกเลข 0 ไว้: ป้องกัน 0 หายเมื่อย้ายตัวส่วนขึ้นมาคูณ
-                    // if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
-                    if(term.denominator.type === 'group' && term.denominator.children.length === 1) targetList.push(new eng.TermClass('op', '•'), term.denominator.children[0]);
-                else if (term.denominator.type === 'group') targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('group', null, term.denominator.children));
-                else targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', val));
+                if(term.denominator.type === 'group' && term.denominator.children.length === 1) {
+                    targetList.push(new eng.TermClass('op', '•'), term.denominator.children[0]);
+                } else if (term.denominator.type === 'group') {
+                    targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('group', null, term.denominator.children));
+                } else {
+                    targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', val));
+                }
+                eng.markChanged(targetList, targetList.length - 2, 2); // 🎨 ไฮไลต์สิ่งที่ย้ายไป
                 eng.incrementMove(); eng.playTone('success');
             } else {
                 let isFactor = false, removeIdx = idx, removeCount = 1, nextTerm = (idx < list.length - 1) ? list[idx+1] : null, prevTerm = (idx > 0) ? list[idx-1] : null;
@@ -1895,95 +2055,92 @@ eng.handleFractionDivision = (targetCard) => {
                         if(eng.dragSrc && eng.dragSrc.el) eng.shakeElement(eng.dragSrc.el);
                         return;
                     }
-                     // 🚀 NEW: เช็คก่อนว่าเป็นการลากเศษส่วนข้ามสมการหรือไม่
-                        let isMovingFraction = (term.type === 'fraction');
-                        let moveValue = term.value;
-                        let isNegativeTerm = false;
+                    let isMovingFraction = (term.type === 'fraction');
+                    let moveValue = term.value;
+                    let isNegativeTerm = false;
                         
-                        if(idx === 1 && list[0].type === 'op' && (list[0].value === '-' || list[0].value === '+')) { 
-                            if(list[0].value === '-') {
-                                isNegativeTerm = true;
-                                if (!isMovingFraction) moveValue = '-' + moveValue;
-                            }
-                            removeIdx = 0; removeCount += 1; 
+                    if(idx === 1 && list[0].type === 'op' && (list[0].value === '-' || list[0].value === '+')) { 
+                        if(list[0].value === '-') {
+                            isNegativeTerm = true;
+                            if (!isMovingFraction) moveValue = '-' + moveValue;
+                        }
+                        removeIdx = 0; removeCount += 1; 
+                    }
+                        
+                    list.splice(removeIdx, removeCount);
+                    if (list.length === 0) list.push(new eng.TermClass('term', '1'));
+
+                    if (isMovingFraction) {
+                        let oldNum = JSON.parse(JSON.stringify(term.children));
+                        let oldDen = JSON.parse(JSON.stringify(term.denominator));
+                        let newNum = (oldDen.type === 'group') ? oldDen.children : [oldDen];
+                        if (isNegativeTerm) newNum = eng.multiplyTerms(newNum, -1);
+                        
+                        let newDen = (oldNum.length === 1 && oldNum[0].type === 'group') ? oldNum[0] : new eng.TermClass('group', null, oldNum);
+                        let reciprocalFrac = new eng.TermClass('fraction', null, newNum, newDen);
+
+                        let hasPlusMinus = targetList.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'));
+                        if (hasPlusMinus) {
+                            let inner = JSON.parse(JSON.stringify(targetList));
+                            targetList.length = 0;
+                            targetList.push(new eng.TermClass('group', null, inner));
                         }
                         
-                        list.splice(removeIdx, removeCount);
-                        if (list.length === 0) list.push(new eng.TermClass('term', '1'));
+                        if (targetList.length > 0) targetList.push(new eng.TermClass('op', '•'));
+                        targetList.push(reciprocalFrac);
+                        eng.markChanged(targetList, targetList.length - 2, 2); // 🎨 ไฮไลต์สิ่งที่ย้ายไป
 
-                        // 🚀 ล็อกเลข 0 ไว้: ป้องกัน 0 หายเมื่อย้ายตัวคูณลงไปหาร
-                        // if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
-
-                        if (isMovingFraction) {
-                            // 🌟 กฎตีลังกาเศษส่วน (Reciprocal Rule)
-                            let oldNum = JSON.parse(JSON.stringify(term.children));
-                            let oldDen = JSON.parse(JSON.stringify(term.denominator));
-
-                            // สลับส่วนขึ้นเป็นเศษ (ถ้ามีลบ ให้ดันลบไปเกาะที่เศษของตัวกลับด้วย)
-                            let newNum = (oldDen.type === 'group') ? oldDen.children : [oldDen];
-                            if (isNegativeTerm) newNum = eng.multiplyTerms(newNum, -1);
-                            
-                            // สลับเศษลงเป็นส่วน
-                            let newDen = (oldNum.length === 1 && oldNum[0].type === 'group') ? oldNum[0] : new eng.TermClass('group', null, oldNum);
-                            let reciprocalFrac = new eng.TermClass('fraction', null, newNum, newDen);
-
-                            // ถ้าย้ายไปชนวงเล็บยาวๆ ให้ครอบวงเล็บกันเหนียวก่อน
-                            let hasPlusMinus = targetList.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'));
-                            if (hasPlusMinus) {
-                                let inner = JSON.parse(JSON.stringify(targetList));
-                                targetList.length = 0;
-                                targetList.push(new eng.TermClass('group', null, inner));
-                            }
-                            
-                            if (targetList.length > 0) targetList.push(new eng.TermClass('op', '•'));
-                            targetList.push(reciprocalFrac);
-
-                        } else if (sourceContext === 'denominator') {
-                            if (targetList.length > 1) { let inner = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('group', null, inner)); }
-                            targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', moveValue));
+                    } else if (sourceContext === 'denominator') {
+                        if (targetList.length > 1) { let inner = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('group', null, inner)); }
+                        targetList.push(new eng.TermClass('op', '•'), new eng.TermClass('term', moveValue));
+                        eng.markChanged(targetList, targetList.length - 2, 2); // 🎨 ไฮไลต์
+                    } else {
+                        let hasPlusMinus = targetList.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'));
+                        if (hasPlusMinus) {
+                            let inner = JSON.parse(JSON.stringify(targetList));
+                            targetList.length = 0;
+                            targetList.push(new eng.TermClass('group', null, inner));
+                            let reciprocalFrac = new eng.TermClass('fraction', null, [new eng.TermClass('term', '1')], new eng.TermClass('term', moveValue));
+                            targetList.push(new eng.TermClass('op', '•'), reciprocalFrac);
+                            eng.markChanged(targetList, targetList.length - 2, 2); // 🎨 ไฮไลต์
                         } else {
-                            let hasPlusMinus = targetList.some((t, i) => i > 0 && t.type === 'op' && (t.value === '+' || t.value === '-'));
-                            if (hasPlusMinus) {
-                                let inner = JSON.parse(JSON.stringify(targetList));
-                                targetList.length = 0;
-                                targetList.push(new eng.TermClass('group', null, inner));
-                                let reciprocalFrac = new eng.TermClass('fraction', null, [new eng.TermClass('term', '1')], new eng.TermClass('term', moveValue));
-                                targetList.push(new eng.TermClass('op', '•'), reciprocalFrac);
-                            } else {
-                                if (targetList.length === 1 && targetList[0].type === 'fraction') {
-                                    let targetFrac = targetList[0];
-                                    if (!targetFrac.denominator) { let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue))); }
-                                    else {
-                                        let newFactor = new eng.TermClass('term', moveValue);
-                                        if (targetFrac.denominator.type !== 'group') targetFrac.denominator = new eng.TermClass('group', null, [targetFrac.denominator]);
-                                        targetFrac.denominator.children.push(new eng.TermClass('op', '•')); targetFrac.denominator.children.push(newFactor);
-                                    }
-                                } else {
-                                    let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue)));
+                            if (targetList.length === 1 && targetList[0].type === 'fraction') {
+                                let targetFrac = targetList[0];
+                                if (!targetFrac.denominator) { let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue))); }
+                                else {
+                                    let newFactor = new eng.TermClass('term', moveValue);
+                                    if (targetFrac.denominator.type !== 'group') targetFrac.denominator = new eng.TermClass('group', null, [targetFrac.denominator]);
+                                    targetFrac.denominator.children.push(new eng.TermClass('op', '•')); targetFrac.denominator.children.push(newFactor);
+                                    targetFrac.denominator.isChanged = true; // 🎨 ไฮไลต์
                                 }
+                            } else {
+                                let num = JSON.parse(JSON.stringify(targetList)); targetList.length = 0; targetList.push(new eng.TermClass('fraction', null, num, new eng.TermClass('term', moveValue)));
                             }
+                            eng.markChanged(targetList, targetList.length - 1, 1); // 🎨 ไฮไลต์
                         }
-                        eng.incrementMove(); eng.playTone('success');
+                    }
+                    eng.incrementMove(); eng.playTone('success');
                 } else {
                     let movingSign = '+'; if (idx > 0 && list[idx-1].type === 'op') { movingSign = list[idx-1].value; removeIdx = idx - 1; removeCount = 2; }
                     list.splice(removeIdx, removeCount); if(list.length > 0 && list[0].type === 'op' && (list[0].value === '+' || list[0].value === '•')) list.shift();
                     
-                   if (list.length === 0) list.push(new eng.TermClass('term', '0'));
+                    if (list.length === 0) list.push(new eng.TermClass('term', '0'));
                         
-                        // 🚀 NEW & FIX: กฎเอกสิทธิ์ของเลข 0 (Zero Privilege) - ไม่ให้ติดลบ
-                        let isZero = (term.type === 'term' && term.value === '0');
-                        let newSign = movingSign === '+' ? '-' : '+';
-                        if (isZero) newSign = '+'; // บังคับให้ 0 เป็นบวกเสมอ
+                    let isZero = (term.type === 'term' && term.value === '0');
+                    let newSign = movingSign === '+' ? '-' : '+';
+                    if (isZero) newSign = '+'; 
 
-                        if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
+                    if (targetList.length === 1 && targetList[0].type === 'term' && targetList[0].value === '0') { targetList.length = 0; }
                         
-                        if (targetList.length > 0) {
-                            targetList.push(new eng.TermClass('op', newSign));
-                        } else if (newSign === '-' && !isZero) {
-                            targetList.push(new eng.TermClass('op', '-'));
-                        }
+                    let addCount = 0;
+                    if (targetList.length > 0) {
+                        targetList.push(new eng.TermClass('op', newSign)); addCount++;
+                    } else if (newSign === '-' && !isZero) {
+                        targetList.push(new eng.TermClass('op', '-')); addCount++;
+                    }
                         
-                    targetList.push(term);
+                    targetList.push(term); addCount++;
+                    eng.markChanged(targetList, targetList.length - addCount, addCount); // 🎨 ไฮไลต์สิ่งที่ย้ายไป
                     eng.incrementMove(); eng.playTone('success');
                 }
             }
@@ -2484,120 +2641,84 @@ eng.tryCombine = (targetWrapper) => {
         };
        
         
-        eng.splitFraction = (term, list, idx) => { 
+eng.splitFraction = (term, list, idx) => { 
+            eng.clearHighlights([eng.localGameState.lhs, eng.localGameState.rhs]); // 🧹 ล้างสีเก่า
             let numList = term.children;
-            // ถ้าตัวเศษทั้งหมดถูกครอบด้วยวงเล็บอยู่ ให้แกะวงเล็บออกชั้นนึงก่อนเพื่อสแกนพจน์ข้างใน
-            if (numList.length === 1 && numList[0].type === 'group') {
-                numList = numList[0].children;
-            }
+            if (numList.length === 1 && numList[0].type === 'group') { numList = numList[0].children; }
 
-            let chunks = [];
-            let currentChunk = [];
-            let ops = [];
-
-            // 🚀 ขั้นตอนที่ 1: สแกนและหั่นตัวเศษออกเป็นชิ้นๆ ตามเครื่องหมาย + หรือ -
+            let chunks = []; let currentChunk = []; let ops = [];
             for (let i = 0; i < numList.length; i++) {
                 let t = numList[i];
                 if (t.type === 'op' && (t.value === '+' || t.value === '-')) {
-                    if (currentChunk.length === 0) {
-                        currentChunk.push(t); // กรณีเป็นเครื่องหมายลบหน้าสุด เช่น -x
-                    } else {
-                        chunks.push(currentChunk);
-                        ops.push(new eng.TermClass('op', t.value)); // เก็บเครื่องหมายเชื่อมไว้
-                        currentChunk = [];
-                    }
-                } else {
-                    currentChunk.push(t);
-                }
+                    if (currentChunk.length === 0) currentChunk.push(t);
+                    else { chunks.push(currentChunk); ops.push(new eng.TermClass('op', t.value)); currentChunk = []; }
+                } else { currentChunk.push(t); }
             }
             if (currentChunk.length > 0) chunks.push(currentChunk);
 
-            // 🚨 ขั้นตอนที่ 2: Validation Guard - ตรวจสอบว่าแยกได้จริงไหม
             if (chunks.length <= 1) {
-                eng.showPopup("แยกไม่ได้ครับ! ต้องมีบวกหรือลบอยู่ด้านบน และต้องคูณกระจายวงเล็บให้เสร็จก่อน");
-                // ค้นหา Element เศษส่วนก้อนนี้บนหน้าจอเพื่อสั่งสั่นเตือน (Shake)
+                eng.showPopup("แยกไม่ได้ครับ! ต้องมีบวกหรือลบอยู่ด้านบน");
                 let numCont = document.querySelector(`[data-parent-frac-id="${term.id}"]`);
                 if (numCont && numCont.parentElement) eng.shakeElement(numCont.parentElement);
                 return;
             }
 
-            // 🚀 ขั้นตอนที่ 3: Deep Cloning Denominator - สร้างเศษส่วนก้อนเล็กๆ
             let newFractions = [];
             for (let c of chunks) {
                 let numNode = (c.length === 1 && c[0].type !== 'op') ? c[0] : new eng.TermClass('group', null, c);
-                let denClone = JSON.parse(JSON.stringify(term.denominator)); // โคลนตัวส่วน
+                let denClone = JSON.parse(JSON.stringify(term.denominator)); 
                 newFractions.push(new eng.TermClass('fraction', null, [numNode], denClone));
             }
 
-            // ประกอบชิ้นส่วนเศษส่วนเล็กๆ เข้ากับเครื่องหมาย + / - 
             let combinedSequence = [];
             for (let i = 0; i < newFractions.length; i++) {
                 combinedSequence.push(newFractions[i]);
-                if (i < ops.length) {
-                    combinedSequence.push(ops[i]);
-                }
+                if (i < ops.length) combinedSequence.push(ops[i]);
             }
 
-            // 🛡️ ขั้นตอนที่ 4: Safety Group Wrapping - ครอบวงเล็บนิรภัยกันสมการพัง
             let finalGroup = new eng.TermClass('group', null, combinedSequence);
-            
-            // นำก้อนใหม่ที่สมบูรณ์ไปสลับที่กับเศษส่วนก้อนเดิม
             list.splice(idx, 1, finalGroup);
+            eng.markChanged(list, idx, 1); // 🎨 ไฮไลต์วงเล็บที่เกิดใหม่
 
-            eng.incrementMove(); 
-            eng.commitState(); 
-            if (eng.playTone) eng.playTone('pop');
+            eng.incrementMove(); eng.commitState(); if (eng.playTone) eng.playTone('pop');
         };
         
         eng.splitTerm = (term, list, idx) => {
+            eng.clearHighlights([eng.localGameState.lhs, eng.localGameState.rhs]); // 🧹 ล้างสีเก่า
             if (!term || term.type !== 'term' || !term.value) return;
 
             let match = term.value.match(/^(-?\d*)([a-zA-Z]+)$/);
             if (match) {
-                let numPart = match[1];
-                let varPart = match[2];
-
-                // 🧠 Smart Detection: เช็คว่ามีเครื่องหมายลบนำหน้าตัวแปรนี้หรือไม่ (เช่น - x)
+                let numPart = match[1]; let varPart = match[2];
                 let isNegativeAhead = (idx > 0 && list[idx-1].type === 'op' && list[idx-1].value === '-');
 
-                // ถ้าเป็น x เฉยๆ และ "ไม่มี" เครื่องหมายลบข้างหน้า ไม่ต้องแยกให้รกกระดาน
                 if (numPart === '' && term.value === varPart && !isNegativeAhead) {
                     let el = document.querySelector(`[data-idx="${idx}"]`);
-                    if (el) eng.shakeElement(el);
-                    return;
+                    if (el) eng.shakeElement(el); return;
                 }
 
-                //  🌟   ถอดรหัสสัมประสิทธิ์ และดูดเครื่องหมายลบ
-                if (numPart === '-') {
-                    numPart = '-1';
-                } else if (numPart === '') {
-                    if (isNegativeAhead) {
-                        numPart = '-1';
-                        list[idx-1].value = '+'; // 🚀 เปลี่ยนเครื่องหมายลบข้างหน้าเป็นบวก (เดี๋ยว simplifyList จะมาเคลียร์ทิ้งเอง)
-                    } else {
-                        numPart = '1';
-                    }
+                if (numPart === '-') { numPart = '-1'; } 
+                else if (numPart === '') {
+                    if (isNegativeAhead) { numPart = '-1'; list[idx-1].value = '+'; list[idx-1].isChanged = true; } // 🎨 ไฮไลต์เครื่องหมาย 
+                    else { numPart = '1'; }
                 }
 
-                // สร้างการ์ด 3 ใบใหม่: ตัวเลข -> เครื่องหมายคูณ -> ตัวแปร
                 let numTerm = new eng.TermClass('term', numPart);
                 let opTerm = new eng.TermClass('op', '•');
                 let varTerm = new eng.TermClass('term', varPart);
 
-                // สลับเอาการ์ด 3 ใบนี้ ไปวางแทนที่การ์ดใบเดิม
                 list.splice(idx, 1, numTerm, opTerm, varTerm);
+                eng.markChanged(list, idx, 3); // 🎨 ไฮไลต์การ์ดที่แตกตัวออก
 
-                eng.incrementMove();
-                eng.commitState();
-                if (eng.playTone) eng.playTone('pop');
+                eng.incrementMove(); eng.commitState(); if (eng.playTone) eng.playTone('pop');
             } else {
                 let el = document.querySelector(`[data-idx="${idx}"]`);
                 if (el) eng.shakeElement(el);
             }
         };
         
-        // 🚀 NEW: อัปเกรดระบบรวมร่าง ให้คูณตัวแปรได้แม่นยำขึ้น
         eng.combineSplitTerm = (term, list, idx) => { 
+            eng.clearHighlights([eng.localGameState.lhs, eng.localGameState.rhs]); // 🧹 ล้างสีเก่า
             if(idx > 0 && idx < list.length - 1) { 
                 let prev = list[idx-1], next = list[idx+1];
                 let parseVar = (v) => { if(typeof v!=='string') return null; let m=v.match(/^(-?\d*)([a-zA-Z]*)$/); if(m) return {c: m[1]===''?1:(m[1]==='-'?-1:parseInt(m[1])), v: m[2]}; return null; };
@@ -2608,31 +2729,44 @@ eng.tryCombine = (targetWrapper) => {
                          if (p1.v && p2.v) { eng.showPopup("ระบบยังไม่รองรับการคูณตัวแปรครับ (เช่น x • x)"); return; }
                          let combinedVar = p1.v || p2.v || "";
                          list.splice(idx-1, 3, new eng.TermClass('term', (p1.c * p2.c).toString() + combinedVar)); 
+                         eng.markChanged(list, idx-1, 1); // 🎨 ไฮไลต์การรวมร่าง
                          eng.incrementMove(); eng.commitState(); eng.playTone('success'); 
                     }
                 }
                 else if (prev.type === 'term' && next.type === 'group') {
                     let factor = parseInt(prev.value);
-                    if (!isNaN(factor)) { list.splice(idx - 1, 3, ...eng.multiplyTerms(next.children, factor)); eng.incrementMove(); eng.commitState(); eng.playTone('success'); }
+                    if (!isNaN(factor)) { 
+                        let newArr = eng.multiplyTerms(next.children, factor);
+                        list.splice(idx - 1, 3, ...newArr); 
+                        eng.markChanged(list, idx-1, newArr.length); // 🎨 ไฮไลต์การรวมร่าง
+                        eng.incrementMove(); eng.commitState(); eng.playTone('success'); 
+                    }
                 }
                 else if (prev.type === 'group' && next.type === 'term') {
                     let factor = parseInt(next.value);
-                    if (!isNaN(factor)) { list.splice(idx - 1, 3, ...eng.multiplyTerms(prev.children, factor)); eng.incrementMove(); eng.commitState(); eng.playTone('success'); }
+                    if (!isNaN(factor)) { 
+                        let newArr = eng.multiplyTerms(prev.children, factor);
+                        list.splice(idx - 1, 3, ...newArr); 
+                        eng.markChanged(list, idx-1, newArr.length); // 🎨 ไฮไลต์การรวมร่าง
+                        eng.incrementMove(); eng.commitState(); eng.playTone('success'); 
+                    }
                 }
             } 
         };
         
         eng.distributeNegative = (term, list, idx) => { 
+            eng.clearHighlights([eng.localGameState.lhs, eng.localGameState.rhs]); // 🧹 ล้างสีเก่า
             if(idx >= list.length-1) return; let target = list[idx+1]; 
             if(target.type === 'group') { 
                 let newChildren = eng.multiplyTerms(target.children, -1);
                 if (idx === 0) list.splice(idx, 2, ...newChildren);
-                else { list[idx].value = '+'; list.splice(idx + 1, 1, ...newChildren); }
+                else { list[idx].value = '+'; list[idx].isChanged = true; list.splice(idx + 1, 1, ...newChildren); } // 🎨 ไฮไลต์
+                eng.markChanged(list, idx === 0 ? 0 : idx + 1, newChildren.length); // 🎨 ไฮไลต์
                 eng.incrementMove(); eng.commitState(); eng.playTone('pop'); 
             } else if (target.type === 'fraction') {
                 let newNumChildren = eng.multiplyTerms(target.children, -1);
-                target.children = newNumChildren;
-                if (idx === 0) list.splice(idx, 1); else list[idx].value = '+';
+                target.children = newNumChildren; target.isChanged = true; // 🎨 ไฮไลต์
+                if (idx === 0) list.splice(idx, 1); else { list[idx].value = '+'; list[idx].isChanged = true; } // 🎨 ไฮไลต์
                 eng.incrementMove(); eng.commitState(); eng.playTone('pop'); 
             }
         };
