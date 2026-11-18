@@ -1254,7 +1254,10 @@ box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.15); }
         eng.internalMoveCount = 0; setMoves(0); eng.historyStack = []; eng.historyIndex = -1;
         setGameState('playing');
         
-        if(!eng.audioCtx) eng.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass && !eng.audioCtx) {
+            try { eng.audioCtx = new AudioContextClass(); } catch(e) { console.log("Audio not supported"); }
+        }
         
         eng.playTone = (type) => {
             if (!eng.audioCtx) return;
@@ -1355,9 +1358,10 @@ box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.15); }
             return { terms: parseExpression(str), TermObj: Term };
         };
 
-        const { terms: parsedLhs, TermObj } = parseHTMLtoMath(lhsHtmlSource);
-        const { terms: parsedRhs } = parseHTMLtoMath(rhsHtmlSource);
-        eng.localGameState.lhs = parsedLhs; eng.localGameState.rhs = parsedRhs; eng.TermClass = TermObj;
+        const parsedL = parseHTMLtoMath(lhsHtmlSource);
+        const parsedR = parseHTMLtoMath(rhsHtmlSource);
+        eng.localGameState.lhs = parsedL.terms; eng.localGameState.rhs = parsedR.terms; 
+        eng.TermClass = parsedL.TermObj || parsedR.TermObj;
 
         // MATH HELPERS
         eng.gcd = (a, b) => b === 0 ? a : eng.gcd(b, a % b);
