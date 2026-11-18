@@ -1722,57 +1722,7 @@ eng.createChildTermElement = (child, list, childIdx, parentId, context, side, pa
     if (el && list) el.dataset.side = side;
     return el;
 };
-eng.createChildTermElement = (child, list, childIdx, parentId, context, side, parentFracTerm, mainList, mainIdx, depth) => {
-    let el;
-    if (child.type === 'group') {
-        el = document.createElement('div');
-        el.className = 'term-container inline-flex items-center mx-1 ' + (context ? context + '-term' : '');
-        
-        if (parentId) el.dataset.parentFracId = parentId;
-        if (list) el.dataset.childIdx = childIdx;
-        
-        let br = (depth % 3 === 0) ? ['(', ')'] : (depth % 3 === 1) ? ['[', ']'] : ['{', '}']; 
-        let lB = document.createElement('div'); lB.innerText = br[0]; lB.className = 'group-bracket'; 
-        let rB = document.createElement('div'); rB.innerText = br[1]; rB.className = 'group-bracket';
-        
-        el.appendChild(lB); 
-        child.children.forEach((gc, i) => el.appendChild(eng.createChildTermElement(gc, child.children, i, parentId, context, side, parentFracTerm, mainList, mainIdx, depth + 1))); 
-        el.appendChild(rB);
-        
-        if(list) eng.setupDrag(el, child, side, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context);
-    } else {
-        el = child.type === 'op' ? document.createElement('span') : document.createElement('div');
-        if (parentId) el.dataset.parentFracId = parentId;
-        
-        if (child.type === 'op') {
-            el.className = 'term-card is-operator mx-1 ' + (context ? context + '-term' : ''); 
-            el.innerText = child.value;
-            
-            // 🚀 จุดที่แก้ไข: บังคับให้เครื่องหมายทุกตัวต้องมีป้ายตำแหน่ง (childIdx) เพื่อไม่ให้ระบบหลงทาง
-            if (list) el.dataset.childIdx = childIdx; 
 
-            if (child.value === '•' && list) { makeDoubleTap(el, () => { eng.combineSplitTerm(child, list, childIdx); }); }
-            else if ((child.value === '+' || child.value === '-') && list && childIdx < list.length - 1 && list[childIdx+1].type === 'group') { 
-                el.style.cursor = 'grab'; el.style.fontWeight = 'bold';
-                el.style.color = child.value === '-' ? '#e53e3e' : '#38a169';
-                eng.setupDrag(el, child, side, list, childIdx, 'distribute-operator', parentFracTerm, mainList, mainIdx, context); 
-            }
-        } else {
-            el.className = (child.value.match(/[a-zA-Z]/) ? 'term-card is-variable' : 'term-card is-number') + ' px-1 py-1 min-w-[20px] ' + (context ? context + '-term' : '');
-            el.innerText = child.value; el.dataset.parentFracId = parentId;
-            if (list) el.dataset.childIdx = childIdx;
-            
-            if (context === 'denominator' && !list) { 
-                el.dataset.childIdx = 0; eng.setupDrag(el, parentFracTerm, side, mainList, mainIdx, 'denominator', null, null, null, context); 
-            } else if (list) { 
-                makeDoubleTap(el, () => { eng.splitTerm(child, list, childIdx); }); 
-                eng.setupDrag(el, child, side, list, childIdx, 'inner-term', parentFracTerm, mainList, mainIdx, context); 
-            }
-        }
-    }
-    if (el && list) el.dataset.side = side;
-    return el;
-};
         const findFractionTerm = (list, id) => {
             for (let t of list) {
                 if (t.id === id && t.type === 'fraction') return t;
